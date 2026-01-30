@@ -240,6 +240,21 @@
         FROM tb_software_package t
         WHERE t.row_valid = 1
         <!-- 添加自定义条件 -->
+        <if test="deviceCode != null and deviceCode != ''">
+            AND t.device_code = #{deviceCode}
+        </if>
+        <if test="softwarePn != null and softwarePn != ''">
+            AND t.software_pn = #{softwarePn}
+        </if>
+        <if test="packageCode != null and packageCode != ''">
+            AND t.package_code = #{packageCode}
+        </if>
+        <if test="packageName != null and packageName != ''">
+            AND t.package_name LIKE #{packageName}
+        </if>
+        <if test="softwareBuildVersionId != null">
+            AND t.id IN (SELECT software_package_id FROM tb_software_build_version_package WHERE software_build_version_id = #{softwareBuildVersionId})
+        </if>
         ORDER BY t.id DESC
     </select>
 

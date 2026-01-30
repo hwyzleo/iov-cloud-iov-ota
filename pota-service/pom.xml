@@ -16,6 +16,7 @@
 
     <properties>
         <pota.version>0.0.1-SNAPSHOT</pota.version>
+        <vmd.version>0.0.1-SNAPSHOT</vmd.version>
     </properties>
 
     <dependencies>
@@ -23,6 +24,11 @@
             <groupId>net.hwyz.iov.cloud.ota</groupId>
             <artifactId>pota-api</artifactId>
             <version>${pota.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>net.hwyz.iov.cloud.tsp</groupId>
+            <artifactId>vmd-api</artifactId>
+            <version>${vmd.version}</version>
         </dependency>
 
         <!-- 框架: 异常 -->
