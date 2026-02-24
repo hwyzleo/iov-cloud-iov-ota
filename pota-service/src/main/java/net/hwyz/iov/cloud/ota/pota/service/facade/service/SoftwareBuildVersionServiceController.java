@@ -7,13 +7,11 @@ import net.hwyz.iov.cloud.ota.pota.api.contract.SoftwareBuildVersionDependencyEx
 import net.hwyz.iov.cloud.ota.pota.api.contract.SoftwareBuildVersionExService;
 import net.hwyz.iov.cloud.ota.pota.service.application.service.SoftwareBuildVersionAppService;
 import net.hwyz.iov.cloud.ota.pota.service.application.service.SoftwarePackageAppService;
-import net.hwyz.iov.cloud.ota.pota.service.facade.assembler.ConfigWordExServiceAssembler;
 import net.hwyz.iov.cloud.ota.pota.service.facade.assembler.SoftwareBuildVersionDependencyExServiceAssembler;
 import net.hwyz.iov.cloud.ota.pota.service.facade.assembler.SoftwareBuildVersionExServiceAssembler;
 import net.hwyz.iov.cloud.ota.pota.service.facade.assembler.SoftwarePackageExServiceAssembler;
 import net.hwyz.iov.cloud.ota.pota.service.infrastructure.exception.PartNotExistException;
 import net.hwyz.iov.cloud.ota.pota.service.infrastructure.exception.SoftwareBuildVersionNotExistException;
-import net.hwyz.iov.cloud.ota.pota.service.infrastructure.repository.po.ConfigWordPo;
 import net.hwyz.iov.cloud.ota.pota.service.infrastructure.repository.po.SoftwareBuildVersionDependencyPo;
 import net.hwyz.iov.cloud.ota.pota.service.infrastructure.repository.po.SoftwareBuildVersionPo;
 import net.hwyz.iov.cloud.ota.pota.service.infrastructure.repository.po.SoftwarePackagePo;
@@ -82,8 +80,6 @@ public class SoftwareBuildVersionServiceController {
             exService.setCreateTime(softwareBuildVersion.getCreateTime());
         });
         softwareBuildVersionExService.setDependencyList(dependencyExServiceList);
-        List<ConfigWordPo> configWordPoList = softwareBuildVersionAppService.listConfigWord(softwareBuildVersionId);
-        softwareBuildVersionExService.setConfigWordList(ConfigWordExServiceAssembler.INSTANCE.fromPoList(configWordPoList));
         return softwareBuildVersionExService;
     }
 

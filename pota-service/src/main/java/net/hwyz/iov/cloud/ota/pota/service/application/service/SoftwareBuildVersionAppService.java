@@ -3,18 +3,18 @@ package net.hwyz.iov.cloud.ota.pota.service.application.service;
 import cn.hutool.core.util.ObjUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.hwyz.iov.cloud.ota.pota.api.contract.BomConfigWordDependencyOapi;
 import net.hwyz.iov.cloud.ota.pota.api.contract.BomSoftwareBuildVersionDependencyOapi;
 import net.hwyz.iov.cloud.ota.pota.api.contract.BomSoftwareBuildVersionOapi;
 import net.hwyz.iov.cloud.ota.pota.api.contract.BomSoftwarePackageOapi;
-import net.hwyz.iov.cloud.ota.pota.api.contract.enums.ConfigWordType;
-import net.hwyz.iov.cloud.ota.pota.service.facade.assembler.BomConfigWordDependencyOapiAssembler;
 import net.hwyz.iov.cloud.ota.pota.service.facade.assembler.BomSoftwareBuildVersionDependencyOapiAssembler;
 import net.hwyz.iov.cloud.ota.pota.service.facade.assembler.BomSoftwareBuildVersionOapiAssembler;
 import net.hwyz.iov.cloud.ota.pota.service.infrastructure.repository.dao.SoftwareBuildVersionDao;
 import net.hwyz.iov.cloud.ota.pota.service.infrastructure.repository.dao.SoftwareBuildVersionDependencyDao;
 import net.hwyz.iov.cloud.ota.pota.service.infrastructure.repository.dao.SoftwareBuildVersionPackageDao;
-import net.hwyz.iov.cloud.ota.pota.service.infrastructure.repository.po.*;
+import net.hwyz.iov.cloud.ota.pota.service.infrastructure.repository.po.SoftwareBuildVersionDependencyPo;
+import net.hwyz.iov.cloud.ota.pota.service.infrastructure.repository.po.SoftwareBuildVersionPackagePo;
+import net.hwyz.iov.cloud.ota.pota.service.infrastructure.repository.po.SoftwareBuildVersionPo;
+import net.hwyz.iov.cloud.ota.pota.service.infrastructure.repository.po.SoftwarePackagePo;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -31,7 +31,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SoftwareBuildVersionAppService {
 
-    private final ConfigWordAppService configWordAppService;
     private final SoftwareBuildVersionDao softwareBuildVersionDao;
     private final SoftwarePackageAppService softwarePackageAppService;
     private final SoftwareBuildVersionPackageDao softwareBuildVersionPackageDao;
@@ -92,16 +91,6 @@ public class SoftwareBuildVersionAppService {
     }
 
     /**
-     * 列出软件内部版本配置信息
-     *
-     * @param softwareBuildVersionId 软件内部版本信息ID
-     * @return 软件内部版本配置信息
-     */
-    public List<ConfigWordPo> listConfigWord(Long softwareBuildVersionId) {
-        return configWordAppService.listConfigWordByTypeAndReferenceId(ConfigWordType.SOFTWARE_PART_VERSION, softwareBuildVersionId);
-    }
-
-    /**
      * 检查ECU代码及软件零件号及版本是否唯一
      *
      * @param softwarePartVersionId 软件零件版本信息ID
@@ -140,17 +129,6 @@ public class SoftwareBuildVersionAppService {
      */
     public SoftwareBuildVersionPo getSoftwareBuildVersionByDeviceCodeAndSoftwarePnAndVersion(String deviceCode, String softwarePn, String softwareBuildVer) {
         return softwareBuildVersionDao.selectPoByDeviceCodeAndSoftwarePnAndSoftwareBuildVer(deviceCode, softwarePn, softwareBuildVer);
-    }
-
-    /**
-     * 根据软件内部版本ID与配置字ID获取配置字信息
-     *
-     * @param softwareBuildVersionId 软件内部版本ID
-     * @param configWordId           配置字ID
-     * @return 配置字信息
-     */
-    public ConfigWordPo getConfigWordById(Long softwareBuildVersionId, Long configWordId) {
-        return configWordAppService.getConfigWordById(configWordId);
     }
 
     /**
@@ -214,18 +192,6 @@ public class SoftwareBuildVersionAppService {
             }
             createDependency(softwareBuildVersionPo.getId(), softwarePartVersionIds, null);
         }
-        List<BomConfigWordDependencyOapi> configWordDependencyList = bomSoftwareBuildVersion.getConfigWordDependencyList();
-        if (!configWordDependencyList.isEmpty()) {
-            List<ConfigWordPo> configWordList = configWordAppService.listConfigWordByTypeAndReferenceId(ConfigWordType.SOFTWARE_PART_VERSION, softwareBuildVersionPo.getId());
-            if (configWordList.isEmpty()) {
-                for (BomConfigWordDependencyOapi bomConfigWordDependency : configWordDependencyList) {
-                    ConfigWordPo configWordPo = BomConfigWordDependencyOapiAssembler.INSTANCE.toPo(bomConfigWordDependency);
-                    configWordPo.setType(ConfigWordType.SOFTWARE_PART_VERSION.value);
-                    configWordPo.setReferenceId(softwareBuildVersionPo.getId());
-                    configWordAppService.createConfigWord(configWordPo);
-                }
-            }
-        }
         return softwareBuildVersionPo;
     }
 
@@ -286,19 +252,6 @@ public class SoftwareBuildVersionAppService {
     }
 
     /**
-     * 新增配置字
-     *
-     * @param softwareBuildVersionId 软件内部版本ID
-     * @param configWordPo           配置字
-     * @return 结果
-     */
-    public int createConfigWord(Long softwareBuildVersionId, ConfigWordPo configWordPo) {
-        configWordPo.setType(ConfigWordType.SOFTWARE_PART_VERSION.value);
-        configWordPo.setReferenceId(softwareBuildVersionId);
-        return configWordAppService.createConfigWord(configWordPo);
-    }
-
-    /**
      * 修改软件内部版本信息
      *
      * @param softwareBuildVersion 软件内部版本信息
@@ -332,17 +285,6 @@ public class SoftwareBuildVersionAppService {
     }
 
     /**
-     * 修改软件内部版本配置字
-     *
-     * @param softwareBuildVersionId 软件内部版本ID
-     * @param configWord             配置字
-     * @return 结果
-     */
-    public int modifyConfigWord(Long softwareBuildVersionId, ConfigWordPo configWord) {
-        return configWordAppService.modifyConfigWord(configWord);
-    }
-
-    /**
      * 批量删除软件内部版本信息
      *
      * @param ids 软件内部版本信息ID数组
@@ -372,17 +314,6 @@ public class SoftwareBuildVersionAppService {
      */
     public int deleteDependency(Long softwareBuildVersionId, Long[] softwareBuildVersionIds) {
         return softwareBuildVersionDependencyDao.batchPhysicalDeletePoBySoftwareBuildVersionIdAndDependencyIds(softwareBuildVersionId, softwareBuildVersionIds);
-    }
-
-    /**
-     * 删除软件内部版本下配置字
-     *
-     * @param softwareBuildVersionId 软件内部版本ID
-     * @param configWordIds          依赖的软件内部版本ID数组
-     * @return 结果
-     */
-    public int deleteConfigWord(Long softwareBuildVersionId, Long[] configWordIds) {
-        return configWordAppService.deleteConfigWordByIds(configWordIds);
     }
 
     /**

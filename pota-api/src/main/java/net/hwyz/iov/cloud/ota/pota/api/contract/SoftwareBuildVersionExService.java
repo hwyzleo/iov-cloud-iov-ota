@@ -100,11 +100,6 @@ public class SoftwareBuildVersionExService {
     private List<SoftwareBuildVersionDependencyExService> dependencyList;
 
     /**
-     * 配置字列表
-     */
-    private List<ConfigWordExService> configWordList;
-
-    /**
      * 创建时间
      */
     private Date createTime;

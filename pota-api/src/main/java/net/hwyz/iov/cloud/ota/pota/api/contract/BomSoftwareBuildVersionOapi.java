@@ -85,11 +85,6 @@ public class BomSoftwareBuildVersionOapi {
     private List<BomSoftwareBuildVersionDependencyOapi> softwareBuildVersionDependencyList;
 
     /**
-     * 配置字依赖列表
-     */
-    private List<BomConfigWordDependencyOapi> configWordDependencyList;
-
-    /**
      * 适配级别
      * 作为依赖时使用
      */

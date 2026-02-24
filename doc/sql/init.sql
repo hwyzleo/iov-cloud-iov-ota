@@ -95,49 +95,6 @@ CREATE TABLE `db_pota`.`tb_software_build_version_dependency`
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4 COMMENT ='软件内部版本依赖关系表';
 
-DROP TABLE IF EXISTS `db_pota`.`tb_fixed_config_word`;
-CREATE TABLE `db_pota`.`tb_fixed_config_word`
-(
-    `id`          BIGINT      NOT NULL AUTO_INCREMENT COMMENT '主键',
-    `device_code` VARCHAR(20) NOT NULL COMMENT '设备代码',
-    `software_pn` VARCHAR(50) NOT NULL COMMENT '软件零件号',
-    `type`        SMALLINT             DEFAULT NULL COMMENT '分类',
-    `description` VARCHAR(255)         DEFAULT NULL COMMENT '备注',
-    `create_time` TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `create_by`   VARCHAR(64)          DEFAULT NULL COMMENT '创建者',
-    `modify_time` TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '修改时间',
-    `modify_by`   VARCHAR(64)          DEFAULT NULL COMMENT '修改者',
-    `row_version` INT                  DEFAULT 1 COMMENT '记录版本',
-    `row_valid`   TINYINT              DEFAULT 1 COMMENT '记录是否有效',
-    PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB
-  DEFAULT CHARSET = utf8mb4 COMMENT '固定配置字表';
-
-DROP TABLE IF EXISTS `db_pota`.`tb_config_word`;
-CREATE TABLE `db_pota`.`tb_config_word`
-(
-    `id`                        BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
-    `type`                      SMALLINT     NOT NULL COMMENT '类型：1-固定配置字，2-软件内部版本',
-    `reference_id`              BIGINT                DEFAULT NULL COMMENT '关联ID',
-    `device_code`               VARCHAR(20)  NOT NULL COMMENT '设备代码',
-    `software_pn`               VARCHAR(50)  NOT NULL COMMENT '软件零件号',
-    `config_word_version`       VARCHAR(255)          DEFAULT NULL COMMENT '配置字版本',
-    `start_byte`                SMALLINT     NOT NULL COMMENT '起始byte',
-    `start_bit`                 SMALLINT     NOT NULL COMMENT '起始bit',
-    `config_word_value`         VARCHAR(255) NOT NULL COMMENT '配置字值',
-    `depend_device`             VARCHAR(20)           DEFAULT NULL COMMENT '依赖设备',
-    `depend_device_software_pn` VARCHAR(50)           DEFAULT NULL COMMENT '依赖设备软件零件号',
-    `description`               VARCHAR(255)          DEFAULT NULL COMMENT '备注',
-    `create_time`               TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `create_by`                 VARCHAR(64)           DEFAULT NULL COMMENT '创建者',
-    `modify_time`               TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '修改时间',
-    `modify_by`                 VARCHAR(64)           DEFAULT NULL COMMENT '修改者',
-    `row_version`               INT                   DEFAULT 1 COMMENT '记录版本',
-    `row_valid`                 TINYINT               DEFAULT 1 COMMENT '记录是否有效',
-    PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB
-  DEFAULT CHARSET = utf8mb4 COMMENT '配置字表';
-
 DROP TABLE IF EXISTS `db_pota`.`tb_compatible_pn`;
 CREATE TABLE `db_pota`.`tb_compatible_pn`
 (

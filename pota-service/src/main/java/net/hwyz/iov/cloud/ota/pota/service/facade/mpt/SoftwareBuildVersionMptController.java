@@ -10,16 +10,13 @@ import net.hwyz.iov.cloud.framework.common.web.domain.AjaxResult;
 import net.hwyz.iov.cloud.framework.common.web.page.TableDataInfo;
 import net.hwyz.iov.cloud.framework.security.annotation.RequiresPermissions;
 import net.hwyz.iov.cloud.framework.security.util.SecurityUtils;
-import net.hwyz.iov.cloud.ota.pota.api.contract.ConfigWordMpt;
 import net.hwyz.iov.cloud.ota.pota.api.contract.SoftwareBuildVersionMpt;
 import net.hwyz.iov.cloud.ota.pota.api.contract.SoftwarePackageMpt;
 import net.hwyz.iov.cloud.ota.pota.api.feign.mpt.SoftwareBuildVersionMptApi;
 import net.hwyz.iov.cloud.ota.pota.service.application.service.SoftwareBuildVersionAppService;
 import net.hwyz.iov.cloud.ota.pota.service.application.service.SoftwarePackageAppService;
-import net.hwyz.iov.cloud.ota.pota.service.facade.assembler.ConfigWordMptAssembler;
 import net.hwyz.iov.cloud.ota.pota.service.facade.assembler.SoftwareBuildVersionMptAssembler;
 import net.hwyz.iov.cloud.ota.pota.service.facade.assembler.SoftwarePackageMptAssembler;
-import net.hwyz.iov.cloud.ota.pota.service.infrastructure.repository.po.ConfigWordPo;
 import net.hwyz.iov.cloud.ota.pota.service.infrastructure.repository.po.SoftwareBuildVersionPo;
 import net.hwyz.iov.cloud.ota.pota.service.infrastructure.repository.po.SoftwarePackagePo;
 import org.springframework.validation.annotation.Validated;
@@ -105,22 +102,6 @@ public class SoftwareBuildVersionMptController extends BaseController implements
     }
 
     /**
-     * 查询软件内部版本下配置字
-     *
-     * @param softwareBuildVersionId 软件内部版本ID
-     * @param configWord             配置字
-     * @return 配置字列表
-     */
-    @RequiresPermissions("ota:pota:softwareBuildVersion:list")
-    @Override
-    @GetMapping(value = "/{softwareBuildVersionId}/listConfigWord")
-    public AjaxResult listConfigWord(@PathVariable Long softwareBuildVersionId, ConfigWordMpt configWord) {
-        logger.info("管理后台用户[{}]查询软件内部版本[{}]下配置字", SecurityUtils.getUsername(), softwareBuildVersionId);
-        List<ConfigWordPo> configWordPoList = softwareBuildVersionAppService.listConfigWord(softwareBuildVersionId);
-        return success(ConfigWordMptAssembler.INSTANCE.fromPoList(configWordPoList));
-    }
-
-    /**
      * 导出软件内部版本信息
      *
      * @param response             响应
@@ -147,22 +128,6 @@ public class SoftwareBuildVersionMptController extends BaseController implements
         logger.info("管理后台用户[{}]根据软件内部版本信息ID[{}]获取软件内部版本信息", SecurityUtils.getUsername(), softwareBuildVersionId);
         SoftwareBuildVersionPo softwareBuildVersionPo = softwareBuildVersionAppService.getSoftwareBuildVersionById(softwareBuildVersionId);
         return success(SoftwareBuildVersionMptAssembler.INSTANCE.fromPo(softwareBuildVersionPo));
-    }
-
-    /**
-     * 根据软件内部版本信息ID和配置字ID获取配置字信息
-     *
-     * @param softwareBuildVersionId 软件内部版本信息ID
-     * @param configWordId           配置字ID
-     * @return 配置字信息
-     */
-    @RequiresPermissions("ota:pota:softwareBuildVersion:query")
-    @Override
-    @GetMapping(value = "/{softwareBuildVersionId}/configWord/{configWordId}")
-    public AjaxResult getConfigWord(@PathVariable Long softwareBuildVersionId, @PathVariable Long configWordId) {
-        logger.info("管理后台用户[{}]根据软件内部版本ID[{}]和配置字ID[{}]获取配置字信息", SecurityUtils.getUsername(), softwareBuildVersionId, configWordId);
-        ConfigWordPo configWordPo = softwareBuildVersionAppService.getConfigWordById(softwareBuildVersionId, configWordId);
-        return success(ConfigWordMptAssembler.INSTANCE.fromPo(configWordPo));
     }
 
     /**
@@ -220,22 +185,6 @@ public class SoftwareBuildVersionMptController extends BaseController implements
     }
 
     /**
-     * 新增配置字
-     *
-     * @param softwareBuildVersionId 软件内部版本ID
-     * @param configWord             配置字
-     * @return 结果
-     */
-    @Log(title = "软件内部版本信息管理", businessType = BusinessType.UPDATE)
-    @RequiresPermissions("ota:pota:softwareBuildVersion:edit")
-    @Override
-    @PostMapping(value = "/{softwareBuildVersionId}/action/addConfigWord")
-    public AjaxResult addConfigWord(@PathVariable Long softwareBuildVersionId, @Validated @RequestBody ConfigWordMpt configWord) {
-        logger.info("管理后台用户[{}]新增软件内部版本[{}]配置字", SecurityUtils.getUsername(), softwareBuildVersionId);
-        return toAjax(softwareBuildVersionAppService.createConfigWord(softwareBuildVersionId, ConfigWordMptAssembler.INSTANCE.toPo(configWord)));
-    }
-
-    /**
      * 修改保存软件内部版本信息
      *
      * @param softwareBuildVersion 软件内部版本信息
@@ -271,22 +220,6 @@ public class SoftwareBuildVersionMptController extends BaseController implements
     public AjaxResult editDependency(@PathVariable Long softwareBuildVersionId, @PathVariable Long[] softwareBuildVersionIds, @RequestParam Integer adaptiveLevel) {
         logger.info("管理后台用户[{}]修改保存软件内部版本[{}]依赖的软件内部版本[{}]", SecurityUtils.getUsername(), softwareBuildVersionId, softwareBuildVersionIds);
         return toAjax(softwareBuildVersionAppService.modifyDependency(softwareBuildVersionId, softwareBuildVersionIds, adaptiveLevel));
-    }
-
-    /**
-     * 修改保存配置字
-     *
-     * @param softwareBuildVersionId 软件内部版本ID
-     * @param configWord             配置字
-     * @return 结果
-     */
-    @Log(title = "软件内部版本信息管理", businessType = BusinessType.UPDATE)
-    @RequiresPermissions("ota:pota:softwareBuildVersion:edit")
-    @Override
-    @PostMapping(value = "/{softwareBuildVersionId}/action/editConfigWord")
-    public AjaxResult editConfigWord(@PathVariable Long softwareBuildVersionId, @Validated @RequestBody ConfigWordMpt configWord) {
-        logger.info("管理后台用户[{}]修改保存软件内部版本[{}]配置字[{}]", SecurityUtils.getUsername(), softwareBuildVersionId, configWord.getId());
-        return toAjax(softwareBuildVersionAppService.modifyConfigWord(softwareBuildVersionId, ConfigWordMptAssembler.INSTANCE.toPo(configWord)));
     }
 
     /**
@@ -336,19 +269,4 @@ public class SoftwareBuildVersionMptController extends BaseController implements
         return toAjax(softwareBuildVersionAppService.deleteDependency(softwareBuildVersionId, softwareBuildVersionIds));
     }
 
-    /**
-     * 删除配置字
-     *
-     * @param softwareBuildVersionId 软件内部版本ID
-     * @param configWordIds          配置字ID数组
-     * @return 结果
-     */
-    @Log(title = "软件内部版本信息管理", businessType = BusinessType.UPDATE)
-    @RequiresPermissions("ota:pota:softwareBuildVersion:edit")
-    @Override
-    @PostMapping(value = "/{softwareBuildVersionId}/action/removeConfigWord/{configWordIds}")
-    public AjaxResult removeConfigWord(@PathVariable Long softwareBuildVersionId, @PathVariable Long[] configWordIds) {
-        logger.info("管理后台用户[{}]删除软件内部版本[{}]配置字[{}]", SecurityUtils.getUsername(), softwareBuildVersionId, configWordIds);
-        return toAjax(softwareBuildVersionAppService.deleteConfigWord(softwareBuildVersionId, configWordIds));
-    }
 }
