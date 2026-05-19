@@ -68,3 +68,9 @@ target/
 ### mybatisplus ###
 **/templates/*.ftl
 MybatisPlusGenerator.java
+
+spec/
+AGENTS.md
+graphify-out
+.opencode
+docs/superpowers/
