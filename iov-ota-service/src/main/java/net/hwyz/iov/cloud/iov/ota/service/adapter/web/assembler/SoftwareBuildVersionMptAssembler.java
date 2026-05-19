@@ -1,8 +1,12 @@
 package net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler;
 
 import net.hwyz.iov.cloud.iov.ota.api.vo.SoftwareBuildVersionMpt;
+import net.hwyz.iov.cloud.iov.ota.service.application.dto.cmd.CreateSoftwareBuildVersionCmd;
+import net.hwyz.iov.cloud.iov.ota.service.application.dto.query.SoftwareBuildVersionQuery;
+import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.SoftwareBuildVersionDto;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwareBuildVersionPo;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 import org.mapstruct.Mappings;
 import org.mapstruct.factory.Mappers;
 
@@ -18,30 +22,23 @@ public interface SoftwareBuildVersionMptAssembler {
 
     SoftwareBuildVersionMptAssembler INSTANCE = Mappers.getMapper(SoftwareBuildVersionMptAssembler.class);
 
-    /**
-     * 数据对象转数据传输对象
-     *
-     * @param softwareBuildVersionPo 数据对象
-     * @return 数据传输对象
-     */
     @Mappings({})
     SoftwareBuildVersionMpt fromPo(SoftwareBuildVersionPo softwareBuildVersionPo);
 
-    /**
-     * 数据传输对象转数据对象
-     *
-     * @param softwareBuildVersionMpt 数据传输对象
-     * @return 数据对象
-     */
     @Mappings({})
     SoftwareBuildVersionPo toPo(SoftwareBuildVersionMpt softwareBuildVersionMpt);
 
-    /**
-     * 数据对象列表转数据传输对象列表
-     *
-     * @param softwareBuildVersionPoList 数据对象列表
-     * @return 数据传输对象列表
-     */
     List<SoftwareBuildVersionMpt> fromPoList(List<SoftwareBuildVersionPo> softwareBuildVersionPoList);
 
+    SoftwareBuildVersionMpt fromDto(SoftwareBuildVersionDto dto);
+
+    List<SoftwareBuildVersionMpt> fromDtoList(List<SoftwareBuildVersionDto> dtoList);
+
+    @Mappings({})
+    CreateSoftwareBuildVersionCmd toCmd(SoftwareBuildVersionMpt mpt);
+
+    @Mapping(target = "baselineCode", ignore = true)
+    @Mapping(target = "beginTime", ignore = true)
+    @Mapping(target = "endTime", ignore = true)
+    SoftwareBuildVersionQuery toQuery(SoftwareBuildVersionMpt mpt);
 }

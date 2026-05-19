@@ -15,6 +15,7 @@ import net.hwyz.iov.cloud.iov.ota.api.vo.SoftwareBuildVersionMpt;
 import net.hwyz.iov.cloud.iov.ota.api.vo.SoftwarePackageMpt;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.SoftwareBuildVersionMptAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.SoftwarePackageMptAssembler;
+import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.SoftwareBuildVersionDto;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.SoftwareBuildVersionAppService;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.SoftwarePackageAppService;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwareBuildVersionPo;
@@ -50,9 +51,9 @@ public class MptSoftwareBuildVersionController extends BaseController {
     public ApiResponse<PageResult<SoftwareBuildVersionMpt>> list(SoftwareBuildVersionMpt softwareBuildVersion) {
         log.info("管理后台用户[{}]分页查询软件内部版本信息", SecurityUtils.getUsername());
         startPage();
-        List<SoftwareBuildVersionPo> softwareBuildVersionPoList = softwareBuildVersionAppService.search(softwareBuildVersion.getDeviceCode(),
+        List<SoftwareBuildVersionDto> dtoList = softwareBuildVersionAppService.searchDto(softwareBuildVersion.getDeviceCode(),
                 softwareBuildVersion.getSoftwarePn(), null, getBeginTime(softwareBuildVersion), getEndTime(softwareBuildVersion));
-        List<SoftwareBuildVersionMpt> softwareBuildVersionMptList = PageUtil.convert(softwareBuildVersionPoList, SoftwareBuildVersionMptAssembler.INSTANCE::fromPo);
+        List<SoftwareBuildVersionMpt> softwareBuildVersionMptList = PageUtil.convert(dtoList, SoftwareBuildVersionMptAssembler.INSTANCE::fromDto);
         softwareBuildVersionMptList.forEach(softwareBuildVersionMpt -> {
             softwareBuildVersionMpt.setSoftwarePackageCount(softwareBuildVersionAppService.countPackage(softwareBuildVersionMpt.getId()));
             softwareBuildVersionMpt.setDependencyCount(softwareBuildVersionAppService.countDependency(softwareBuildVersionMpt.getId()));

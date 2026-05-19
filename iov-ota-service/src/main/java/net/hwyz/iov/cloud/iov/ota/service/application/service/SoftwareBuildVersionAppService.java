@@ -8,6 +8,14 @@ import net.hwyz.iov.cloud.iov.ota.api.vo.BomSoftwareBuildVersionOapi;
 import net.hwyz.iov.cloud.iov.ota.api.vo.BomSoftwarePackageOapi;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.BomSoftwareBuildVersionDependencyOapiAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.BomSoftwareBuildVersionOapiAssembler;
+import net.hwyz.iov.cloud.iov.ota.service.application.assembler.SoftwareBuildVersionAssembler;
+import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.SoftwareBuildVersionDto;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.aggregate.SoftwareBuildVersion;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.DeviceCode;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.SoftwareBuildVersionId;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.SoftwarePn;
+import net.hwyz.iov.cloud.iov.ota.service.domain.repository.SoftwareBuildVersionRepository;
+import net.hwyz.iov.cloud.iov.ota.service.domain.service.SoftwareBuildVersionDomainService;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.SoftwareBuildVersionMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.SoftwareBuildVersionDependencyMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.SoftwareBuildVersionPackageMapper;
@@ -31,6 +39,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SoftwareBuildVersionAppService {
 
+    private final SoftwareBuildVersionRepository softwareBuildVersionRepository;
+    private final SoftwareBuildVersionDomainService softwareBuildVersionDomainService;
     private final SoftwareBuildVersionMapper softwareBuildVersionMapper;
     private final SoftwarePackageAppService softwarePackageAppService;
     private final SoftwareBuildVersionPackageMapper softwareBuildVersionPackageMapper;
@@ -68,6 +78,17 @@ public class SoftwareBuildVersionAppService {
         return softwareBuildVersionMapper.selectPoByMap(map);
     }
 
+    public List<SoftwareBuildVersionDto> searchDto(String deviceCode, String softwarePn, String baselineCode, Date beginTime, Date endTime) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("deviceCode", deviceCode);
+        map.put("softwarePn", softwarePn);
+        map.put("baselineCode", baselineCode);
+        map.put("beginTime", beginTime);
+        map.put("endTime", endTime);
+        List<SoftwareBuildVersion> domainList = softwareBuildVersionRepository.search(map);
+        return SoftwareBuildVersionAssembler.INSTANCE.toDtoList(domainList);
+    }
+
     /**
      * 根据基线代码查询软件零件版本信息
      *
@@ -90,8 +111,9 @@ public class SoftwareBuildVersionAppService {
         return softwareBuildVersionDependencyMapper.selectPoBySoftwareBuildVersionId(softwareBuildVersionId);
     }
 
-    /**
+/**
      * 检查ECU代码及软件零件号及版本是否唯一
+     * 业务规则已迁移到Domain Service
      *
      * @param softwarePartVersionId 软件零件版本信息ID
      * @param deviceCode            设备代码
@@ -100,13 +122,16 @@ public class SoftwareBuildVersionAppService {
      * @return 结果
      */
     public Boolean checkDeviceCodeAndSoftwarePnUnique(Long softwarePartVersionId, String deviceCode, String softwarePn,
-                                                      String softwareBuildVer) {
-        if (ObjUtil.isNull(softwarePartVersionId)) {
-            softwarePartVersionId = -1L;
-        }
-        SoftwareBuildVersionPo softwareBuildVersionPo = getSoftwareBuildVersionByDeviceCodeAndSoftwarePnAndVersion(deviceCode,
-                softwarePn, softwareBuildVer);
-        return !ObjUtil.isNotNull(softwareBuildVersionPo) || softwareBuildVersionPo.getId().longValue() == softwarePartVersionId.longValue();
+                                                       String softwareBuildVer) {
+        SoftwareBuildVersionId excludeId = softwarePartVersionId != null 
+            ? new SoftwareBuildVersionId(softwarePartVersionId) 
+            : new SoftwareBuildVersionId(-1L);
+        return softwareBuildVersionDomainService.checkUnique(
+            new DeviceCode(deviceCode),
+            new SoftwarePn(softwarePn),
+            softwareBuildVer,
+            excludeId
+        );
     }
 
     /**
