@@ -36,11 +36,11 @@
     <!-- 插入 -->
     <insert id="insertPo" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO tb_vehicle_part_history (
-            id, pn, vin, device_code, device_item, sn, config_word, supplier_code, batch_num, hardware_ver, software_ver, hardware_pn, software_pn, extra, 
+            pn, vin, device_code, device_item, sn, config_word, supplier_code, batch_num, hardware_ver, software_ver, hardware_pn, software_pn, extra, 
             description, create_time, create_by, modify_time, modify_by, row_version, row_valid
         )
         VALUES (
-            #{id}, #{pn}, #{vin}, #{deviceCode}, #{deviceItem}, #{sn}, #{configWord}, #{supplierCode}, #{batchNum}, #{hardwareVer}, #{softwareVer}, #{hardwarePn}, #{softwarePn}, #{extra}, 
+            #{pn}, #{vin}, #{deviceCode}, #{deviceItem}, #{sn}, #{configWord}, #{supplierCode}, #{batchNum}, #{hardwareVer}, #{softwareVer}, #{hardwarePn}, #{softwarePn}, #{extra}, 
             #{description}, now(), #{createBy}, now(), #{modifyBy}, 1, 1
         )
     </insert>
@@ -48,13 +48,13 @@
     <!-- 批量插入 -->
     <insert id="batchInsertPo" useGeneratedKeys="true" keyProperty="id" parameterType="java.util.List">
         INSERT INTO tb_vehicle_part_history (
-            id, pn, vin, device_code, device_item, sn, config_word, supplier_code, batch_num, hardware_ver, software_ver, hardware_pn, software_pn, extra, 
+            pn, vin, device_code, device_item, sn, config_word, supplier_code, batch_num, hardware_ver, software_ver, hardware_pn, software_pn, extra, 
             description, create_time, create_by, modify_time, modify_by, row_version, row_valid
         )
         VALUES
         <foreach collection="list" item="item" index="index" separator=",">
         (
-            #{item.id}, #{item.pn}, #{item.vin}, #{item.deviceCode}, #{item.deviceItem}, #{item.sn}, #{item.configWord}, #{item.supplierCode}, #{item.batchNum}, #{item.hardwareVer}, #{item.softwareVer}, #{item.hardwarePn}, #{item.softwarePn}, #{item.extra}, 
+            #{item.pn}, #{item.vin}, #{item.deviceCode}, #{item.deviceItem}, #{item.sn}, #{item.configWord}, #{item.supplierCode}, #{item.batchNum}, #{item.hardwareVer}, #{item.softwareVer}, #{item.hardwarePn}, #{item.softwarePn}, #{item.extra}, 
             #{item.description}, now(), #{item.createBy}, now(), #{item.modifyBy}, 1, 1
         )
         </foreach>

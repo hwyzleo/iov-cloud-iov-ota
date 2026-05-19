@@ -33,6 +33,16 @@
             <artifactId>framework-mysql-starter</artifactId>
         </dependency>
 
+        <!-- 数据库迁移: Flyway -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-mysql</artifactId>
+        </dependency>
+
         <!-- 框架: Redis -->
         <dependency>
             <groupId>net.hwyz.iov.cloud.framework</groupId>
