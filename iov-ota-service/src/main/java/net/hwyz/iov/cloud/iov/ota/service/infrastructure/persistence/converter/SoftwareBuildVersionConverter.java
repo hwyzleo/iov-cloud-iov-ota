@@ -7,17 +7,14 @@ import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.SoftwarePn;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwareBuildVersionPo;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-import org.mapstruct.factory.Mappers;
 
 import java.util.List;
 
 /**
  * 软件内部版本Domain Model ⇄ Po转换器
  */
-@Mapper(imports = {SoftwareBuildVersionId.class, DeviceCode.class, SoftwarePn.class})
+@Mapper(componentModel = "spring", imports = {SoftwareBuildVersionId.class, DeviceCode.class, SoftwarePn.class})
 public interface SoftwareBuildVersionConverter {
-    
-    SoftwareBuildVersionConverter INSTANCE = Mappers.getMapper(SoftwareBuildVersionConverter.class);
     
     @Mapping(target = "id", expression = "java(new SoftwareBuildVersionId(po.getId()))")
     @Mapping(target = "deviceCode", expression = "java(new DeviceCode(po.getDeviceCode()))")

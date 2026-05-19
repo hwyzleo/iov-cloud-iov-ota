@@ -7,17 +7,14 @@ import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.SoftwarePn;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwarePackagePo;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-import org.mapstruct.factory.Mappers;
 
 import java.util.List;
 
 /**
  * 软件包Domain Model ⇄ Po转换器
  */
-@Mapper(imports = {SoftwarePackageId.class, DeviceCode.class, SoftwarePn.class})
+@Mapper(componentModel = "spring", imports = {SoftwarePackageId.class, DeviceCode.class, SoftwarePn.class})
 public interface SoftwarePackageConverter {
-    
-    SoftwarePackageConverter INSTANCE = Mappers.getMapper(SoftwarePackageConverter.class);
     
     @Mapping(target = "id", expression = "java(new SoftwarePackageId(po.getId()))")
     @Mapping(target = "deviceCode", expression = "java(new DeviceCode(po.getDeviceCode()))")

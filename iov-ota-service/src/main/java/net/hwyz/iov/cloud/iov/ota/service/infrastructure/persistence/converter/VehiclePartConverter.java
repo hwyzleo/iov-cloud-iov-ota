@@ -3,17 +3,14 @@ package net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.converter;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.VehiclePart;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.VehiclePartPo;
 import org.mapstruct.Mapper;
-import org.mapstruct.factory.Mappers;
 
 import java.util.List;
 
 /**
  * 车辆零件Domain Model ⇄ Po转换器
  */
-@Mapper
+@Mapper(componentModel = "spring")
 public interface VehiclePartConverter {
-    
-    VehiclePartConverter INSTANCE = Mappers.getMapper(VehiclePartConverter.class);
     
     VehiclePart toDomain(VehiclePartPo po);
     

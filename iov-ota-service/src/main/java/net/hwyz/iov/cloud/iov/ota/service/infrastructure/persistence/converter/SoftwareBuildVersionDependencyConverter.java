@@ -5,17 +5,14 @@ import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.SoftwareBuild
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwareBuildVersionDependencyPo;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-import org.mapstruct.factory.Mappers;
 
 import java.util.List;
 
 /**
  * 软件内部版本依赖Domain Model ⇄ Po转换器
  */
-@Mapper(imports = {SoftwareBuildVersionId.class})
+@Mapper(componentModel = "spring", imports = {SoftwareBuildVersionId.class})
 public interface SoftwareBuildVersionDependencyConverter {
-    
-    SoftwareBuildVersionDependencyConverter INSTANCE = Mappers.getMapper(SoftwareBuildVersionDependencyConverter.class);
     
     @Mapping(target = "softwareBuildVersionId", expression = "java(new SoftwareBuildVersionId(po.getSoftwareBuildVersionId()))")
     @Mapping(target = "dependencySoftwareBuildVersionId", expression = "java(new SoftwareBuildVersionId(po.getDependencySoftwareBuildVersionId()))")
