@@ -1,4 +1,4 @@
-package net.hwyz.iov.cloud.iov.ota.service.common.exception;
+package net.hwyz.iov.cloud.iov.ota.service.domain.exception;
 
 
 import net.hwyz.iov.cloud.framework.common.exception.BaseException;

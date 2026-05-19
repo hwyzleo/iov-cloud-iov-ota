@@ -1,6 +1,7 @@
 package net.hwyz.iov.cloud.iov.ota.service.common.exception;
 
 import lombok.extern.slf4j.Slf4j;
+import net.hwyz.iov.cloud.iov.ota.service.domain.exception.PotaBaseException;
 
 /**
  * 软件内部版本不存在异常
