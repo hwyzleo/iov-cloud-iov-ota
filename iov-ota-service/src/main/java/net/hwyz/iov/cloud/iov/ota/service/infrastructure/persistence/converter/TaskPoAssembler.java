@@ -24,11 +24,11 @@ public interface TaskPoAssembler {
      * @return 领域对象
      */
     @Mappings({
-            @Mapping(target = "type", expression = "java(net.hwyz.iov.cloud.ota.fota.service.domain.contract.enums.TaskType.valOf(taskPo.getType()))"),
-            @Mapping(target = "phase", expression = "java(net.hwyz.iov.cloud.ota.fota.service.domain.contract.enums.TaskPhase.valOf(taskPo.getPhase()))"),
-            @Mapping(target = "upgradeMode", expression = "java(net.hwyz.iov.cloud.ota.fota.service.domain.contract.enums.UpgradeMode.valOf(taskPo.getUpgradeMode()))"),
+            @Mapping(target = "type", expression = "java(net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskType.valOf(taskPo.getType()))"),
+            @Mapping(target = "phase", expression = "java(net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskPhase.valOf(taskPo.getPhase()))"),
+            @Mapping(target = "upgradeMode", expression = "java(net.hwyz.iov.cloud.iov.ota.api.vo.enums.UpgradeMode.valOf(taskPo.getUpgradeMode()))"),
             @Mapping(target = "upgradeModeArg", expression = "java(net.hwyz.iov.cloud.framework.common.util.AssemblerHelper.string2Json(taskPo.getUpgradeModeArg()))"),
-            @Mapping(target = "taskState", expression = "java(net.hwyz.iov.cloud.ota.fota.api.contract.enums.TaskState.valOf(taskPo.getState()))"),
+            @Mapping(target = "taskState", expression = "java(net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskState.valOf(taskPo.getState()))"),
             @Mapping(target = "state", ignore = true)
     })
     TaskDo toDo(TaskPo taskPo);

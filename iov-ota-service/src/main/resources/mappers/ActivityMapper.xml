@@ -1,0 +1,258 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.dao.ActivityDao">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="baseResultMap" type="net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.ActivityPo">
+        <id column="id" property="id" />
+        <result column="description" property="description" />
+        <result column="create_time" property="createTime" />
+        <result column="create_by" property="createBy" />
+        <result column="modify_time" property="modifyTime" />
+        <result column="modify_by" property="modifyBy" />
+        <result column="row_version" property="rowVersion" />
+        <result column="row_valid" property="rowValid" />
+        <result column="name" property="name" />
+        <result column="version" property="version" />
+        <result column="upgrade_notice_article_id" property="upgradeNoticeArticleId" />
+        <result column="activity_term_article_id" property="activityTermArticleId" />
+        <result column="privacy_agreement_article_id" property="privacyAgreementArticleId" />
+        <result column="start_time" property="startTime" />
+        <result column="end_time" property="endTime" />
+        <result column="release_time" property="releaseTime" />
+        <result column="upgrade_purpose" property="upgradePurpose" />
+        <result column="upgrade_function" property="upgradeFunction" />
+        <result column="statement" property="statement" />
+        <result column="state" property="state" />
+        <result column="total_file_size" property="totalFileSize" />
+        <result column="baseline" property="baseline" />
+        <result column="baseline_code" property="baselineCode" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="baseColumnList">
+        id, name, version, upgrade_notice_article_id, activity_term_article_id, privacy_agreement_article_id, start_time, end_time, release_time, upgrade_purpose, upgrade_function, statement, state, total_file_size, baseline, baseline_code,
+        description, create_time, create_by, modify_time, modify_by, row_version, row_valid
+    </sql>
+
+    <!-- 插入 -->
+    <insert id="insertPo" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO tb_activity (
+            id, name, version, upgrade_notice_article_id, activity_term_article_id, privacy_agreement_article_id, start_time, end_time, release_time, upgrade_purpose, upgrade_function, statement, state, total_file_size, baseline, baseline_code,
+            description, create_time, create_by, modify_time, modify_by, row_version, row_valid
+        )
+        VALUES (
+            #{id}, #{name}, #{version}, #{upgradeNoticeArticleId}, #{activityTermArticleId}, #{privacyAgreementArticleId}, #{startTime}, #{endTime}, #{releaseTime}, #{upgradePurpose}, #{upgradeFunction}, #{statement}, #{state}, #{totalFileSize}, #{baseline}, #{baselineCode},
+            #{description}, now(), #{createBy}, now(), #{modifyBy}, 1, 1
+        )
+    </insert>
+
+    <!-- 批量插入 -->
+    <insert id="batchInsertPo" useGeneratedKeys="true" keyProperty="id" parameterType="java.util.List">
+        INSERT INTO tb_activity (
+            id, name, version, upgrade_notice_article_id, activity_term_article_id, privacy_agreement_article_id, start_time, end_time, release_time, upgrade_purpose, upgrade_function, statement, state, total_file_size, baseline, baseline_code,
+            description, create_time, create_by, modify_time, modify_by, row_version, row_valid
+        )
+        VALUES
+        <foreach collection="list" item="item" index="index" separator=",">
+        (
+            #{item.id}, #{item.name}, #{item.version}, #{item.upgradeNoticeArticleId}, #{item.activityTermArticleId}, #{item.privacyAgreementArticleId}, #{item.startTime}, #{item.endTime}, #{item.releaseTime}, #{item.upgradePurpose}, #{item.upgradeFunction}, #{item.statement}, #{item.state}, #{item.totalFileSize}, #{item.baseline}, #{item.baselineCode},
+            #{item.description}, now(), #{item.createBy}, now(), #{item.modifyBy}, 1, 1
+        )
+        </foreach>
+    </insert>
+
+    <!-- 更新 -->
+    <update id="updatePo" parameterType="net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.ActivityPo">
+        UPDATE tb_activity t SET
+        <if test="name != null and name != ''">
+            t.name = #{name},
+        </if>
+        <if test="version != null and version != ''">
+            t.version = #{version},
+        </if>
+        <if test="upgradeNoticeArticleId != null">
+            t.upgrade_notice_article_id = #{upgradeNoticeArticleId},
+        </if>
+        <if test="activityTermArticleId != null">
+            t.activity_term_article_id = #{activityTermArticleId},
+        </if>
+        <if test="privacyAgreementArticleId != null">
+            t.privacy_agreement_article_id = #{privacyAgreementArticleId},
+        </if>
+        <if test="startTime != null">
+            t.start_time = #{startTime},
+        </if>
+        <if test="endTime != null">
+            t.end_time = #{endTime},
+        </if>
+        <if test="releaseTime != null">
+            t.release_time = #{releaseTime},
+        </if>
+        <if test="upgradePurpose != null and upgradePurpose != ''">
+            t.upgrade_purpose = #{upgradePurpose},
+        </if>
+        <if test="upgradeFunction != null and upgradeFunction != ''">
+            t.upgrade_function = #{upgradeFunction},
+        </if>
+        <if test="statement != null and statement != ''">
+            t.statement = #{statement},
+        </if>
+        <if test="state != null">
+            t.state = #{state},
+        </if>
+        <if test="totalFileSize != null">
+            t.total_file_size = #{totalFileSize},
+        </if>
+        <if test="baseline != null">
+            t.baseline = #{baseline},
+        </if>
+        <if test="baselineCode != null and baselineCode != ''">
+            t.baseline_code = #{baselineCode},
+        </if>
+        <if test="description != null and description != ''">
+            t.description = #{description},
+        </if>
+        <if test="modifyBy != null">
+            t.modify_by = #{modifyBy},
+        </if>
+        t.row_version = t.row_version + 1,
+        t.modify_time = now()
+        WHERE id = #{id}
+    </update>
+
+    <!-- 逻辑删除 -->
+    <update id="logicalDeletePo" parameterType="Long">
+        UPDATE tb_activity t SET
+        t.row_version = t.row_version + 1,
+        t.modify_time = now(),
+        t.row_valid = 0
+        WHERE t.id = #{value}
+    </update>
+
+    <!-- 物理删除 -->
+    <delete id="physicalDeletePo" parameterType="Long">
+        DELETE FROM tb_activity t
+        WHERE t.id = #{value}
+    </delete>
+
+    <!-- 批量物理删除 -->
+    <delete id="batchPhysicalDeletePo" parameterType="Long">
+        DELETE FROM tb_activity t
+        WHERE t.id IN
+        <foreach collection="array" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <!-- 根据主键获取对应数据 -->
+    <select id="selectPoById" parameterType="Long" resultMap="baseResultMap">
+        SELECT <include refid="baseColumnList"/>
+        FROM tb_activity t
+        WHERE t.id = #{value}
+        AND t.row_valid = 1
+    </select>
+
+    <!-- 根据数据对象获取对应数据列表 -->
+    <select id="selectPoByExample" parameterType="net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.ActivityPo" resultMap="baseResultMap">
+        SELECT <include refid="baseColumnList"/>
+        FROM tb_activity t
+        WHERE t.row_valid = 1
+        <if test="id != null">
+            AND t.id = #{id}
+        </if>
+        <if test="name != null and name != ''">
+            AND t.name = #{name}
+        </if>
+        <if test="version != null and version != ''">
+            AND t.version = #{version}
+        </if>
+        <if test="upgradeNoticeArticleId != null">
+            AND t.upgrade_notice_article_id = #{upgradeNoticeArticleId}
+        </if>
+        <if test="activityTermArticleId != null">
+            AND t.activity_term_article_id = #{activityTermArticleId}
+        </if>
+        <if test="privacyAgreementArticleId != null">
+            AND t.privacy_agreement_article_id = #{privacyAgreementArticleId}
+        </if>
+        <if test="startTime != null">
+            AND t.start_time = #{startTime}
+        </if>
+        <if test="endTime != null">
+            AND t.end_time = #{endTime}
+        </if>
+        <if test="releaseTime != null">
+            AND t.release_time = #{releaseTime}
+        </if>
+        <if test="upgradePurpose != null and upgradePurpose != ''">
+            AND t.upgrade_purpose = #{upgradePurpose}
+        </if>
+        <if test="upgradeFunction != null and upgradeFunction != ''">
+            AND t.upgrade_function = #{upgradeFunction}
+        </if>
+        <if test="statement != null and statement != ''">
+            AND t.statement = #{statement}
+        </if>
+        <if test="state != null">
+            AND t.state = #{state}
+        </if>
+        <if test="totalFileSize != null">
+            AND t.total_file_size = #{totalFileSize}
+        </if>
+        <if test="baseline != null">
+            AND t.baseline = #{baseline}
+        </if>
+        <if test="baselineCode != null and baselineCode != ''">
+            AND t.baseline_code = #{baselineCode}
+        </if>
+        <if test="description != null and description != ''">
+            AND t.description = #{description}
+        </if>
+        <if test="createTime != null">
+            AND t.create_time = #{createTime}
+        </if>
+        <if test="createBy != null and createBy != ''">
+            AND t.create_by = #{createBy}
+        </if>
+        <if test="modifyTime != null">
+            AND t.modify_time = #{modifyTime}
+        </if>
+        <if test="modifyBy != null and modifyBy != ''">
+            AND t.modify_by = #{modifyBy}
+        </if>
+        <if test="rowVersion != null">
+            AND t.row_version = #{rowVersion}
+        </if>
+        ORDER BY t.id DESC
+    </select>
+
+    <!-- 根据Map对象获取对应数据列表 -->
+    <select id="selectPoByMap" parameterType="java.util.Map" resultMap="baseResultMap">
+        SELECT <include refid="baseColumnList"/>
+        FROM tb_activity t
+        WHERE t.row_valid = 1
+        <!-- 添加自定义条件 -->
+        <if test="name != null and name != ''">
+            AND t.name LIKE #{name}
+        </if>
+        <if test="state != null">
+            AND t.state = #{state}
+        </if>
+        <if test="beginTime != null">
+            and date_format(t.end_time,'%Y%m%d') &gt;= date_format(#{beginTime},'%Y%m%d')
+        </if>
+        <if test="endTime != null">
+            and date_format(t.start_time,'%Y%m%d') &lt;= date_format(#{endTime},'%Y%m%d')
+        </if>
+        ORDER BY t.id DESC
+    </select>
+
+    <!-- 根据Map对象统计记录数 -->
+    <select id="countPoByMap" parameterType="java.util.Map" resultType="int">
+        SELECT COUNT(*)
+        FROM tb_activity t
+        WHERE t.row_valid = 1
+        <!-- 添加自定义条件 -->
+    </select>
+</mapper>

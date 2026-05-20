@@ -26,7 +26,7 @@ public interface SoftwareBuildVersionDependencyExServiceAssembler {
      * @return 值对象
      */
     @Mappings({
-            @Mapping(target = "adaptiveLevel", expression = "java(net.hwyz.iov.cloud.ota.fota.api.contract.enums.AdaptiveLevel.valOf(softwareBuildVersionDependencyExService.getAdaptiveLevel()))")
+            @Mapping(target = "adaptiveLevel", expression = "java(net.hwyz.iov.cloud.iov.ota.api.vo.enums.AdaptiveLevel.valOf(softwareBuildVersionDependencyExService.getAdaptiveLevel()))")
     })
     SoftwareBuildVersionDependencyVo toVo(SoftwareBuildVersionDependencyExService softwareBuildVersionDependencyExService);
 

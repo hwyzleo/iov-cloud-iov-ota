@@ -26,7 +26,7 @@ public interface SoftwarePackageExServiceAssembler {
      * @return 值对象
      */
     @Mappings({
-            @Mapping(target = "packageAdaptiveLevel", expression = "java(net.hwyz.iov.cloud.ota.fota.api.contract.enums.AdaptiveLevel.valOf(softwarePackageExService.getPackageAdaptiveLevel()))"),
+            @Mapping(target = "packageAdaptiveLevel", expression = "java(net.hwyz.iov.cloud.iov.ota.api.vo.enums.AdaptiveLevel.valOf(softwarePackageExService.getPackageAdaptiveLevel()))"),
             @Mapping(target = "packageType", expression = "java(net.hwyz.iov.cloud.ota.pota.api.contract.enums.SoftwarePackageType.valueOf(softwarePackageExService.getPackageType()))"),
     })
     SoftwarePackageVo toVo(SoftwarePackageExService softwarePackageExService);
