@@ -1,8 +1,9 @@
-package net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler;
+package net.hwyz.iov.cloud.iov.ota.service.facade.assembler;
 
-import net.hwyz.iov.cloud.iov.ota.api.vo.SoftwareBuildVersionDependencyExService;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwareBuildVersionDependencyPo;
+import net.hwyz.iov.cloud.iov.ota.service.domain.activity.model.SoftwareBuildVersionDependencyVo;
+import net.hwyz.iov.cloud.ota.pota.api.contract.SoftwareBuildVersionDependencyExService;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 import org.mapstruct.Mappings;
 import org.mapstruct.factory.Mappers;
 
@@ -19,29 +20,22 @@ public interface SoftwareBuildVersionDependencyExServiceAssembler {
     SoftwareBuildVersionDependencyExServiceAssembler INSTANCE = Mappers.getMapper(SoftwareBuildVersionDependencyExServiceAssembler.class);
 
     /**
-     * 数据对象转数据传输对象
-     *
-     * @param softwareBuildVersionDependencyPo 数据对象
-     * @return 数据传输对象
-     */
-    @Mappings({})
-    SoftwareBuildVersionDependencyExService fromPo(SoftwareBuildVersionDependencyPo softwareBuildVersionDependencyPo);
-
-    /**
-     * 数据传输对象转数据对象
+     * 数据传输对象转值对象
      *
      * @param softwareBuildVersionDependencyExService 数据传输对象
-     * @return 数据对象
+     * @return 值对象
      */
-    @Mappings({})
-    SoftwareBuildVersionDependencyPo toPo(SoftwareBuildVersionDependencyExService softwareBuildVersionDependencyExService);
+    @Mappings({
+            @Mapping(target = "adaptiveLevel", expression = "java(net.hwyz.iov.cloud.ota.fota.api.contract.enums.AdaptiveLevel.valOf(softwareBuildVersionDependencyExService.getAdaptiveLevel()))")
+    })
+    SoftwareBuildVersionDependencyVo toVo(SoftwareBuildVersionDependencyExService softwareBuildVersionDependencyExService);
 
     /**
-     * 数据对象列表转数据传输对象列表
+     * 数据传输对象列表转值对象列表
      *
-     * @param softwareBuildVersionDependencyPoList 数据对象列表
-     * @return 数据传输对象列表
+     * @param softwareBuildVersionDependencyExServiceList 数据传输对象列表
+     * @return 值对象列表
      */
-    List<SoftwareBuildVersionDependencyExService> fromPoList(List<SoftwareBuildVersionDependencyPo> softwareBuildVersionDependencyPoList);
+    List<SoftwareBuildVersionDependencyVo> toVoList(List<SoftwareBuildVersionDependencyExService> softwareBuildVersionDependencyExServiceList);
 
 }

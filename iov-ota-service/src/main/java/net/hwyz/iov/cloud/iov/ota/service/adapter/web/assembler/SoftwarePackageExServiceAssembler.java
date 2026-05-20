@@ -1,8 +1,9 @@
-package net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler;
+package net.hwyz.iov.cloud.iov.ota.service.facade.assembler;
 
-import net.hwyz.iov.cloud.iov.ota.api.vo.SoftwarePackageExService;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwarePackagePo;
+import net.hwyz.iov.cloud.iov.ota.service.domain.activity.model.SoftwarePackageVo;
+import net.hwyz.iov.cloud.ota.pota.api.contract.SoftwarePackageExService;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 import org.mapstruct.Mappings;
 import org.mapstruct.factory.Mappers;
 
@@ -19,29 +20,23 @@ public interface SoftwarePackageExServiceAssembler {
     SoftwarePackageExServiceAssembler INSTANCE = Mappers.getMapper(SoftwarePackageExServiceAssembler.class);
 
     /**
-     * 数据对象转数据传输对象
-     *
-     * @param softwarePackagePo 数据对象
-     * @return 数据传输对象
-     */
-    @Mappings({})
-    SoftwarePackageExService fromPo(SoftwarePackagePo softwarePackagePo);
-
-    /**
-     * 数据传输对象转数据对象
+     * 数据传输对象转值对象
      *
      * @param softwarePackageExService 数据传输对象
-     * @return 数据对象
+     * @return 值对象
      */
-    @Mappings({})
-    SoftwarePackagePo toPo(SoftwarePackageExService softwarePackageExService);
+    @Mappings({
+            @Mapping(target = "packageAdaptiveLevel", expression = "java(net.hwyz.iov.cloud.ota.fota.api.contract.enums.AdaptiveLevel.valOf(softwarePackageExService.getPackageAdaptiveLevel()))"),
+            @Mapping(target = "packageType", expression = "java(net.hwyz.iov.cloud.ota.pota.api.contract.enums.SoftwarePackageType.valueOf(softwarePackageExService.getPackageType()))"),
+    })
+    SoftwarePackageVo toVo(SoftwarePackageExService softwarePackageExService);
 
     /**
-     * 数据对象列表转数据传输对象列表
+     * 数据传输对象列表转值对象列表
      *
-     * @param softwarePackagePoList 数据对象列表
-     * @return 数据传输对象列表
+     * @param softwarePackageExServiceList 数据传输对象列表
+     * @return 值对象列表
      */
-    List<SoftwarePackageExService> fromPoList(List<SoftwarePackagePo> softwarePackagePoList);
+    List<SoftwarePackageVo> toVoList(List<SoftwarePackageExService> softwarePackageExServiceList);
 
 }

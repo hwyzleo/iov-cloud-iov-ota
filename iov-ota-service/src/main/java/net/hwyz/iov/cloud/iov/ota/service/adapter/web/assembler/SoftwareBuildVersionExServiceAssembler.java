@@ -1,7 +1,7 @@
-package net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler;
+package net.hwyz.iov.cloud.iov.ota.service.facade.assembler;
 
-import net.hwyz.iov.cloud.iov.ota.api.vo.SoftwareBuildVersionExService;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwareBuildVersionPo;
+import net.hwyz.iov.cloud.iov.ota.service.domain.activity.model.SoftwareBuildVersionVo;
+import net.hwyz.iov.cloud.ota.pota.api.contract.SoftwareBuildVersionExService;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mappings;
 import org.mapstruct.factory.Mappers;
@@ -19,29 +19,20 @@ public interface SoftwareBuildVersionExServiceAssembler {
     SoftwareBuildVersionExServiceAssembler INSTANCE = Mappers.getMapper(SoftwareBuildVersionExServiceAssembler.class);
 
     /**
-     * 数据对象转数据传输对象
-     *
-     * @param softwareBuildVersionPo 数据对象
-     * @return 数据传输对象
-     */
-    @Mappings({})
-    SoftwareBuildVersionExService fromPo(SoftwareBuildVersionPo softwareBuildVersionPo);
-
-    /**
-     * 数据传输对象转数据对象
+     * 数据传输对象转值对象
      *
      * @param softwareBuildVersionExService 数据传输对象
-     * @return 数据对象
+     * @return 值对象
      */
     @Mappings({})
-    SoftwareBuildVersionPo toPo(SoftwareBuildVersionExService softwareBuildVersionExService);
+    SoftwareBuildVersionVo toVo(SoftwareBuildVersionExService softwareBuildVersionExService);
 
     /**
-     * 数据对象列表转数据传输对象列表
+     * 数据传输对象列表转值对象列表
      *
-     * @param softwareBuildVersionPoList 数据对象列表
-     * @return 数据传输对象列表
+     * @param softwareBuildVersionExServiceList 数据传输对象列表
+     * @return 值对象列表
      */
-    List<SoftwareBuildVersionExService> fromPoList(List<SoftwareBuildVersionPo> softwareBuildVersionPoList);
+    List<SoftwareBuildVersionVo> toVoList(List<SoftwareBuildVersionExService> softwareBuildVersionExServiceList);
 
 }
