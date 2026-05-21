@@ -1,5 +1,6 @@
 package net.hwyz.iov.cloud.iov.ota.service.domain.model.aggregate;
 
+import cn.hutool.json.JSONObject;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -10,7 +11,11 @@ import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskType;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.UpgradeMode;
 import net.hwyz.iov.cloud.iov.ota.service.domain.exception.TaskStateException;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskRestriction;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskRestrictionVo;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskStrategy;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskStrategyVo;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.VehicleDo;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.VehicleInfo;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.event.*;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.*;
 
@@ -144,6 +149,76 @@ public class Task {
     
     public void clearPendingEvents() {
         pendingEvents.clear();
+    }
+    
+    public boolean checkPreconditions(VehicleDo vehicle) {
+        if (!checkTaskTimeRange()) {
+            return false;
+        }
+        if (!checkRestrictions(vehicle)) {
+            return false;
+        }
+        return true;
+    }
+    
+    private boolean checkTaskTimeRange() {
+        long now = System.currentTimeMillis();
+        return now >= this.startTime.toEpochMilli() && now <= this.endTime.toEpochMilli();
+    }
+    
+    private boolean checkRestrictions(VehicleDo vehicle) {
+        if (this.restrictions == null) return true;
+        for (TaskRestriction restriction : this.restrictions.values()) {
+            VehicleInfo vehicleInfo = VehicleInfo.builder()
+                .vin(vehicle.getId())
+                .baselineCode(vehicle.getBaselineCode())
+                .isBaselineAlignment(vehicle.getIsBaselineAlignment())
+                .build();
+            if (!restriction.isSatisfiedBy(vehicleInfo)) {
+                log.info("车辆[{}]不满足任务[{}]的限制条件[{}]", vehicle.getId(), this.id.getValue(), restriction.getType());
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    public Map<TaskRestrictionType, TaskRestrictionVo> getTaskRestrictionMap() {
+        if (this.restrictions == null) return new HashMap<>();
+        return this.restrictions.entrySet().stream()
+            .collect(Collectors.toMap(
+                Map.Entry::getKey,
+                e -> TaskRestrictionVo.builder()
+                    .id(e.getValue().getId())
+                    .taskId(e.getValue().getTaskId() != null ? e.getValue().getTaskId().getValue() : null)
+                    .restrictionType(e.getValue().getType())
+                    .restrictionExpression(e.getValue().getExpression())
+                    .build()
+            ));
+    }
+    
+    public List<TaskStrategyVo> getTaskStrategyList() {
+        if (this.strategies == null) return new ArrayList<>();
+        return this.strategies.stream()
+            .map(s -> TaskStrategyVo.builder()
+                .id(s.getId())
+                .taskId(s.getTaskId() != null ? s.getTaskId().getValue() : null)
+                .strategyType(s.getType())
+                .strategyExpression(s.getStrategy())
+                .build())
+            .collect(Collectors.toList());
+    }
+    
+    public Date getStartTimeDate() {
+        return this.startTime != null ? Date.from(this.startTime) : null;
+    }
+    
+    public Date getEndTimeDate() {
+        return this.endTime != null ? Date.from(this.endTime) : null;
+    }
+    
+    public JSONObject getUpgradeModeArgJson() {
+        if (this.upgradeModeArg == null) return new JSONObject();
+        return this.upgradeModeArg.getValue();
     }
     
     private void validateState(TaskState expectedState, String message) {

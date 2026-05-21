@@ -11,6 +11,7 @@ import net.hwyz.iov.cloud.iov.ota.api.vo.CloudFotaInfoCcp;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.*;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.UpgradeMode;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.UpgradeModeArg;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.aggregate.Task;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.util.FotaHelper;
 
 import java.util.*;
@@ -118,40 +119,27 @@ public class TaskVehicleDo extends BaseDo<Long> implements DomainObj<TaskVehicle
      * @param activity 升级活动
      * @param task     升级任务
      */
-    public void loadBaseInfo(ActivityDo activity, TaskDo task) {
+    public void loadBaseInfo(ActivityDo activity, Task task) {
         this.baselineCode = activity.getBaselineCode();
         this.activityVersion = activity.getVersion();
         this.activityReleaseTime = activity.getReleaseTime();
         this.upgradePurpose = activity.getUpgradePurpose();
         this.upgradeFunction = activity.getUpgradeFunction();
         this.activityStatement = activity.getStatement();
-        this.taskStartTime = task.getStartTime();
-        this.taskEndTime = task.getEndTime();
+        this.taskStartTime = task.getStartTimeDate();
+        this.taskEndTime = task.getEndTimeDate();
         this.upgradeMode = task.getUpgradeMode();
-        this.upgradeModeArg = task.getUpgradeModeArg();
+        this.upgradeModeArg = task.getUpgradeModeArgJson();
     }
 
-    /**
-     * 加载策略
-     *
-     * @param task 升级任务
-     */
-    public void loadStrategy(TaskDo task) {
+    public void loadStrategy(Task task) {
         this.strategyMap = new HashMap<>();
         if (task.getTaskStrategyList() != null) {
             task.getTaskStrategyList().forEach(taskStrategy -> this.strategyMap.put(taskStrategy.getStrategyType(), taskStrategy.getStrategyExpression()));
         }
     }
 
-    /**
-     * 加载软件内部版本
-     *
-     * @param activity   升级活动
-     * @param task       升级任务
-     * @param vehicle    车辆
-     * @param fotaHelper 升级辅助类
-     */
-    public void loadSoftwareBuildVersion(ActivityDo activity, TaskDo task, VehicleDo vehicle, FotaHelper fotaHelper) {
+    public void loadSoftwareBuildVersion(ActivityDo activity, Task task, VehicleDo vehicle, FotaHelper fotaHelper) {
         this.softwareBuildVersionList = new ArrayList<>();
         Map<Integer, List<ActivitySoftwareBuildVersionVo>> groupSoftwareBuildVersionMap = activity.getGroupSoftwareBuildVersionMap();
         TaskVehicleSoftwareBuildVersionVo taskVehicleSoftwareBuildVersion;
@@ -282,7 +270,7 @@ public class TaskVehicleDo extends BaseDo<Long> implements DomainObj<TaskVehicle
      * @return true: 适配成功，false: 适配失败
      */
     private boolean groupAdaptationMatch(List<ActivitySoftwareBuildVersionVo> groupSoftwareBuildVersionList, VehicleDo vehicle,
-                                         ActivityDo activity, TaskDo task) {
+                                         ActivityDo activity, Task task) {
         for (int i = groupSoftwareBuildVersionList.size() - 1; i > 0; i--) {
             ActivitySoftwareBuildVersionVo activitySoftwareBuildVersion = groupSoftwareBuildVersionList.get(i);
             SoftwareBuildVersionVo softwareBuildVersion = activitySoftwareBuildVersion.getSoftwareBuildVersion();
@@ -314,7 +302,7 @@ public class TaskVehicleDo extends BaseDo<Long> implements DomainObj<TaskVehicle
      * @return true: 适配成功，false: 适配失败
      */
     private boolean deviceAdaptationMatch(DeviceInfoVo deviceInfo, ActivitySoftwareBuildVersionVo activitySoftwareBuildVersion,
-                                          ActivityDo activity, TaskDo task, VehicleDo vehicle) {
+                                          ActivityDo activity, Task task, VehicleDo vehicle) {
         TaskRestrictionVo comparisonCriteriaVo = task.getTaskRestrictionMap().get(TaskRestrictionType.COMPARISON_CRITERIA);
         boolean comparisonCriteria = Boolean.parseBoolean(comparisonCriteriaVo.getRestrictionExpression());
         SoftwareBuildVersionVo softwareBuildVersion = activitySoftwareBuildVersion.getSoftwareBuildVersion();

@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.dao.TaskStrategyDao">
+<mapper namespace="net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskStrategyMapper">
 
-    <!-- 通用查询映射结果 -->
-    <resultMap id="baseResultMap" type="net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskStrategyPo">
+    <resultMap id="baseResultMap" type="net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskStrategyPo">
         <id column="id" property="id" />
         <result column="description" property="description" />
         <result column="create_time" property="createTime" />
@@ -17,13 +16,11 @@
         <result column="strategy_expression" property="strategyExpression" />
     </resultMap>
 
-    <!-- 通用查询结果列 -->
     <sql id="baseColumnList">
         id, task_id, strategy_type, strategy_expression, 
         description, create_time, create_by, modify_time, modify_by, row_version, row_valid
     </sql>
 
-    <!-- 插入 -->
     <insert id="insertPo" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO tb_task_strategy (
             id, task_id, strategy_type, strategy_expression, 
@@ -35,7 +32,6 @@
         )
     </insert>
 
-    <!-- 批量插入 -->
     <insert id="batchInsertPo" useGeneratedKeys="true" keyProperty="id" parameterType="java.util.List">
         INSERT INTO tb_task_strategy (
             id, task_id, strategy_type, strategy_expression, 
@@ -50,8 +46,7 @@
         </foreach>
     </insert>
 
-    <!-- 更新 -->
-    <update id="updatePo" parameterType="net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskStrategyPo">
+    <update id="updatePo" parameterType="net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskStrategyPo">
         UPDATE tb_task_strategy t SET
         <if test="taskId != null">
             t.task_id = #{taskId},
@@ -73,7 +68,6 @@
         WHERE id = #{id}
     </update>
 
-    <!-- 逻辑删除 -->
     <update id="logicalDeletePo" parameterType="Long">
         UPDATE tb_task_strategy t SET
         t.row_version = t.row_version + 1,
@@ -82,13 +76,11 @@
         WHERE t.id = #{value}
     </update>
 
-    <!-- 物理删除 -->
     <delete id="physicalDeletePo" parameterType="Long">
         DELETE FROM tb_task_strategy t
         WHERE t.id = #{value}
     </delete>
 
-    <!-- 批量物理删除 -->
     <delete id="batchPhysicalDeletePo" parameterType="Long">
         DELETE FROM tb_task_strategy t
         WHERE t.id IN
@@ -97,7 +89,6 @@
         </foreach>
     </delete>
 
-    <!-- 根据主键获取对应数据 -->
     <select id="selectPoById" parameterType="Long" resultMap="baseResultMap">
         SELECT <include refid="baseColumnList"/>
         FROM tb_task_strategy t
@@ -105,8 +96,7 @@
         AND t.row_valid = 1
     </select>
 
-    <!-- 根据数据对象获取对应数据列表 -->
-    <select id="selectPoByExample" parameterType="net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskStrategyPo" resultMap="baseResultMap">
+    <select id="selectPoByExample" parameterType="net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskStrategyPo" resultMap="baseResultMap">
         SELECT <include refid="baseColumnList"/>
         FROM tb_task_strategy t
         WHERE t.row_valid = 1
@@ -143,20 +133,24 @@
         ORDER BY t.id DESC
     </select>
 
-    <!-- 根据Map对象获取对应数据列表 -->
     <select id="selectPoByMap" parameterType="java.util.Map" resultMap="baseResultMap">
         SELECT <include refid="baseColumnList"/>
         FROM tb_task_strategy t
         WHERE t.row_valid = 1
-        <!-- 添加自定义条件 -->
         ORDER BY t.id DESC
     </select>
 
-    <!-- 根据Map对象统计记录数 -->
     <select id="countPoByMap" parameterType="java.util.Map" resultType="int">
         SELECT COUNT(*)
         FROM tb_task_strategy t
         WHERE t.row_valid = 1
-        <!-- 添加自定义条件 -->
     </select>
+
+    <select id="selectPoByTaskId" parameterType="Long" resultMap="baseResultMap">
+        SELECT <include refid="baseColumnList"/>
+        FROM tb_task_strategy t
+        WHERE t.task_id = #{taskId}
+        AND t.row_valid = 1
+    </select>
+
 </mapper>

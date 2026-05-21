@@ -3,9 +3,10 @@ package net.hwyz.iov.cloud.iov.ota.service.infrastructure.cache.impl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskVehicleState;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.aggregate.Task;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.ActivityDo;
-import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskDo;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.VehicleDo;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.Vin;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.cache.CacheService;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -14,11 +15,6 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-/**
- * 缓存服务接口实现类
- *
- * @author hwyz_leo
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -26,28 +22,12 @@ public class CacheServiceImpl implements CacheService {
 
     private final RedisTemplate<String, String> redisTemplate;
 
-    /**
-     * Redis Key：已发布升级活动
-     */
     private static final String REDIS_KEY_RELEASE_ACTIVITY = "fota:release-activity:";
-    /**
-     * Redis Key前缀：升级活动
-     */
     private static final String REDIS_KEY_PREFIX_ACTIVITY = "fota:activity:";
-    /**
-     * Redis Key前缀：升级任务
-     */
     private static final String REDIS_KEY_PREFIX_TASK = "fota:task:";
 
-    /**
-     * 升级活动缓存
-     */
     private static final ConcurrentHashMap<Long, ActivityDo> activityMap = new ConcurrentHashMap<>();
-
-    /**
-     * 升级任务缓存
-     */
-    private static final ConcurrentHashMap<Long, TaskDo> taskMap = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<Long, Task> taskMap = new ConcurrentHashMap<>();
 
     @Override
     public Optional<VehicleDo> getVehicle(String vin) {
@@ -56,7 +36,6 @@ public class CacheServiceImpl implements CacheService {
 
     @Override
     public void setVehicle(VehicleDo vehicle) {
-
     }
 
     @Override
@@ -90,30 +69,37 @@ public class CacheServiceImpl implements CacheService {
     }
 
     @Override
-    public Optional<TaskDo> getTask(Long taskId) {
+    public Optional<Task> getTask(Long taskId) {
         return Optional.ofNullable(taskMap.get(taskId));
     }
 
     @Override
-    public void setTask(TaskDo task) {
-        taskMap.put(task.getId(), task);
+    public void setTask(Task task) {
+        taskMap.put(task.getId().getValue(), task);
     }
 
     @Override
-    public void addReleaseTask(TaskDo task) {
-        redisTemplate.opsForZSet().add(REDIS_KEY_PREFIX_ACTIVITY + task.getActivityId(), task.getId().toString(), task.getStartTime().getTime());
+    public void removeTask(Long taskId) {
+        taskMap.remove(taskId);
+    }
+
+    @Override
+    public void addReleaseTask(Task task) {
+        redisTemplate.opsForZSet().add(REDIS_KEY_PREFIX_ACTIVITY + task.getActivityId().getValue(), task.getId().getValue().toString(), task.getStartTime().toEpochMilli());
         Map<String, Object> taskVehicleStateMap = new HashMap<>();
-        for (String vin : task.getVehicles()) {
-            taskVehicleStateMap.put(vin, String.valueOf(TaskVehicleState.WAITING_DOWNLOAD.value));
+        if (task.getVehicles() != null) {
+            for (Vin vin : task.getVehicles()) {
+                taskVehicleStateMap.put(vin.getValue(), String.valueOf(TaskVehicleState.WAITING_DOWNLOAD.value));
+            }
         }
-        redisTemplate.opsForHash().putAll(REDIS_KEY_PREFIX_TASK + task.getId(), taskVehicleStateMap);
-        redisTemplate.expireAt(REDIS_KEY_PREFIX_TASK + task.getId(), task.getEndTime());
+        redisTemplate.opsForHash().putAll(REDIS_KEY_PREFIX_TASK + task.getId().getValue(), taskVehicleStateMap);
+        redisTemplate.expireAt(REDIS_KEY_PREFIX_TASK + task.getId().getValue(), Date.from(task.getEndTime()));
     }
 
     @Override
-    public void removeReleaseTask(TaskDo task) {
-        redisTemplate.opsForZSet().remove(REDIS_KEY_PREFIX_ACTIVITY + task.getActivityId(), task.getId().toString());
-        redisTemplate.delete(REDIS_KEY_PREFIX_TASK + task.getId());
+    public void removeReleaseTask(Task task) {
+        redisTemplate.opsForZSet().remove(REDIS_KEY_PREFIX_ACTIVITY + task.getActivityId().getValue(), task.getId().getValue().toString());
+        redisTemplate.delete(REDIS_KEY_PREFIX_TASK + task.getId().getValue());
     }
 
     @Override

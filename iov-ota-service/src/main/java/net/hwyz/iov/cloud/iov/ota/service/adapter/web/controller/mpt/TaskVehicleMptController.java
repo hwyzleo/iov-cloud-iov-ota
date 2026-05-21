@@ -16,8 +16,8 @@ import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.TaskVehicleMptAs
 import net.hwyz.iov.cloud.iov.ota.service.application.service.ActivityAppService;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.TaskAppService;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.TaskVehicleAppService;
+import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.TaskResult;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskVehiclePo;
 import org.springframework.web.bind.annotation.*;
 
@@ -51,12 +51,12 @@ public class TaskVehicleMptController extends BaseController {
         startPage();
         List<TaskVehiclePo> taskVehiclePoList = taskVehicleAppService.search(taskVehicle.getVin(), getBeginTime(taskVehicle), getEndTime(taskVehicle));
         List<TaskVehicleMpt> taskVehicleMptList = PageUtil.convert(taskVehiclePoList, TaskVehicleMptAssembler.INSTANCE::fromPo);
-        taskVehicleMptList.forEach(taskVehicleMpt -> {
-            TaskPo task = taskAppService.getTaskById(taskVehicleMpt.getTaskId());
+taskVehicleMptList.forEach(taskVehicleMpt -> {
+            TaskResult task = taskAppService.getTaskById(taskVehicleMpt.getTaskId());
             if (task != null) {
                 taskVehicleMpt.setTaskName(task.getName());
             }
-            ActivityPo activity = activityAppService.getActivityById(taskVehicleMpt.getActivityId());
+            ActivityPo activity = activityAppService.getActivityById(task.getActivityId());
             if (activity != null) {
                 taskVehicleMpt.setActivityName(activity.getName());
             }

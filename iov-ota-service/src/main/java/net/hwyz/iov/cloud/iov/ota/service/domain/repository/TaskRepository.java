@@ -1,13 +1,29 @@
 package net.hwyz.iov.cloud.iov.ota.service.domain.repository;
 
-import net.hwyz.iov.cloud.framework.common.domain.BaseRepository;
-import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskDo;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.aggregate.Task;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.TaskId;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.ActivityId;
+
+import java.util.List;
+import java.util.Optional;
 
 /**
  * 升级任务领域仓库接口
- * Phase 1-2: 暂时使用TaskDo，Phase 5将切换为Task聚合根
+ * 返回Task聚合根
  *
  * @author hwyz_leo
  */
-public interface TaskRepository extends BaseRepository<Long, TaskDo> {
+public interface TaskRepository {
+    
+    Optional<Task> getById(TaskId id);
+    
+    List<Task> findByActivityId(ActivityId activityId);
+    
+    List<Task> findReleasedTasks();
+    
+    void save(Task task);
+    
+    void delete(TaskId id);
+    
+    void deleteAll(List<TaskId> ids);
 }
