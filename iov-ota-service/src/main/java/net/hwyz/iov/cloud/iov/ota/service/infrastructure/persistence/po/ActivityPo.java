@@ -1,4 +1,4 @@
-package net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po;
+package net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
