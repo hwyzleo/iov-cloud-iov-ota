@@ -6,9 +6,9 @@ import net.hwyz.iov.cloud.framework.common.util.ParamHelper;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskState;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskRestrictionMapper;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskRestrictionPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskStrategyPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskRestrictionPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskStrategyPo;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;

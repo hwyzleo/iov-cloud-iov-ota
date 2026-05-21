@@ -26,9 +26,9 @@ import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.Compatib
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwareBuildVersionPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwarePackagePo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwareBuildVersionDependencyPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.ActivityPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.ActivityCompatiblePnPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.ActivityFixedConfigWordPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityCompatiblePnPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityFixedConfigWordPo;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.CompatiblePnExServiceAssembler;
 import org.springframework.stereotype.Repository;
 

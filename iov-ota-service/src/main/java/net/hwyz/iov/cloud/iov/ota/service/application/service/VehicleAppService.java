@@ -3,7 +3,7 @@ package net.hwyz.iov.cloud.iov.ota.service.application.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.VehStatusMapper;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.VehStatusPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.VehStatusPo;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;

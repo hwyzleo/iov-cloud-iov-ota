@@ -13,9 +13,9 @@ import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.converter.T
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskRestrictionMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskVehicleMapper;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskRestrictionPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskVehiclePo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskRestrictionPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskVehiclePo;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;

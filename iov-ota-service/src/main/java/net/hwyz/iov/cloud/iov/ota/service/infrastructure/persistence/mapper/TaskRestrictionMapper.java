@@ -1,7 +1,7 @@
 package net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper;
 
 import net.hwyz.iov.cloud.framework.mysql.dao.BaseDao;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskRestrictionPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskRestrictionPo;
 import org.apache.ibatis.annotations.Mapper;
 
 import java.util.List;

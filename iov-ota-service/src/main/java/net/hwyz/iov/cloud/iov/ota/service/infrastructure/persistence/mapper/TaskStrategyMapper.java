@@ -1,6 +1,6 @@
 package net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.dao;
 
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskStrategyPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskStrategyPo;
 import net.hwyz.iov.cloud.framework.mysql.dao.BaseDao;
 import org.apache.ibatis.annotations.Mapper;
 

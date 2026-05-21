@@ -7,7 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.hwyz.iov.cloud.framework.common.domain.BaseDo;
 import net.hwyz.iov.cloud.framework.common.domain.DomainObj;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.ActivityState;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.ActivityPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityPo;
 
 import java.util.Date;
 import java.util.List;

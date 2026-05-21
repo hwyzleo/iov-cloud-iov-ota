@@ -21,9 +21,9 @@ import net.hwyz.iov.cloud.iov.ota.service.common.exception.TaskNotExistException
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskDo;
 import net.hwyz.iov.cloud.iov.ota.service.domain.repository.TaskRepository;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.cache.CacheService;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskRestrictionPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskStrategyPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskRestrictionPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskStrategyPo;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 

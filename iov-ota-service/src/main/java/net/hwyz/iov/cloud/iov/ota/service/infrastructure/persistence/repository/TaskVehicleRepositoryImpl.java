@@ -9,8 +9,8 @@ import net.hwyz.iov.cloud.iov.ota.service.domain.repository.TaskVehicleRepositor
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.converter.TaskVehiclePoAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskVehicleDetailMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskVehicleMapper;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskVehicleDetailPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskVehiclePo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskVehicleDetailPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskVehiclePo;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;

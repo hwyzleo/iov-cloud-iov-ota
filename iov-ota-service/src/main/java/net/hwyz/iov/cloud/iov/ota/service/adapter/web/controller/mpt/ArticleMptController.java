@@ -14,7 +14,7 @@ import net.hwyz.iov.cloud.framework.web.util.PageUtil;
 import net.hwyz.iov.cloud.iov.ota.api.contract.ArticleMpt;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.ArticleAppService;
 import net.hwyz.iov.cloud.iov.ota.service.facade.assembler.ArticleMptAssembler;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.ArticlePo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ArticlePo;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 

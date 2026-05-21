@@ -1,7 +1,7 @@
 package net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper;
 
 import net.hwyz.iov.cloud.framework.mysql.dao.BaseDao;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.ActivityCompatiblePnPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityCompatiblePnPo;
 import org.apache.ibatis.annotations.Mapper;
 
 import java.util.List;

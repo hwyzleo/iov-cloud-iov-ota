@@ -11,7 +11,7 @@ import net.hwyz.iov.cloud.iov.ota.service.domain.repository.VehicleRepository;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.cache.CacheService;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.converter.VehStatusPoAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.VehStatusMapper;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.VehStatusPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.VehStatusPo;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;

@@ -13,9 +13,9 @@ import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskRestrictionType;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskPhase;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskType;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.UpgradeMode;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskRestrictionPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskStrategyPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskRestrictionPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskStrategyPo;
 
 import java.util.Date;
 import java.util.List;

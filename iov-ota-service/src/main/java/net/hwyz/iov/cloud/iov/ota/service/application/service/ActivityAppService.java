@@ -9,10 +9,10 @@ import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.Acti
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityFixedConfigWordMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivitySoftwareBuildVersionMapper;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.ActivityCompatiblePnPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.ActivityFixedConfigWordPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.ActivityPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.ActivitySoftwareBuildVersionPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityCompatiblePnPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityFixedConfigWordPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivitySoftwareBuildVersionPo;
 import org.springframework.stereotype.Service;
 
 import java.util.*;

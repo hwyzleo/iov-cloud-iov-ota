@@ -29,10 +29,10 @@ import net.hwyz.iov.cloud.iov.ota.service.facade.assembler.BaselineSoftwareBuild
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.cache.CacheService;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.CompatiblePnPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwareBuildVersionPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.ActivityCompatiblePnPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.ActivityFixedConfigWordPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.ActivityPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.ActivitySoftwareBuildVersionPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityCompatiblePnPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityFixedConfigWordPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivitySoftwareBuildVersionPo;
 import net.hwyz.iov.cloud.ota.baseline.api.contract.BaselineSoftwareBuildVersionExService;
 import net.hwyz.iov.cloud.ota.baseline.api.feign.service.ExBaselineService;
 import net.hwyz.iov.cloud.iov.ota.api.vo.CompatiblePnExService;

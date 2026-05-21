@@ -1,7 +1,7 @@
 package net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.converter;
 
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskRestrictionVo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskRestrictionPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskRestrictionPo;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mappings;
 import org.mapstruct.factory.Mappers;

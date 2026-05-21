@@ -16,9 +16,9 @@ import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.TaskVehicleMptAs
 import net.hwyz.iov.cloud.iov.ota.service.application.service.ActivityAppService;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.TaskAppService;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.TaskVehicleAppService;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.ActivityPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskVehiclePo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskVehiclePo;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;

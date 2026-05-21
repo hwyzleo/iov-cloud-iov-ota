@@ -4,8 +4,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskVehicleMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskVehicleProcessMapper;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskVehiclePo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskVehicleProcessPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskVehiclePo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskVehicleProcessPo;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;

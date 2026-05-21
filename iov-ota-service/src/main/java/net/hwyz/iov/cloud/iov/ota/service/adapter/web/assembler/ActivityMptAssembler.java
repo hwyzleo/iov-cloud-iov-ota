@@ -1,7 +1,7 @@
 package net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler;
 
 import net.hwyz.iov.cloud.iov.ota.api.vo.ActivityMpt;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.ActivityPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityPo;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mappings;
 import org.mapstruct.factory.Mappers;

@@ -14,7 +14,7 @@ import net.hwyz.iov.cloud.framework.web.util.PageUtil;
 import net.hwyz.iov.cloud.iov.ota.api.vo.VehicleMpt;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.VehicleMptAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.VehicleAppService;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.VehStatusPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.VehStatusPo;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
