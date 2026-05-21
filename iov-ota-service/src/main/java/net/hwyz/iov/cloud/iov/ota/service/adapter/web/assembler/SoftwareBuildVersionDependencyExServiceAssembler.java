@@ -1,7 +1,8 @@
-package net.hwyz.iov.cloud.iov.ota.service.facade.assembler;
+package net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler;
 
-import net.hwyz.iov.cloud.iov.ota.service.domain.activity.model.SoftwareBuildVersionDependencyVo;
-import net.hwyz.iov.cloud.ota.pota.api.contract.SoftwareBuildVersionDependencyExService;
+import net.hwyz.iov.cloud.iov.ota.api.vo.SoftwareBuildVersionDependencyExService;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.SoftwareBuildVersionDependencyVo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwareBuildVersionDependencyPo;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.Mappings;
@@ -37,5 +38,10 @@ public interface SoftwareBuildVersionDependencyExServiceAssembler {
      * @return 值对象列表
      */
     List<SoftwareBuildVersionDependencyVo> toVoList(List<SoftwareBuildVersionDependencyExService> softwareBuildVersionDependencyExServiceList);
+
+    @Mappings({})
+    SoftwareBuildVersionDependencyExService fromPo(SoftwareBuildVersionDependencyPo softwareBuildVersionDependencyPo);
+
+    List<SoftwareBuildVersionDependencyExService> fromPoList(List<SoftwareBuildVersionDependencyPo> softwareBuildVersionDependencyPoList);
 
 }

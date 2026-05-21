@@ -1,6 +1,6 @@
-package net.hwyz.iov.cloud.iov.ota.service.facade.assembler;
+package net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler;
 
-import net.hwyz.iov.cloud.iov.ota.api.contract.ActivitySoftwareBuildVersionMpt;
+import net.hwyz.iov.cloud.iov.ota.api.vo.ActivitySoftwareBuildVersionMpt;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.ActivitySoftwareBuildVersionPo;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mappings;

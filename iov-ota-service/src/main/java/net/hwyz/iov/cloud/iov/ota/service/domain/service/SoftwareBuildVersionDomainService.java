@@ -1,7 +1,7 @@
 package net.hwyz.iov.cloud.iov.ota.service.domain.service;
 
 import lombok.RequiredArgsConstructor;
-import net.hwyz.iov.cloud.iov.ota.service.domain.exception.PotaBaseException;
+import net.hwyz.iov.cloud.iov.ota.service.common.exception.OtaBaseException;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.aggregate.SoftwareBuildVersion;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.DeviceCode;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.SoftwareBuildVersionId;
@@ -35,7 +35,7 @@ public class SoftwareBuildVersionDomainService {
     public void validateUnique(DeviceCode deviceCode, SoftwarePn softwarePn, 
                                String softwareBuildVer, SoftwareBuildVersionId excludeId) {
         if (!checkUnique(deviceCode, softwarePn, softwareBuildVer, excludeId)) {
-            throw new PotaBaseException("软件版本已存在：设备代码=" + deviceCode.getValue() 
+            throw new OtaBaseException("软件版本已存在：设备代码=" + deviceCode.getValue()
                 + ", 软件零件号=" + softwarePn.getValue() + ", 版本=" + softwareBuildVer);
         }
     }

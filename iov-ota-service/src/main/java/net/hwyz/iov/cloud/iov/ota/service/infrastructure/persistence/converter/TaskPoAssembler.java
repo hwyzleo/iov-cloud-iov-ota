@@ -1,6 +1,6 @@
-package net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.assembler;
+package net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.converter;
 
-import net.hwyz.iov.cloud.iov.ota.service.domain.task.model.TaskDo;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskDo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskPo;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;

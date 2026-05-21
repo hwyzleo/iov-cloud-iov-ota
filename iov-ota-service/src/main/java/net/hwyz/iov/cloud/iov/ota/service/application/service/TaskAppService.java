@@ -3,9 +3,9 @@ package net.hwyz.iov.cloud.iov.ota.service.application.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.hwyz.iov.cloud.framework.common.util.ParamHelper;
-import net.hwyz.iov.cloud.iov.ota.api.contract.enums.TaskState;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.dao.TaskDao;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.dao.TaskRestrictionDao;
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskState;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskMapper;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskRestrictionMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskRestrictionPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskStrategyPo;
@@ -26,8 +26,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class TaskAppService {
 
-    private final TaskDao taskDao;
-    private final TaskRestrictionDao taskRestrictionDao;
+    private final TaskMapper taskDao;
+    private final TaskRestrictionMapper taskRestrictionDao;
 
     /**
      * 查询升级任务

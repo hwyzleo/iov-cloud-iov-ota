@@ -1,6 +1,6 @@
-package net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.assembler;
+package net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.converter;
 
-import net.hwyz.iov.cloud.iov.ota.service.domain.vehicle.model.VehicleDo;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.VehicleDo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.VehStatusPo;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mappings;

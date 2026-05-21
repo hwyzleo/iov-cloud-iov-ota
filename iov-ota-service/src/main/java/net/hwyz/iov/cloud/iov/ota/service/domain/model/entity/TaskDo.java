@@ -1,4 +1,4 @@
-package net.hwyz.iov.cloud.iov.ota.service.domain.task.model;
+package net.hwyz.iov.cloud.iov.ota.service.domain.model.entity;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONObject;
@@ -8,12 +8,11 @@ import lombok.experimental.SuperBuilder;
 import lombok.extern.slf4j.Slf4j;
 import net.hwyz.iov.cloud.framework.common.domain.BaseDo;
 import net.hwyz.iov.cloud.framework.common.domain.DomainObj;
-import net.hwyz.iov.cloud.iov.ota.api.contract.enums.TaskRestrictionType;
-import net.hwyz.iov.cloud.iov.ota.api.contract.enums.TaskState;
-import net.hwyz.iov.cloud.iov.ota.service.domain.contract.enums.TaskPhase;
-import net.hwyz.iov.cloud.iov.ota.service.domain.contract.enums.TaskType;
-import net.hwyz.iov.cloud.iov.ota.service.domain.contract.enums.UpgradeMode;
-import net.hwyz.iov.cloud.iov.ota.service.domain.vehicle.model.VehicleDo;
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskState;
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskRestrictionType;
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskPhase;
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskType;
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.UpgradeMode;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskRestrictionPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskStrategyPo;
@@ -344,14 +343,14 @@ public class TaskDo extends BaseDo<Long> implements DomainObj<TaskDo> {
                 case BASELINE_EXCLUDE -> {
                     for (String baseline : restriction.getRestrictionExpression().split(",")) {
                         if (baseline.equals(vehicle.getBaselineCode())) {
-                            logger.info("车辆[{}]基线[{}]在任务[{}]排除的基线内，任务不满足条件", vehicle.getId(), vehicle.getBaselineCode(), this.id);
+                            log.info("车辆[{}]基线[{}]在任务[{}]排除的基线内，任务不满足条件", vehicle.getId(), vehicle.getBaselineCode(), this.id);
                             return false;
                         }
                     }
                 }
                 case BASELINE_UNIFICATION -> {
                     if (!Boolean.parseBoolean(restriction.getRestrictionExpression()) && !vehicle.getIsBaselineAlignment()) {
-                        logger.info("车辆[{}]未对齐基线[{}]且任务[{}]未打开强制拉齐，任务不满足条件", vehicle.getId(), vehicle.getBaselineCode(), this.id);
+                        log.info("车辆[{}]未对齐基线[{}]且任务[{}]未打开强制拉齐，任务不满足条件", vehicle.getId(), vehicle.getBaselineCode(), this.id);
                         return false;
                     }
                 }

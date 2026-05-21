@@ -1,17 +1,17 @@
-package net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository;
+package net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.repository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.hwyz.iov.cloud.edd.vmd.api.service.VmdVehicleService;
+import net.hwyz.iov.cloud.edd.vmd.api.vo.response.VehicleExResponse;
 import net.hwyz.iov.cloud.framework.common.domain.AbstractRepository;
 import net.hwyz.iov.cloud.iov.ota.service.domain.factory.VehicleFactory;
-import net.hwyz.iov.cloud.iov.ota.service.domain.vehicle.model.VehicleDo;
-import net.hwyz.iov.cloud.iov.ota.service.domain.vehicle.repository.VehicleRepository;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.VehicleDo;
+import net.hwyz.iov.cloud.iov.ota.service.domain.repository.VehicleRepository;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.cache.CacheService;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.assembler.VehStatusPoAssembler;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.dao.VehStatusDao;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.converter.VehStatusPoAssembler;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.VehStatusMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.VehStatusPo;
-import net.hwyz.iov.cloud.tsp.vmd.api.contract.VehicleExService;
-import net.hwyz.iov.cloud.tsp.vmd.api.feign.service.ExVehicleService;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
@@ -27,9 +27,9 @@ import java.util.Optional;
 public class VehicleRepositoryImpl extends AbstractRepository<String, VehicleDo> implements VehicleRepository {
 
     private final CacheService cacheService;
-    private final VehStatusDao vehStatusDao;
+    private final VehStatusMapper vehStatusDao;
     private final VehicleFactory vehicleFactory;
-    private final ExVehicleService exVehicleService;
+    private final VmdVehicleService exVehicleService;
 
     @Override
     public Optional<VehicleDo> getById(String vin) {
@@ -37,7 +37,7 @@ public class VehicleRepositoryImpl extends AbstractRepository<String, VehicleDo>
             VehStatusPo vehicleStatus = vehStatusDao.selectByVin(vin);
             VehicleDo tmpVehicle;
             if (vehicleStatus == null) {
-                VehicleExService vehicle = exVehicleService.getByVin(vin);
+                VehicleExResponse vehicle = exVehicleService.getByVin(vin);
                 if (vehicle == null) {
                     return null;
                 }

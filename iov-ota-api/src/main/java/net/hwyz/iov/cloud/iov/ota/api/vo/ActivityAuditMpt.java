@@ -1,7 +1,7 @@
-package net.hwyz.iov.cloud.iov.ota.api.contract;
+package net.hwyz.iov.cloud.iov.ota.api.vo;
 
 import lombok.*;
-import net.hwyz.iov.cloud.framework.common.web.domain.BaseRequest;
+import net.hwyz.iov.cloud.framework.common.bean.BaseRequest;
 
 /**
  * 管理后台升级活动审核

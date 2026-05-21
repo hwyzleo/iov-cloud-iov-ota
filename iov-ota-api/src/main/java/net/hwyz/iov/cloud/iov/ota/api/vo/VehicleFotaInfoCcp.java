@@ -1,4 +1,4 @@
-package net.hwyz.iov.cloud.iov.ota.api.contract;
+package net.hwyz.iov.cloud.iov.ota.api.vo;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;

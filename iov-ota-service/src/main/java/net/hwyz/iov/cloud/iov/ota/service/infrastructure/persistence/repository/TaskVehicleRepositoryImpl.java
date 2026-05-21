@@ -1,14 +1,14 @@
-package net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository;
+package net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.repository;
 
 import cn.hutool.json.JSONUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.hwyz.iov.cloud.framework.common.domain.AbstractRepository;
-import net.hwyz.iov.cloud.iov.ota.service.domain.taskvehicle.model.TaskVehicleDo;
-import net.hwyz.iov.cloud.iov.ota.service.domain.taskvehicle.repository.TaskVehicleRepository;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.assembler.TaskVehiclePoAssembler;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.dao.TaskVehicleDao;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.dao.TaskVehicleDetailDao;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskVehicleDo;
+import net.hwyz.iov.cloud.iov.ota.service.domain.repository.TaskVehicleRepository;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.converter.TaskVehiclePoAssembler;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskVehicleDetailMapper;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskVehicleMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskVehicleDetailPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskVehiclePo;
 import org.springframework.stereotype.Repository;
@@ -25,8 +25,8 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class TaskVehicleRepositoryImpl extends AbstractRepository<Long, TaskVehicleDo> implements TaskVehicleRepository {
 
-    private final TaskVehicleDao taskVehicleDao;
-    private final TaskVehicleDetailDao taskVehicleDetailDao;
+    private final TaskVehicleMapper taskVehicleDao;
+    private final TaskVehicleDetailMapper taskVehicleDetailDao;
 
     @Override
     public Optional<TaskVehicleDo> getById(Long id) {

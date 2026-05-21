@@ -1,7 +1,8 @@
-package net.hwyz.iov.cloud.iov.ota.service.facade.assembler;
+package net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler;
 
-import net.hwyz.iov.cloud.iov.ota.service.domain.activity.model.SoftwarePackageVo;
-import net.hwyz.iov.cloud.ota.pota.api.contract.SoftwarePackageExService;
+import net.hwyz.iov.cloud.iov.ota.api.vo.SoftwarePackageExService;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.SoftwarePackageVo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwarePackagePo;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.Mappings;
@@ -26,8 +27,7 @@ public interface SoftwarePackageExServiceAssembler {
      * @return 值对象
      */
     @Mappings({
-            @Mapping(target = "packageAdaptiveLevel", expression = "java(net.hwyz.iov.cloud.iov.ota.api.vo.enums.AdaptiveLevel.valOf(softwarePackageExService.getPackageAdaptiveLevel()))"),
-            @Mapping(target = "packageType", expression = "java(net.hwyz.iov.cloud.ota.pota.api.contract.enums.SoftwarePackageType.valueOf(softwarePackageExService.getPackageType()))"),
+            @Mapping(target = "packageAdaptiveLevel", expression = "java(net.hwyz.iov.cloud.iov.ota.api.vo.enums.AdaptiveLevel.valOf(softwarePackageExService.getPackageAdaptiveLevel()))")
     })
     SoftwarePackageVo toVo(SoftwarePackageExService softwarePackageExService);
 
@@ -38,5 +38,10 @@ public interface SoftwarePackageExServiceAssembler {
      * @return 值对象列表
      */
     List<SoftwarePackageVo> toVoList(List<SoftwarePackageExService> softwarePackageExServiceList);
+
+    @Mappings({})
+    SoftwarePackageExService fromPo(SoftwarePackagePo softwarePackagePo);
+
+    List<SoftwarePackageExService> fromPoList(List<SoftwarePackagePo> softwarePackagePoList);
 
 }

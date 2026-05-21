@@ -1,7 +1,7 @@
-package net.hwyz.iov.cloud.iov.ota.service.facade.assembler;
+package net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler;
 
-import net.hwyz.iov.cloud.iov.ota.api.contract.DeviceInfoCcp;
-import net.hwyz.iov.cloud.iov.ota.service.domain.vehicle.model.DeviceInfoVo;
+import net.hwyz.iov.cloud.iov.ota.api.vo.DeviceInfoCcp;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.DeviceInfoVo;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mappings;
 import org.mapstruct.factory.Mappers;

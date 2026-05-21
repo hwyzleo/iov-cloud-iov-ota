@@ -1,18 +1,18 @@
-package net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository;
+package net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.repository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.hwyz.iov.cloud.framework.common.domain.AbstractRepository;
-import net.hwyz.iov.cloud.iov.ota.api.contract.enums.TaskVehicleState;
-import net.hwyz.iov.cloud.iov.ota.service.domain.task.model.TaskDo;
-import net.hwyz.iov.cloud.iov.ota.service.domain.task.model.TaskRestrictionVo;
-import net.hwyz.iov.cloud.iov.ota.service.domain.task.repository.TaskRepository;
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskVehicleState;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskDo;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskRestrictionVo;
+import net.hwyz.iov.cloud.iov.ota.service.domain.repository.TaskRepository;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.cache.CacheService;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.assembler.TaskPoAssembler;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.assembler.TaskRestrictionPoAssembler;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.dao.TaskDao;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.dao.TaskRestrictionDao;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.dao.TaskVehicleDao;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.converter.TaskPoAssembler;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.converter.TaskRestrictionPoAssembler;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskMapper;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskRestrictionMapper;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskVehicleMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskRestrictionPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskVehiclePo;
@@ -31,10 +31,10 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class TaskRepositoryImpl extends AbstractRepository<Long, TaskDo> implements TaskRepository {
 
-    private final TaskDao taskDao;
+    private final TaskMapper taskDao;
     private final CacheService cacheService;
-    private final TaskVehicleDao taskVehicleDao;
-    private final TaskRestrictionDao taskRestrictionDao;
+    private final TaskVehicleMapper taskVehicleDao;
+    private final TaskRestrictionMapper taskRestrictionDao;
 
     @Override
     public Optional<TaskDo> getById(Long id) {

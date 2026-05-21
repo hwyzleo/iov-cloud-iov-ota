@@ -2,7 +2,7 @@ package net.hwyz.iov.cloud.iov.ota.service.domain.model.aggregate;
 
 import lombok.Builder;
 import lombok.Data;
-import net.hwyz.iov.cloud.iov.ota.service.domain.exception.PotaBaseException;
+import net.hwyz.iov.cloud.iov.ota.service.common.exception.OtaBaseException;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.SoftwareBuildVersionDependency;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.SoftwarePackage;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.DeviceCode;
@@ -55,7 +55,7 @@ public class SoftwareBuildVersion implements Serializable {
      */
     public void addPackage(SoftwarePackage pkg) {
         if (packages.stream().anyMatch(p -> p.getId().equals(pkg.getId()))) {
-            throw new PotaBaseException("软件包已存在，不能重复添加");
+            throw new OtaBaseException("软件包已存在，不能重复添加");
         }
         packages.add(pkg);
     }
@@ -74,7 +74,7 @@ public class SoftwareBuildVersion implements Serializable {
     public void addDependency(SoftwareBuildVersionDependency dependency) {
         if (dependencies.stream().anyMatch(d -> 
             d.getDependencySoftwareBuildVersionId().equals(dependency.getDependencySoftwareBuildVersionId()))) {
-            throw new PotaBaseException("依赖关系已存在，不能重复添加");
+            throw new OtaBaseException("依赖关系已存在，不能重复添加");
         }
         dependencies.add(dependency);
     }
@@ -86,7 +86,7 @@ public class SoftwareBuildVersion implements Serializable {
         dependencies.stream()
             .filter(d -> d.getDependencySoftwareBuildVersionId().equals(dependencyId))
             .findFirst()
-            .orElseThrow(() -> new PotaBaseException("依赖关系不存在"))
+            .orElseThrow(() -> new OtaBaseException("依赖关系不存在"))
             .setAdaptiveLevel(adaptiveLevel);
     }
 

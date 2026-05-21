@@ -2,7 +2,7 @@ package net.hwyz.iov.cloud.iov.ota.service.domain.model.entity;
 
 import lombok.Builder;
 import lombok.Data;
-import net.hwyz.iov.cloud.iov.ota.service.domain.exception.PotaBaseException;
+import net.hwyz.iov.cloud.iov.ota.service.common.exception.OtaBaseException;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.SoftwareBuildVersionId;
 
 import java.io.Serializable;
@@ -25,7 +25,7 @@ public class SoftwareBuildVersionDependency implements Serializable {
      */
     public void setAdaptiveLevel(Integer level) {
         if (level == null || level < 0 || level > 100) {
-            throw new PotaBaseException("适配级别必须在0-100之间");
+            throw new OtaBaseException("适配级别必须在0-100之间");
         }
         this.adaptiveLevel = level;
     }

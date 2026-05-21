@@ -1,7 +1,6 @@
 package net.hwyz.iov.cloud.iov.ota.service.common.exception;
 
 import lombok.extern.slf4j.Slf4j;
-import net.hwyz.iov.cloud.iov.ota.service.domain.exception.PotaBaseException;
 
 /**
  * 零件不存在异常
@@ -9,7 +8,7 @@ import net.hwyz.iov.cloud.iov.ota.service.domain.exception.PotaBaseException;
  * @author hwyz_leo
  */
 @Slf4j
-public class PartNotExistException extends PotaBaseException {
+public class PartNotExistException extends OtaBaseException {
 
     public PartNotExistException(String pn) {
         super(ERROR_CODE_PART_NOT_EXIST);

@@ -1,7 +1,7 @@
-package net.hwyz.iov.cloud.iov.ota.service.domain.task.repository;
+package net.hwyz.iov.cloud.iov.ota.service.domain.repository;
 
 import net.hwyz.iov.cloud.framework.common.domain.BaseRepository;
-import net.hwyz.iov.cloud.iov.ota.service.domain.task.model.TaskDo;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskDo;
 
 /**
  * 升级任务领域仓库接口

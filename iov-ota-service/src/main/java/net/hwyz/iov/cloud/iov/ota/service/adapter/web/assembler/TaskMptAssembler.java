@@ -1,6 +1,6 @@
-package net.hwyz.iov.cloud.iov.ota.service.facade.assembler;
+package net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler;
 
-import net.hwyz.iov.cloud.iov.ota.api.contract.TaskMpt;
+import net.hwyz.iov.cloud.iov.ota.api.vo.TaskMpt;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskPo;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mappings;

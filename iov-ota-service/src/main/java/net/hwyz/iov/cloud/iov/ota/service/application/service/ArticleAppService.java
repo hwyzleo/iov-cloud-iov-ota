@@ -3,7 +3,7 @@ package net.hwyz.iov.cloud.iov.ota.service.application.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.hwyz.iov.cloud.framework.common.util.ParamHelper;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.dao.ArticleDao;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ArticleMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.ArticlePo;
 import org.springframework.stereotype.Service;
 
@@ -22,7 +22,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ArticleAppService {
 
-    private final ArticleDao articleDao;
+    private final ArticleMapper articleDao;
 
     /**
      * 查询文章

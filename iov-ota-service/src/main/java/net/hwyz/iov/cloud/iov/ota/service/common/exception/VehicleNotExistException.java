@@ -1,4 +1,4 @@
-package net.hwyz.iov.cloud.iov.ota.service.infrastructure.exception;
+package net.hwyz.iov.cloud.iov.ota.service.common.exception;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -8,13 +8,13 @@ import lombok.extern.slf4j.Slf4j;
  * @author hwyz_leo
  */
 @Slf4j
-public class VehicleNotExistException extends FotaBaseException {
+public class VehicleNotExistException extends OtaBaseException {
 
     private static final int ERROR_CODE = 411002;
 
     public VehicleNotExistException(String vin) {
         super(ERROR_CODE);
-        logger.warn("车辆[{}]不存在", vin);
+        log.warn("车辆[{}]不存在", vin);
     }
 
 }

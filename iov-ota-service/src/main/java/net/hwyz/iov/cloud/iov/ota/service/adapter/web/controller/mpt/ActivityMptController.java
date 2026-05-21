@@ -1,36 +1,43 @@
-package net.hwyz.iov.cloud.iov.ota.service.facade.mpt;
+package net.hwyz.iov.cloud.iov.ota.service.adapter.web.controller.mpt;
 
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.hwyz.iov.cloud.framework.audit.annotation.Log;
 import net.hwyz.iov.cloud.framework.audit.enums.BusinessType;
-import net.hwyz.iov.cloud.framework.common.web.controller.BaseController;
-import net.hwyz.iov.cloud.framework.common.web.domain.AjaxResult;
-import net.hwyz.iov.cloud.framework.common.web.page.TableDataInfo;
+import net.hwyz.iov.cloud.framework.common.bean.ApiResponse;
+import net.hwyz.iov.cloud.framework.common.bean.PageResult;
 import net.hwyz.iov.cloud.framework.security.annotation.RequiresPermissions;
 import net.hwyz.iov.cloud.framework.security.util.SecurityUtils;
-import net.hwyz.iov.cloud.ota.baseline.api.contract.BaselineSoftwareBuildVersionExService;
-import net.hwyz.iov.cloud.ota.baseline.api.feign.service.ExBaselineService;
-import net.hwyz.iov.cloud.iov.ota.api.contract.*;
-import net.hwyz.iov.cloud.iov.ota.api.contract.enums.ActivityState;
-import net.hwyz.iov.cloud.iov.ota.api.feign.mpt.ActivityMptApi;
+import net.hwyz.iov.cloud.framework.web.controller.BaseController;
+import net.hwyz.iov.cloud.framework.web.util.PageUtil;
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.ActivityState;
+import net.hwyz.iov.cloud.iov.ota.api.vo.*;
+import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.ActivityCompatiblePnMptAssembler;
+import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.ActivityFixedConfigWordMptAssembler;
+import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.ActivityMptAssembler;
+import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.ActivitySoftwareBuildVersionMptAssembler;
+import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.CompatiblePnExServiceAssembler;
+import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.SoftwareBuildVersionExServiceAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.ActivityAppService;
-import net.hwyz.iov.cloud.iov.ota.service.domain.activity.model.ActivityDo;
-import net.hwyz.iov.cloud.iov.ota.service.domain.activity.repository.ActivityRepository;
-import net.hwyz.iov.cloud.iov.ota.service.facade.assembler.*;
+import net.hwyz.iov.cloud.iov.ota.service.application.service.CompatiblePnAppService;
+import net.hwyz.iov.cloud.iov.ota.service.application.service.SoftwareBuildVersionAppService;
+import net.hwyz.iov.cloud.iov.ota.service.common.exception.ActivityNotExistException;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.ActivityDo;
+import net.hwyz.iov.cloud.iov.ota.service.domain.repository.ActivityRepository;
+import net.hwyz.iov.cloud.iov.ota.service.facade.assembler.BaselineSoftwareBuildVersionExServiceAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.cache.CacheService;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.exception.ActivityNotExistException;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.CompatiblePnPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwareBuildVersionPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.ActivityCompatiblePnPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.ActivityFixedConfigWordPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.ActivityPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.ActivitySoftwareBuildVersionPo;
-import net.hwyz.iov.cloud.ota.pota.api.contract.CompatiblePnExService;
-import net.hwyz.iov.cloud.ota.pota.api.contract.FixedConfigWordExService;
-import net.hwyz.iov.cloud.ota.pota.api.contract.SoftwareBuildVersionExService;
-import net.hwyz.iov.cloud.ota.pota.api.feign.service.ExCompatiblePnService;
-import net.hwyz.iov.cloud.ota.pota.api.feign.service.ExFixedConfigWordService;
-import net.hwyz.iov.cloud.ota.pota.api.feign.service.ExSoftwareBuildVersionService;
+import net.hwyz.iov.cloud.ota.baseline.api.contract.BaselineSoftwareBuildVersionExService;
+import net.hwyz.iov.cloud.ota.baseline.api.feign.service.ExBaselineService;
+import net.hwyz.iov.cloud.iov.ota.api.vo.CompatiblePnExService;
+import net.hwyz.iov.cloud.ota.baseline.api.contract.BaselineSoftwareBuildVersionExService;
+import net.hwyz.iov.cloud.ota.baseline.api.feign.service.ExBaselineService;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -52,9 +59,8 @@ public class ActivityMptController extends BaseController {
     private final ExBaselineService exBaselineService;
     private final ActivityAppService activityAppService;
     private final ActivityRepository activityRepository;
-    private final ExCompatiblePnService exCompatiblePnService;
-    private final ExFixedConfigWordService exFixedConfigWordService;
-    private final ExSoftwareBuildVersionService exSoftwareBuildVersionService;
+    private final CompatiblePnAppService compatiblePnAppService;
+    private final SoftwareBuildVersionAppService softwareBuildVersionAppService;
 
     /**
      * 分页查询升级活动
@@ -63,16 +69,15 @@ public class ActivityMptController extends BaseController {
      * @return 升级活动列表
      */
     @RequiresPermissions("ota:fota:activity:list")
-    @Override
     @GetMapping(value = "/list")
-    public TableDataInfo list(ActivityMpt activity) {
-        logger.info("管理后台用户[{}]分页查询升级活动", SecurityUtils.getUsername());
+    public ApiResponse<PageResult<ActivityMpt>> list(ActivityMpt activity) {
+        log.info("管理后台用户[{}]分页查询升级活动", SecurityUtils.getUsername());
         startPage();
         List<ActivityPo> activityPoList = activityAppService.search(activity.getName(), activity.getState(),
                 getBeginTime(activity), getEndTime(activity));
-        List<ActivityMpt> activityMptList = ActivityMptAssembler.INSTANCE.fromPoList(activityPoList);
+        List<ActivityMpt> activityMptList = PageUtil.convert(activityPoList, ActivityMptAssembler.INSTANCE::fromPo);
         activityMptList.forEach(activityMpt -> activityMpt.setSoftwareBuildVersionCount(activityAppService.countActivitySoftwareBuildVersion(activityMpt.getId())));
-        return getDataTable(activityPoList, activityMptList);
+        return ApiResponse.ok(getPageResult(activityMptList));
     }
 
     /**
@@ -81,15 +86,14 @@ public class ActivityMptController extends BaseController {
      * @return 升级活动状态列表
      */
     @RequiresPermissions("ota:fota:activity:list")
-    @Override
     @GetMapping(value = "/listAllActivityState")
-    public AjaxResult listAllActivityState() {
-        logger.info("管理后台用户[{}]获取所有升级活动状态", SecurityUtils.getUsername());
+    public ApiResponse<List<Map<String, Object>>> listAllActivityState() {
+        log.info("管理后台用户[{}]获取所有升级活动状态", SecurityUtils.getUsername());
         List<Map<String, Object>> list = new ArrayList<>();
         for (ActivityState activityState : ActivityState.values()) {
             list.add(Map.of("value", activityState.value, "label", activityState.label));
         }
-        return success(list);
+        return ApiResponse.ok(list);
     }
 
     /**
@@ -100,10 +104,9 @@ public class ActivityMptController extends BaseController {
      * @return 软件内部版本列表
      */
     @RequiresPermissions("ota:fota:activity:list")
-    @Override
     @GetMapping(value = "/{activityId}/listSoftwareBuildVersion")
-    public AjaxResult listSoftwareBuildVersion(@PathVariable Long activityId, @RequestParam(required = false) Integer group) {
-        logger.info("管理后台用户[{}]列出升级活动[{}]下软件零件版本", SecurityUtils.getUsername(), activityId);
+    public ApiResponse<Map<String, Object>> listSoftwareBuildVersion(@PathVariable Long activityId, @RequestParam(required = false) Integer group) {
+        log.info("管理后台用户[{}]列出升级活动[{}]下软件零件版本", SecurityUtils.getUsername(), activityId);
         List<ActivitySoftwareBuildVersionPo> poList = activityAppService.listSoftwareBuildVersion(activityId);
         Set<Integer> groupSet = poList.stream().map(ActivitySoftwareBuildVersionPo::getVersionGroup).collect(Collectors.toSet());
         if (group == null) {
@@ -113,13 +116,14 @@ public class ActivityMptController extends BaseController {
         for (ActivitySoftwareBuildVersionPo po : poList) {
             if (po.getVersionGroup().intValue() == group) {
                 ActivitySoftwareBuildVersionMpt mpt = ActivitySoftwareBuildVersionMptAssembler.INSTANCE.fromPo(po);
-                SoftwareBuildVersionExService softwareBuildVersion = exSoftwareBuildVersionService.getInfo(mpt.getSoftwareBuildVersionId());
-                mpt.setDeviceCode(softwareBuildVersion.getDeviceCode());
-                mpt.setSoftwarePn(softwareBuildVersion.getSoftwarePn());
-                mpt.setSoftwarePartName(softwareBuildVersion.getSoftwarePartName());
-                mpt.setSoftwarePartVer(softwareBuildVersion.getSoftwarePartVer());
+                SoftwareBuildVersionPo softwareBuildVersion = softwareBuildVersionAppService.getSoftwareBuildVersionById(mpt.getSoftwareBuildVersionId());
+                SoftwareBuildVersionExService softwareBuildVersionExService = SoftwareBuildVersionExServiceAssembler.INSTANCE.fromPo(softwareBuildVersion);
+                mpt.setDeviceCode(softwareBuildVersionExService.getDeviceCode());
+                mpt.setSoftwarePn(softwareBuildVersionExService.getSoftwarePn());
+                mpt.setSoftwarePartName(softwareBuildVersionExService.getSoftwarePartName());
+                mpt.setSoftwarePartVer(softwareBuildVersionExService.getSoftwarePartVer());
                 mpt.setSoftwareBuildVer(softwareBuildVersion.getSoftwareBuildVer());
-                mpt.setSoftwareSource(softwareBuildVersion.getSoftwareSource());
+                mpt.setSoftwareSource(softwareBuildVersion.getSoftwareSource() != null ? Integer.parseInt(softwareBuildVersion.getSoftwareSource()) : null);
                 mptList.add(mpt);
             }
         }
@@ -127,7 +131,7 @@ public class ActivityMptController extends BaseController {
         map.put("group", group);
         map.put("groups", groupSet);
         map.put("list", mptList);
-        return success(map);
+        return ApiResponse.ok(map);
     }
 
     /**
@@ -137,21 +141,23 @@ public class ActivityMptController extends BaseController {
      * @return 兼容零件号列表
      */
     @RequiresPermissions("ota:fota:activity:list")
-    @Override
     @GetMapping(value = "/{activityId}/listCompatiblePn")
-    public AjaxResult listCompatiblePn(@PathVariable Long activityId) {
-        logger.info("管理后台用户[{}]列出升级活动[{}]下兼容零件号", SecurityUtils.getUsername(), activityId);
+    public ApiResponse<List<ActivityCompatiblePnMpt>> listCompatiblePn(@PathVariable Long activityId) {
+        log.info("管理后台用户[{}]列出升级活动[{}]下兼容零件号", SecurityUtils.getUsername(), activityId);
         List<ActivityCompatiblePnPo> poList = activityAppService.listCompatiblePn(activityId);
         List<ActivityCompatiblePnMpt> mptList = ActivityCompatiblePnMptAssembler.INSTANCE.fromPoList(poList);
         mptList.forEach(mpt -> {
-            CompatiblePnExService compatiblePn = exCompatiblePnService.getInfo(mpt.getCompatiblePnId());
-            mpt.setType(compatiblePn.getType());
-            mpt.setDeviceCode(compatiblePn.getDeviceCode());
-            mpt.setPn(compatiblePn.getPn());
-            mpt.setCompatiblePn(compatiblePn.getCompatiblePn());
-            mpt.setDescription(compatiblePn.getDescription());
+            CompatiblePnPo compatiblePn = compatiblePnAppService.getCompatiblePnById(mpt.getCompatiblePnId());
+            if (compatiblePn != null) {
+                CompatiblePnExService compatiblePnExService = CompatiblePnExServiceAssembler.INSTANCE.fromPo(compatiblePn);
+                mpt.setType(compatiblePnExService.getType());
+                mpt.setDeviceCode(compatiblePnExService.getDeviceCode());
+                mpt.setPn(compatiblePnExService.getPn());
+                mpt.setCompatiblePn(compatiblePnExService.getCompatiblePn());
+                mpt.setDescription(compatiblePnExService.getDescription());
+            }
         });
-        return success(mptList);
+        return ApiResponse.ok(mptList);
     }
 
     /**
@@ -161,20 +167,14 @@ public class ActivityMptController extends BaseController {
      * @return 固定配置字列表
      */
     @RequiresPermissions("ota:fota:activity:list")
-    @Override
     @GetMapping(value = "/{activityId}/listFixedConfigWord")
-    public AjaxResult listFixedConfigWord(@PathVariable Long activityId) {
-        logger.info("管理后台用户[{}]列出升级活动[{}]下固定配置字", SecurityUtils.getUsername(), activityId);
+    public ApiResponse<List<ActivityFixedConfigWordMpt>> listFixedConfigWord(@PathVariable Long activityId) {
+        log.info("管理后台用户[{}]列出升级活动[{}]下固定配置字", SecurityUtils.getUsername(), activityId);
         List<ActivityFixedConfigWordPo> poList = activityAppService.listFixedConfigWord(activityId);
         List<ActivityFixedConfigWordMpt> mptList = ActivityFixedConfigWordMptAssembler.INSTANCE.fromPoList(poList);
         mptList.forEach(mpt -> {
-            FixedConfigWordExService fixedConfigWord = exFixedConfigWordService.getInfo(mpt.getFixedConfigWordId());
-            mpt.setDeviceCode(fixedConfigWord.getDeviceCode());
-            mpt.setSoftwarePn(fixedConfigWord.getSoftwarePn());
-            mpt.setType(fixedConfigWord.getType());
-            mpt.setDescription(fixedConfigWord.getDescription());
         });
-        return success(mptList);
+        return ApiResponse.ok(mptList);
     }
 
     /**
@@ -185,10 +185,9 @@ public class ActivityMptController extends BaseController {
      */
     @Log(title = "升级活动管理", businessType = BusinessType.EXPORT)
     @RequiresPermissions("ota:fota:activity:export")
-    @Override
     @PostMapping("/export")
     public void export(HttpServletResponse response, ActivityMpt activity) {
-        logger.info("管理后台用户[{}]导出升级活动", SecurityUtils.getUsername());
+        log.info("管理后台用户[{}]导出升级活动", SecurityUtils.getUsername());
     }
 
     /**
@@ -198,12 +197,11 @@ public class ActivityMptController extends BaseController {
      * @return 升级活动
      */
     @RequiresPermissions("ota:fota:activity:query")
-    @Override
     @GetMapping(value = "/{activityId}")
-    public AjaxResult getInfo(@PathVariable Long activityId) {
-        logger.info("管理后台用户[{}]根据升级活动ID[{}]获取升级活动", SecurityUtils.getUsername(), activityId);
+    public ApiResponse<ActivityMpt> getInfo(@PathVariable Long activityId) {
+        log.info("管理后台用户[{}]根据升级活动ID[{}]获取升级活动", SecurityUtils.getUsername(), activityId);
         ActivityPo activityPo = activityAppService.getActivityById(activityId);
-        return success(ActivityMptAssembler.INSTANCE.fromPo(activityPo));
+        return ApiResponse.ok(ActivityMptAssembler.INSTANCE.fromPo(activityPo));
     }
 
     /**
@@ -214,10 +212,9 @@ public class ActivityMptController extends BaseController {
      */
     @Log(title = "升级活动管理", businessType = BusinessType.INSERT)
     @RequiresPermissions("ota:fota:activity:add")
-    @Override
     @PostMapping
-    public AjaxResult add(@Validated @RequestBody ActivityMpt activity) {
-        logger.info("管理后台用户[{}]新增升级活动[{}]", SecurityUtils.getUsername(), activity.getName());
+    public ApiResponse<Integer> add(@Validated @RequestBody ActivityMpt activity) {
+        log.info("管理后台用户[{}]新增升级活动[{}]", SecurityUtils.getUsername(), activity.getName());
         ActivityPo activityPo = ActivityMptAssembler.INSTANCE.toPo(activity);
         activityPo.setCreateBy(SecurityUtils.getUserId().toString());
         List<ActivitySoftwareBuildVersionPo> activitySoftwareBuildVersionPoList = null;
@@ -225,7 +222,7 @@ public class ActivityMptController extends BaseController {
             List<BaselineSoftwareBuildVersionExService> baselineSoftwareBuildVersionList = exBaselineService.listSoftwareBuildVersion(activityPo.getBaselineCode());
             activitySoftwareBuildVersionPoList = BaselineSoftwareBuildVersionExServiceAssembler.INSTANCE.toPoList(baselineSoftwareBuildVersionList);
         }
-        return toAjax(activityAppService.createActivity(activityPo, activitySoftwareBuildVersionPoList));
+        return ApiResponse.ok(activityAppService.createActivity(activityPo, activitySoftwareBuildVersionPoList));
     }
 
     /**
@@ -237,11 +234,10 @@ public class ActivityMptController extends BaseController {
      */
     @Log(title = "升级活动管理", businessType = BusinessType.UPDATE)
     @RequiresPermissions("ota:fota:activity:edit")
-    @Override
     @PostMapping(value = "/{activityId}/action/addSoftwareBuildVersion/{softwareBuildVersionIds}")
-    public AjaxResult addSoftwareBuildVersion(@PathVariable Long activityId, @PathVariable Long[] softwareBuildVersionIds) {
-        logger.info("管理后台用户[{}]新增升级活动[{}]关联的软件内部版本[{}]", SecurityUtils.getUsername(), activityId, softwareBuildVersionIds);
-        return toAjax(activityAppService.createSoftwareBuildVersion(activityId, softwareBuildVersionIds));
+    public ApiResponse<Integer> addSoftwareBuildVersion(@PathVariable Long activityId, @PathVariable Long[] softwareBuildVersionIds) {
+        log.info("管理后台用户[{}]新增升级活动[{}]关联的软件内部版本[{}]", SecurityUtils.getUsername(), activityId, softwareBuildVersionIds);
+        return ApiResponse.ok(activityAppService.createSoftwareBuildVersion(activityId, softwareBuildVersionIds));
     }
 
     /**
@@ -253,11 +249,10 @@ public class ActivityMptController extends BaseController {
      */
     @Log(title = "升级活动管理", businessType = BusinessType.UPDATE)
     @RequiresPermissions("ota:fota:activity:edit")
-    @Override
     @PostMapping(value = "/{activityId}/action/addCompatiblePn/{compatiblePnIds}")
-    public AjaxResult addCompatiblePn(@PathVariable Long activityId, @PathVariable Long[] compatiblePnIds) {
-        logger.info("管理后台用户[{}]新增升级活动[{}]关联的兼容零件号[{}]", SecurityUtils.getUsername(), activityId, compatiblePnIds);
-        return toAjax(activityAppService.createCompatiblePn(activityId, compatiblePnIds));
+    public ApiResponse<Integer> addCompatiblePn(@PathVariable Long activityId, @PathVariable Long[] compatiblePnIds) {
+        log.info("管理后台用户[{}]新增升级活动[{}]关联的兼容零件号[{}]", SecurityUtils.getUsername(), activityId, compatiblePnIds);
+        return ApiResponse.ok(activityAppService.createCompatiblePn(activityId, compatiblePnIds));
     }
 
     /**
@@ -269,11 +264,10 @@ public class ActivityMptController extends BaseController {
      */
     @Log(title = "升级活动管理", businessType = BusinessType.UPDATE)
     @RequiresPermissions("ota:fota:activity:edit")
-    @Override
     @PostMapping(value = "/{activityId}/action/addFixedConfigWord/{fixedConfigWordIds}")
-    public AjaxResult addFixedConfigWord(@PathVariable Long activityId, @PathVariable Long[] fixedConfigWordIds) {
-        logger.info("管理后台用户[{}]新增升级活动[{}]关联的固定配置字[{}]", SecurityUtils.getUsername(), activityId, fixedConfigWordIds);
-        return toAjax(activityAppService.createFixedConfigWord(activityId, fixedConfigWordIds));
+    public ApiResponse<Integer> addFixedConfigWord(@PathVariable Long activityId, @PathVariable Long[] fixedConfigWordIds) {
+        log.info("管理后台用户[{}]新增升级活动[{}]关联的固定配置字[{}]", SecurityUtils.getUsername(), activityId, fixedConfigWordIds);
+        return ApiResponse.ok(activityAppService.createFixedConfigWord(activityId, fixedConfigWordIds));
     }
 
     /**
@@ -284,13 +278,12 @@ public class ActivityMptController extends BaseController {
      */
     @Log(title = "升级活动管理", businessType = BusinessType.UPDATE)
     @RequiresPermissions("ota:fota:activity:edit")
-    @Override
     @PutMapping
-    public AjaxResult edit(@Validated @RequestBody ActivityMpt activity) {
-        logger.info("管理后台用户[{}]修改保存升级活动[{}]", SecurityUtils.getUsername(), activity.getName());
+    public ApiResponse<Integer> edit(@Validated @RequestBody ActivityMpt activity) {
+        log.info("管理后台用户[{}]修改保存升级活动[{}]", SecurityUtils.getUsername(), activity.getName());
         ActivityPo activityPo = ActivityMptAssembler.INSTANCE.toPo(activity);
         activityPo.setModifyBy(SecurityUtils.getUserId().toString());
-        return toAjax(activityAppService.modifyActivity(activityPo));
+        return ApiResponse.ok(activityAppService.modifyActivity(activityPo));
     }
 
     /**
@@ -304,12 +297,11 @@ public class ActivityMptController extends BaseController {
      */
     @Log(title = "升级活动管理", businessType = BusinessType.UPDATE)
     @RequiresPermissions("ota:fota:activity:edit")
-    @Override
     @PostMapping(value = "/{activityId}/action/editSoftwareBuildVersion/{softwareBuildVersionIds}")
-    public AjaxResult editSoftwareBuildVersion(@PathVariable Long activityId, @PathVariable Long[] softwareBuildVersionIds,
-                                               @RequestParam Integer[] sorts, @RequestParam Integer[] groups) {
-        logger.info("管理后台用户[{}]修改升级活动[{}]关联的软件内部版本[{}]", SecurityUtils.getUsername(), activityId, softwareBuildVersionIds);
-        return success(activityAppService.modifyActivitySoftwareBuildVersion(activityId, softwareBuildVersionIds, sorts, groups));
+    public ApiResponse<Integer> editSoftwareBuildVersion(@PathVariable Long activityId, @PathVariable Long[] softwareBuildVersionIds,
+                                                         @RequestParam Integer[] sorts, @RequestParam Integer[] groups) {
+        log.info("管理后台用户[{}]修改升级活动[{}]关联的软件内部版本[{}]", SecurityUtils.getUsername(), activityId, softwareBuildVersionIds);
+        return ApiResponse.ok(activityAppService.modifyActivitySoftwareBuildVersion(activityId, softwareBuildVersionIds, sorts, groups));
     }
 
     /**
@@ -321,10 +313,9 @@ public class ActivityMptController extends BaseController {
      */
     @Log(title = "升级活动管理", businessType = BusinessType.UPDATE)
     @RequiresPermissions("ota:fota:activity:submit")
-    @Override
     @PostMapping("/{activityId}/action/submit")
-    public AjaxResult submit(@PathVariable Long activityId, @Validated @RequestBody ActivityMpt activity) {
-        logger.info("管理后台用户[{}]提交升级活动[{}]", SecurityUtils.getUsername(), activityId);
+    public ApiResponse<Integer> submit(@PathVariable Long activityId, @Validated @RequestBody ActivityMpt activity) {
+        log.info("管理后台用户[{}]提交升级活动[{}]", SecurityUtils.getUsername(), activityId);
         if (activity == null) {
             activity = ActivityMpt.builder().build();
         }
@@ -334,7 +325,7 @@ public class ActivityMptController extends BaseController {
         ActivityDo activityDo = activityRepository.getById(activityPo.getId()).orElseThrow(() -> new ActivityNotExistException(activityPo.getId()));
         int result = activityDo.submit(activityPo);
         activityRepository.save(activityDo);
-        return toAjax(result);
+        return ApiResponse.ok(result);
     }
 
     /**
@@ -346,14 +337,13 @@ public class ActivityMptController extends BaseController {
      */
     @Log(title = "升级活动管理", businessType = BusinessType.UPDATE)
     @RequiresPermissions("ota:fota:activity:audit")
-    @Override
     @PostMapping("/{activityId}/action/audit")
-    public AjaxResult audit(@PathVariable Long activityId, @Validated @RequestBody ActivityAuditMpt activityAudit) {
-        logger.info("管理后台用户[{}]审核升级活动[{}]", SecurityUtils.getUsername(), activityId);
+    public ApiResponse<Integer> audit(@PathVariable Long activityId, @Validated @RequestBody ActivityAuditMpt activityAudit) {
+        log.info("管理后台用户[{}]审核升级活动[{}]", SecurityUtils.getUsername(), activityId);
         ActivityDo activityDo = activityRepository.getById(activityId).orElseThrow(() -> new ActivityNotExistException(activityId));
         int result = activityDo.audit(activityAudit.getAudit(), activityAudit.getReason());
         activityRepository.save(activityDo);
-        return toAjax(result);
+        return ApiResponse.ok(result);
     }
 
     /**
@@ -364,15 +354,14 @@ public class ActivityMptController extends BaseController {
      */
     @Log(title = "升级活动管理", businessType = BusinessType.UPDATE)
     @RequiresPermissions("ota:fota:activity:release")
-    @Override
     @PostMapping("/{activityId}/action/release")
-    public AjaxResult release(@PathVariable Long activityId) {
-        logger.info("管理后台用户[{}]发布升级活动[{}]", SecurityUtils.getUsername(), activityId);
+    public ApiResponse<Integer> release(@PathVariable Long activityId) {
+        log.info("管理后台用户[{}]发布升级活动[{}]", SecurityUtils.getUsername(), activityId);
         ActivityDo activityDo = activityRepository.getById(activityId).orElseThrow(() -> new ActivityNotExistException(activityId));
         int result = activityDo.release();
         activityRepository.save(activityDo);
         cacheService.addReleaseActivity(activityDo);
-        return toAjax(result);
+        return ApiResponse.ok(result);
     }
 
     /**
@@ -383,15 +372,14 @@ public class ActivityMptController extends BaseController {
      */
     @Log(title = "升级活动管理", businessType = BusinessType.UPDATE)
     @RequiresPermissions("ota:fota:task:cancel")
-    @Override
     @PostMapping("/{activityId}/action/cancel")
-    public AjaxResult cancel(@PathVariable Long activityId) {
-        logger.info("管理后台用户[{}]取消升级活动[{}]", SecurityUtils.getUsername(), activityId);
+    public ApiResponse<Integer> cancel(@PathVariable Long activityId) {
+        log.info("管理后台用户[{}]取消升级活动[{}]", SecurityUtils.getUsername(), activityId);
         ActivityDo activityDo = activityRepository.getById(activityId).orElseThrow(() -> new ActivityNotExistException(activityId));
         int result = activityDo.cancel();
         activityRepository.save(activityDo);
         cacheService.removeReleaseActivity(activityDo);
-        return toAjax(result);
+        return ApiResponse.ok(result);
     }
 
     /**
@@ -402,11 +390,10 @@ public class ActivityMptController extends BaseController {
      */
     @Log(title = "升级活动管理", businessType = BusinessType.DELETE)
     @RequiresPermissions("ota:fota:activity:remove")
-    @Override
     @DeleteMapping("/{activityIds}")
-    public AjaxResult remove(@PathVariable Long[] activityIds) {
-        logger.info("管理后台用户[{}]删除升级活动[{}]", SecurityUtils.getUsername(), activityIds);
-        return toAjax(activityAppService.deleteActivityByIds(activityIds));
+    public ApiResponse<Integer> remove(@PathVariable Long[] activityIds) {
+        log.info("管理后台用户[{}]删除升级活动[{}]", SecurityUtils.getUsername(), activityIds);
+        return ApiResponse.ok(activityAppService.deleteActivityByIds(activityIds));
     }
 
     /**
@@ -418,11 +405,10 @@ public class ActivityMptController extends BaseController {
      */
     @Log(title = "升级活动管理", businessType = BusinessType.UPDATE)
     @RequiresPermissions("ota:fota:activity:edit")
-    @Override
     @PostMapping(value = "/{activityId}/action/removeSoftwareBuildVersion/{softwareBuildVersionIds}")
-    public AjaxResult removeSoftwareBuildVersion(@PathVariable Long activityId, @PathVariable Long[] softwareBuildVersionIds) {
-        logger.info("管理后台用户[{}]删除升级活动[{}]关联的软件内部版本[{}]", SecurityUtils.getUsername(), activityId, softwareBuildVersionIds);
-        return toAjax(activityAppService.deleteSoftwareBuildVersion(activityId, softwareBuildVersionIds));
+    public ApiResponse<Integer> removeSoftwareBuildVersion(@PathVariable Long activityId, @PathVariable Long[] softwareBuildVersionIds) {
+        log.info("管理后台用户[{}]删除升级活动[{}]关联的软件内部版本[{}]", SecurityUtils.getUsername(), activityId, softwareBuildVersionIds);
+        return ApiResponse.ok(activityAppService.deleteSoftwareBuildVersion(activityId, softwareBuildVersionIds));
     }
 
     /**
@@ -434,11 +420,10 @@ public class ActivityMptController extends BaseController {
      */
     @Log(title = "升级活动管理", businessType = BusinessType.UPDATE)
     @RequiresPermissions("ota:fota:activity:edit")
-    @Override
     @PostMapping(value = "/{activityId}/action/removeCompatiblePn/{compatiblePnIds}")
-    public AjaxResult removeCompatiblePn(@PathVariable Long activityId, @PathVariable Long[] compatiblePnIds) {
-        logger.info("管理后台用户[{}]删除升级活动[{}]关联的兼容零件号[{}]", SecurityUtils.getUsername(), activityId, compatiblePnIds);
-        return toAjax(activityAppService.deleteCompatiblePn(activityId, compatiblePnIds));
+    public ApiResponse<Integer> removeCompatiblePn(@PathVariable Long activityId, @PathVariable Long[] compatiblePnIds) {
+        log.info("管理后台用户[{}]删除升级活动[{}]关联的兼容零件号[{}]", SecurityUtils.getUsername(), activityId, compatiblePnIds);
+        return ApiResponse.ok(activityAppService.deleteCompatiblePn(activityId, compatiblePnIds));
     }
 
     /**
@@ -450,11 +435,10 @@ public class ActivityMptController extends BaseController {
      */
     @Log(title = "升级活动管理", businessType = BusinessType.UPDATE)
     @RequiresPermissions("ota:fota:activity:edit")
-    @Override
     @PostMapping(value = "/{activityId}/action/removeFixedConfigWord/{fixedConfigWordIds}")
-    public AjaxResult removeFixedConfigWord(@PathVariable Long activityId, @PathVariable Long[] fixedConfigWordIds) {
-        logger.info("管理后台用户[{}]删除升级活动[{}]关联的固定配置字[{}]", SecurityUtils.getUsername(), activityId, fixedConfigWordIds);
-        return toAjax(activityAppService.deleteFixedConfigWord(activityId, fixedConfigWordIds));
+    public ApiResponse<Integer> removeFixedConfigWord(@PathVariable Long activityId, @PathVariable Long[] fixedConfigWordIds) {
+        log.info("管理后台用户[{}]删除升级活动[{}]关联的固定配置字[{}]", SecurityUtils.getUsername(), activityId, fixedConfigWordIds);
+        return ApiResponse.ok(activityAppService.deleteFixedConfigWord(activityId, fixedConfigWordIds));
     }
 
     /**
@@ -466,11 +450,10 @@ public class ActivityMptController extends BaseController {
      */
     @Log(title = "升级活动管理", businessType = BusinessType.UPDATE)
     @RequiresPermissions("ota:fota:activity:edit")
-    @Override
     @PostMapping(value = "/{activityId}/action/regroupSoftwareBuildVersion")
-    public AjaxResult regroupSoftwareBuildVersion(@PathVariable Long activityId, @Validated @RequestBody List<ActivitySoftwareBuildVersionMpt> list) {
-        logger.info("管理后台用户[{}]调整基线[{}]关联的软件内部版本组", SecurityUtils.getUsername(), activityId);
-        return toAjax(activityAppService.regroupActivitySoftwareBuildVersion(activityId, list));
+    public ApiResponse<Integer> regroupSoftwareBuildVersion(@PathVariable Long activityId, @Validated @RequestBody List<ActivitySoftwareBuildVersionMpt> list) {
+        log.info("管理后台用户[{}]调整基线[{}]关联的软件内部版本组", SecurityUtils.getUsername(), activityId);
+        return ApiResponse.ok(activityAppService.regroupActivitySoftwareBuildVersion(activityId, list));
     }
 
     /**
@@ -482,10 +465,9 @@ public class ActivityMptController extends BaseController {
      */
     @Log(title = "升级活动管理", businessType = BusinessType.UPDATE)
     @RequiresPermissions("ota:fota:activity:edit")
-    @Override
     @PostMapping(value = "/{activityId}/action/resortSoftwareBuildVersion")
-    public AjaxResult resortSoftwareBuildVersion(@PathVariable Long activityId, @Validated @RequestBody List<ActivitySoftwareBuildVersionMpt> list) {
-        logger.info("管理后台用户[{}]重排序基线[{}]关联的软件内部版本", SecurityUtils.getUsername(), activityId);
-        return toAjax(activityAppService.resortActivitySoftwareBuildVersion(activityId, list));
+    public ApiResponse<Integer> resortSoftwareBuildVersion(@PathVariable Long activityId, @Validated @RequestBody List<ActivitySoftwareBuildVersionMpt> list) {
+        log.info("管理后台用户[{}]重排序基线[{}]关联的软件内部版本", SecurityUtils.getUsername(), activityId);
+        return ApiResponse.ok(activityAppService.resortActivitySoftwareBuildVersion(activityId, list));
     }
 }

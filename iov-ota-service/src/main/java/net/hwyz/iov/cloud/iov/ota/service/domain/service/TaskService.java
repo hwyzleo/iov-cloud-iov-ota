@@ -1,24 +1,33 @@
-package net.hwyz.iov.cloud.iov.ota.service.domain.task.service;
+package net.hwyz.iov.cloud.iov.ota.service.domain.service;
 
-import net.hwyz.iov.cloud.iov.ota.service.domain.task.model.TaskDo;
-import net.hwyz.iov.cloud.iov.ota.service.domain.vehicle.model.VehicleDo;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskDo;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.VehicleDo;
+import net.hwyz.iov.cloud.iov.ota.service.domain.repository.TaskRepository;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.cache.CacheService;
+import org.springframework.stereotype.Service;
 
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * 升级任务领域服务接口
+ * 升级任务领域服务接口实现类
  *
  * @author hwyz_leo
  */
-public interface TaskService {
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class TaskService {
 
-    /**
-     * 获取车辆升级任务
-     * 已发布的最早的未完成的任务
-     *
-     * @param vehicle 车辆
-     * @return 升级任务
-     */
-    Optional<TaskDo> getVehicleTask(VehicleDo vehicle);
+    private final CacheService cacheService;
+    private final TaskRepository taskRepository;
+
+    public Optional<TaskDo> getVehicleTask(VehicleDo vehicle) {
+        AtomicReference<TaskDo> task = new AtomicReference<>();
+        cacheService.getVehicleTask(vehicle.getId()).flatMap(taskRepository::getById).ifPresent(task::set);
+        return Optional.ofNullable(task.get());
+    }
 
 }

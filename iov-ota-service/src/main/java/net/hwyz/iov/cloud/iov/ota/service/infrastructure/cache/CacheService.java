@@ -1,8 +1,9 @@
 package net.hwyz.iov.cloud.iov.ota.service.infrastructure.cache;
 
-import net.hwyz.iov.cloud.iov.ota.service.domain.activity.model.ActivityDo;
-import net.hwyz.iov.cloud.iov.ota.service.domain.task.model.TaskDo;
-import net.hwyz.iov.cloud.iov.ota.service.domain.vehicle.model.VehicleDo;
+
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.ActivityDo;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskDo;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.VehicleDo;
 
 import java.util.List;
 import java.util.Optional;

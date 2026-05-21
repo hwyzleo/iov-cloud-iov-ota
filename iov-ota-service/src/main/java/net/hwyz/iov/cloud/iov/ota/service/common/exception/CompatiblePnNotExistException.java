@@ -1,7 +1,6 @@
 package net.hwyz.iov.cloud.iov.ota.service.common.exception;
 
 import lombok.extern.slf4j.Slf4j;
-import net.hwyz.iov.cloud.iov.ota.service.domain.exception.PotaBaseException;
 
 /**
  * 兼容零件号不存在异常
@@ -9,7 +8,7 @@ import net.hwyz.iov.cloud.iov.ota.service.domain.exception.PotaBaseException;
  * @author hwyz_leo
  */
 @Slf4j
-public class CompatiblePnNotExistException extends PotaBaseException {
+public class CompatiblePnNotExistException extends OtaBaseException {
 
     public CompatiblePnNotExistException(Long compatiblePnId) {
         super(ERROR_CODE_COMPATIBLE_PN_NOT_EXIST);

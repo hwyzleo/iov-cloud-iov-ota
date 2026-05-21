@@ -2,7 +2,7 @@ package net.hwyz.iov.cloud.iov.ota.service.application.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.dao.VehStatusDao;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.VehStatusMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.VehStatusPo;
 import org.springframework.stereotype.Service;
 
@@ -21,7 +21,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class VehicleAppService {
 
-    private final VehStatusDao vehStatusDao;
+    private final VehStatusMapper vehStatusDao;
 
     /**
      * 查询车辆信息

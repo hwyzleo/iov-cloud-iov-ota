@@ -1,17 +1,17 @@
-package net.hwyz.iov.cloud.iov.ota.service.facade.mpt;
+package net.hwyz.iov.cloud.iov.ota.service.adapter.web.controller.mpt;
 
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.hwyz.iov.cloud.framework.audit.annotation.Log;
 import net.hwyz.iov.cloud.framework.audit.enums.BusinessType;
-import net.hwyz.iov.cloud.framework.common.web.controller.BaseController;
-import net.hwyz.iov.cloud.framework.common.web.domain.AjaxResult;
-import net.hwyz.iov.cloud.framework.common.web.page.TableDataInfo;
+import net.hwyz.iov.cloud.framework.common.bean.ApiResponse;
+import net.hwyz.iov.cloud.framework.common.bean.PageResult;
 import net.hwyz.iov.cloud.framework.security.annotation.RequiresPermissions;
 import net.hwyz.iov.cloud.framework.security.util.SecurityUtils;
+import net.hwyz.iov.cloud.framework.web.controller.BaseController;
+import net.hwyz.iov.cloud.framework.web.util.PageUtil;
 import net.hwyz.iov.cloud.iov.ota.api.contract.ArticleMpt;
-import net.hwyz.iov.cloud.iov.ota.api.feign.mpt.ArticleMptApi;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.ArticleAppService;
 import net.hwyz.iov.cloud.iov.ota.service.facade.assembler.ArticleMptAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.ArticlePo;
@@ -40,14 +40,12 @@ public class ArticleMptController extends BaseController {
      * @return 文章列表
      */
     @RequiresPermissions("ota:fota:article:list")
-    @Override
     @GetMapping(value = "/list")
-    public TableDataInfo list(ArticleMpt article) {
-        logger.info("管理后台用户[{}]分页查询文章", SecurityUtils.getUsername());
+    public ApiResponse<PageResult<ArticleMpt>> list(ArticleMpt article) {
+        log.info("管理后台用户[{}]分页查询文章", SecurityUtils.getUsername());
         startPage();
         List<ArticlePo> articlePoList = articleAppService.search(article.getTitle(), article.getType(), getBeginTime(article), getEndTime(article));
-        List<ArticleMpt> articleMptList = ArticleMptAssembler.INSTANCE.fromPoList(articlePoList);
-        return getDataTable(articlePoList, articleMptList);
+        return ApiResponse.ok(getPageResult(PageUtil.convert(articlePoList, ArticleMptAssembler.INSTANCE::fromPo)));
     }
 
     /**
@@ -58,10 +56,9 @@ public class ArticleMptController extends BaseController {
      */
     @Log(title = "FOTA文章管理", businessType = BusinessType.EXPORT)
     @RequiresPermissions("ota:fota:article:export")
-    @Override
     @PostMapping("/export")
     public void export(HttpServletResponse response, ArticleMpt article) {
-        logger.info("管理后台用户[{}]导出文章", SecurityUtils.getUsername());
+        log.info("管理后台用户[{}]导出文章", SecurityUtils.getUsername());
     }
 
     /**
@@ -71,12 +68,11 @@ public class ArticleMptController extends BaseController {
      * @return 文章
      */
     @RequiresPermissions("ota:fota:article:query")
-    @Override
     @GetMapping(value = "/{articleId}")
-    public AjaxResult getInfo(@PathVariable Long articleId) {
-        logger.info("管理后台用户[{}]根据文章ID[{}]获取文章", SecurityUtils.getUsername(), articleId);
+    public ApiResponse<ArticleMpt> getInfo(@PathVariable Long articleId) {
+        log.info("管理后台用户[{}]根据文章ID[{}]获取文章", SecurityUtils.getUsername(), articleId);
         ArticlePo articlePo = articleAppService.getArticleById(articleId);
-        return success(ArticleMptAssembler.INSTANCE.fromPo(articlePo));
+        return ApiResponse.ok(ArticleMptAssembler.INSTANCE.fromPo(articlePo));
     }
 
     /**
@@ -87,13 +83,12 @@ public class ArticleMptController extends BaseController {
      */
     @Log(title = "FOTA文章管理", businessType = BusinessType.INSERT)
     @RequiresPermissions("ota:fota:article:add")
-    @Override
     @PostMapping
-    public AjaxResult add(@Validated @RequestBody ArticleMpt article) {
-        logger.info("管理后台用户[{}]新增文章[{}]", SecurityUtils.getUsername(), article.getTitle());
+    public ApiResponse<Integer> add(@Validated @RequestBody ArticleMpt article) {
+        log.info("管理后台用户[{}]新增文章[{}]", SecurityUtils.getUsername(), article.getTitle());
         ArticlePo articlePo = ArticleMptAssembler.INSTANCE.toPo(article);
         articlePo.setCreateBy(SecurityUtils.getUserId().toString());
-        return toAjax(articleAppService.createArticle(articlePo));
+        return ApiResponse.ok(articleAppService.createArticle(articlePo));
     }
 
     /**
@@ -104,13 +99,12 @@ public class ArticleMptController extends BaseController {
      */
     @Log(title = "FOTA文章管理", businessType = BusinessType.UPDATE)
     @RequiresPermissions("ota:fota:article:edit")
-    @Override
     @PutMapping
-    public AjaxResult edit(@Validated @RequestBody ArticleMpt article) {
-        logger.info("管理后台用户[{}]修改保存文章[{}]", SecurityUtils.getUsername(), article.getTitle());
+    public ApiResponse<Integer> edit(@Validated @RequestBody ArticleMpt article) {
+        log.info("管理后台用户[{}]修改保存文章[{}]", SecurityUtils.getUsername(), article.getTitle());
         ArticlePo articlePo = ArticleMptAssembler.INSTANCE.toPo(article);
         articlePo.setModifyBy(SecurityUtils.getUserId().toString());
-        return toAjax(articleAppService.modifyArticle(articlePo));
+        return ApiResponse.ok(articleAppService.modifyArticle(articlePo));
     }
 
     /**
@@ -121,10 +115,9 @@ public class ArticleMptController extends BaseController {
      */
     @Log(title = "FOTA文章管理", businessType = BusinessType.DELETE)
     @RequiresPermissions("ota:fota:article:remove")
-    @Override
     @DeleteMapping("/{articleIds}")
-    public AjaxResult remove(@PathVariable Long[] articleIds) {
-        logger.info("管理后台用户[{}]删除文章[{}]", SecurityUtils.getUsername(), articleIds);
-        return toAjax(articleAppService.deleteArticleByIds(articleIds));
+    public ApiResponse<Integer> remove(@PathVariable Long[] articleIds) {
+        log.info("管理后台用户[{}]删除文章[{}]", SecurityUtils.getUsername(), articleIds);
+        return ApiResponse.ok(articleAppService.deleteArticleByIds(articleIds));
     }
 }

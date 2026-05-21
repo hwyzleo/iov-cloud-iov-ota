@@ -1,4 +1,4 @@
-package net.hwyz.iov.cloud.iov.ota.api.contract.enums;
+package net.hwyz.iov.cloud.iov.ota.api.vo.enums;
 
 import lombok.AllArgsConstructor;
 

@@ -1,7 +1,7 @@
-package net.hwyz.iov.cloud.iov.ota.service.domain.vehicle.repository;
+package net.hwyz.iov.cloud.iov.ota.service.domain.repository;
 
 import net.hwyz.iov.cloud.framework.common.domain.BaseRepository;
-import net.hwyz.iov.cloud.iov.ota.service.domain.vehicle.model.VehicleDo;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.VehicleDo;
 
 /**
  * 车辆领域仓库接口

@@ -1,4 +1,4 @@
-package net.hwyz.iov.cloud.iov.ota.service.domain.activity.model;
+package net.hwyz.iov.cloud.iov.ota.service.domain.model.entity;
 
 import cn.hutool.core.util.StrUtil;
 import lombok.Getter;
@@ -6,8 +6,7 @@ import lombok.experimental.SuperBuilder;
 import lombok.extern.slf4j.Slf4j;
 import net.hwyz.iov.cloud.framework.common.domain.BaseDo;
 import net.hwyz.iov.cloud.framework.common.domain.DomainObj;
-import net.hwyz.iov.cloud.iov.ota.api.contract.enums.ActivityState;
-import net.hwyz.iov.cloud.iov.ota.service.domain.vehicle.model.VehicleDo;
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.ActivityState;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.ActivityPo;
 
 import java.util.Date;
@@ -250,7 +249,7 @@ public class ActivityDo extends BaseDo<Long> implements DomainObj<ActivityDo> {
             for (List<ActivitySoftwareBuildVersionVo> list : groupSoftwareBuildVersionMap.values()) {
                 for (ActivitySoftwareBuildVersionVo entity : list) {
                     if (entity.getCritical() && !vehicle.getDeviceMap().containsKey(entity.getSoftwareBuildVersion().getDeviceCode())) {
-                        logger.warn("车辆[{}]关键设备[{}]不满足升级条件", vehicle.getId(), entity.getSoftwareBuildVersion().getDeviceCode());
+                        log.warn("车辆[{}]关键设备[{}]不满足升级条件", vehicle.getId(), entity.getSoftwareBuildVersion().getDeviceCode());
                         return false;
                     }
                 }

@@ -4,16 +4,18 @@ import cn.hutool.core.collection.ConcurrentHashSet;
 import cn.hutool.core.util.HexUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.hwyz.iov.cloud.edd.vmd.api.service.VmdPartService;
+import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.SoftwarePackageExServiceAssembler;
+import net.hwyz.iov.cloud.iov.ota.service.application.service.SoftwareBuildVersionAppService;
+import net.hwyz.iov.cloud.iov.ota.service.common.exception.BaselineNotExistException;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.ConfigWordVo;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.DeviceInfoVo;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.SoftwarePackageVo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.SoftwareBuildVersionPackageMapper;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwareBuildVersionPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwarePackagePo;
 import net.hwyz.iov.cloud.ota.baseline.api.contract.BaselineSoftwareBuildVersionExService;
 import net.hwyz.iov.cloud.ota.baseline.api.feign.service.ExBaselineService;
-import net.hwyz.iov.cloud.iov.ota.service.domain.activity.model.ConfigWordVo;
-import net.hwyz.iov.cloud.iov.ota.service.domain.activity.model.SoftwarePackageVo;
-import net.hwyz.iov.cloud.iov.ota.service.domain.vehicle.model.DeviceInfoVo;
-import net.hwyz.iov.cloud.iov.ota.service.facade.assembler.SoftwarePackageExServiceAssembler;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.exception.BaselineNotExistException;
-import net.hwyz.iov.cloud.ota.pota.api.contract.SoftwareBuildVersionExService;
-import net.hwyz.iov.cloud.ota.pota.api.feign.service.ExSoftwareBuildVersionService;
-import net.hwyz.iov.cloud.tsp.vmd.api.feign.service.ExPartService;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
@@ -33,9 +35,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class FotaHelper {
 
-    private final ExPartService exPartService;
+    private final VmdPartService vmdPartService;
     private final ExBaselineService exBaselineService;
-    private final ExSoftwareBuildVersionService exSoftwareBuildVersionService;
+    private final SoftwareBuildVersionAppService softwareBuildVersionAppService;
+    private final SoftwareBuildVersionPackageMapper softwareBuildVersionPackageMapper;
 
     /**
      * 软件零件映射
@@ -51,7 +54,7 @@ public class FotaHelper {
      */
     @PostConstruct
     public void init() {
-        logger.info("初始化软件零件工具类");
+        log.info("初始化软件零件工具类");
         loadSoftwarePart();
     }
 
@@ -110,8 +113,19 @@ public class FotaHelper {
      * @return 软件内部版本包
      */
     public List<SoftwarePackageVo> getSoftwareBuildVersionPackages(String deviceCode, String softwarePn, String softwareBuildVer) {
-        SoftwareBuildVersionExService softwareBuildVersion = exSoftwareBuildVersionService.getInfo(deviceCode, softwarePn, softwareBuildVer);
-        return SoftwarePackageExServiceAssembler.INSTANCE.toVoList(softwareBuildVersion.getSoftwarePackageList());
+        SoftwareBuildVersionPo softwareBuildVersion = softwareBuildVersionAppService.getSoftwareBuildVersionByDeviceCodeAndSoftwarePnAndVersion(deviceCode, softwarePn, softwareBuildVer);
+        if (softwareBuildVersion == null) {
+            return List.of();
+        }
+        List<SoftwarePackagePo> packageList = softwareBuildVersionPackageMapper.selectPoBySoftwareBuildVersionId(softwareBuildVersion.getId())
+            .stream()
+            .map(pkgRel -> {
+                SoftwarePackagePo pkg = new SoftwarePackagePo();
+                pkg.setId(pkgRel.getSoftwarePackageId());
+                return pkg;
+            })
+            .toList();
+        return SoftwarePackageExServiceAssembler.INSTANCE.toVoList(SoftwarePackageExServiceAssembler.INSTANCE.fromPoList(packageList));
     }
 
     /**
@@ -131,11 +145,11 @@ public class FotaHelper {
                 continue;
             }
             if (startByte < 0 || startByte >= origin.length) {
-                logger.warn("起始字节索引超出范围：" + startByte + "，数组长度：" + origin.length);
+                log.warn("起始字节索引超出范围：" + startByte + "，数组长度：" + origin.length);
                 continue;
             }
             if (startBit < 0 || startBit > 7) {
-                logger.warn("起始位偏移非法（需0-7）：" + startBit);
+                log.warn("起始位偏移非法（需0-7）：" + startBit);
                 continue;
             }
             for (int i = 0; i < binaryValue.length(); i++) {
@@ -145,7 +159,7 @@ public class FotaHelper {
                 int bitValue = (bitChar == '1') ? 1 : 0;
 
                 if (targetByteIndex < 0 || targetByteIndex >= origin.length) {
-                    logger.warn("替换位超出字节数组范围：字节索引=" + targetByteIndex + "，数组长度=" + origin.length);
+                    log.warn("替换位超出字节数组范围：字节索引=" + targetByteIndex + "，数组长度=" + origin.length);
                     continue;
                 }
                 origin[targetByteIndex] = (byte) (origin[targetByteIndex] & ~(1 << bitOffset));
@@ -159,13 +173,13 @@ public class FotaHelper {
      * 加载所有软件零件
      */
     private void loadSoftwarePart() {
-        logger.info("加载所有软件零件");
-        exPartService.listAllFota(true).forEach(part -> {
-            if (!deviceSoftwarePartMap.containsKey(part.getDeviceCode())) {
-                deviceSoftwarePartMap.put(part.getDeviceCode(), new ConcurrentHashSet<>());
-            }
-            deviceSoftwarePartMap.get(part.getDeviceCode()).add(part.getPn());
-        });
+        log.info("加载所有软件零件");
+//        vmdPartService.listAllFota(true).forEach(part -> {
+//            if (!deviceSoftwarePartMap.containsKey(part.getDeviceCode())) {
+//                deviceSoftwarePartMap.put(part.getDeviceCode(), new ConcurrentHashSet<>());
+//            }
+//            deviceSoftwarePartMap.get(part.getDeviceCode()).add(part.getPn());
+//        });
     }
 
 }

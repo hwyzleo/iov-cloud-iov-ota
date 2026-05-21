@@ -1,4 +1,4 @@
-package net.hwyz.iov.cloud.iov.ota.service.domain.vehicle.model;
+package net.hwyz.iov.cloud.iov.ota.service.domain.model.entity;
 
 import lombok.Getter;
 import lombok.experimental.SuperBuilder;

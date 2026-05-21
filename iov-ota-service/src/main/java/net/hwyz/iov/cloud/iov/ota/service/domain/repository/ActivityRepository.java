@@ -1,7 +1,7 @@
-package net.hwyz.iov.cloud.iov.ota.service.domain.activity.repository;
+package net.hwyz.iov.cloud.iov.ota.service.domain.repository;
 
 import net.hwyz.iov.cloud.framework.common.domain.BaseRepository;
-import net.hwyz.iov.cloud.iov.ota.service.domain.activity.model.ActivityDo;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.ActivityDo;
 
 /**
  * 升级活动领域仓库接口

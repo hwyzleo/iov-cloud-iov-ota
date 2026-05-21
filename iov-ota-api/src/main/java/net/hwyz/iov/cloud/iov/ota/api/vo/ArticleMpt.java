@@ -1,7 +1,7 @@
 package net.hwyz.iov.cloud.iov.ota.api.contract;
 
 import lombok.*;
-import net.hwyz.iov.cloud.framework.common.web.domain.BaseRequest;
+import net.hwyz.iov.cloud.framework.common.bean.BaseRequest;
 
 import java.util.Date;
 

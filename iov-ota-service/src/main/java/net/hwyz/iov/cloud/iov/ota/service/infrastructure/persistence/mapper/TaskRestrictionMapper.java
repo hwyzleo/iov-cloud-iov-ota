@@ -1,4 +1,4 @@
-package net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.dao;
+package net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper;
 
 import net.hwyz.iov.cloud.framework.mysql.dao.BaseDao;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.TaskRestrictionPo;

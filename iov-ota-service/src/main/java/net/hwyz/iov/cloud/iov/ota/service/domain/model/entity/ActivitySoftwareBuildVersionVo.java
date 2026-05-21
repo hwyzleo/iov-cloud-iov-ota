@@ -1,4 +1,4 @@
-package net.hwyz.iov.cloud.iov.ota.service.domain.activity.model;
+package net.hwyz.iov.cloud.iov.ota.service.domain.model.entity;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

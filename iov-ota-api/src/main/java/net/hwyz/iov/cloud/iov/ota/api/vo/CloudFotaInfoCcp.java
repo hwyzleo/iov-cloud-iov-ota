@@ -1,4 +1,4 @@
-package net.hwyz.iov.cloud.iov.ota.api.contract;
+package net.hwyz.iov.cloud.iov.ota.api.vo;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

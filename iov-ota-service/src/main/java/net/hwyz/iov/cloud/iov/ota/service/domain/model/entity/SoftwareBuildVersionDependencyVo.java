@@ -1,10 +1,10 @@
-package net.hwyz.iov.cloud.iov.ota.service.domain.activity.model;
+package net.hwyz.iov.cloud.iov.ota.service.domain.model.entity;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import net.hwyz.iov.cloud.iov.ota.api.contract.enums.AdaptiveLevel;
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.AdaptiveLevel;
 
 import java.util.Date;
 

@@ -1,8 +1,8 @@
 package net.hwyz.iov.cloud.iov.ota.service.domain.factory;
 
-import net.hwyz.iov.cloud.iov.ota.service.domain.vehicle.model.VehicleDo;
+import net.hwyz.iov.cloud.edd.vmd.api.vo.response.VehicleExResponse;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.VehicleDo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.VehStatusPo;
-import net.hwyz.iov.cloud.tsp.vmd.api.contract.VehicleExService;
 import org.springframework.stereotype.Component;
 
 /**
@@ -19,7 +19,7 @@ public class VehicleFactory {
      * @param vehicleExService 对外服务车辆信息
      * @return 车辆领域对象
      */
-    public VehicleDo buildVehicle(VehicleExService vehicleExService) {
+    public VehicleDo buildVehicle(VehicleExResponse vehicleExService) {
         VehicleDo vehicleDo = VehicleDo.builder()
                 .id(vehicleExService.getVin())
                 .build();

@@ -1,24 +1,23 @@
-package net.hwyz.iov.cloud.iov.ota.service.facade.ccp;
+package net.hwyz.iov.cloud.iov.ota.service.adapter.web.controller.ccp;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.hwyz.iov.cloud.framework.common.bean.Response;
-import net.hwyz.iov.cloud.framework.common.web.controller.BaseController;
-import net.hwyz.iov.cloud.iov.ota.api.contract.CloudFotaInfoCcp;
+import net.hwyz.iov.cloud.framework.common.bean.ApiResponse;
+import net.hwyz.iov.cloud.framework.web.controller.BaseController;
 import net.hwyz.iov.cloud.iov.ota.api.contract.TaskVehicleProcessCcp;
 import net.hwyz.iov.cloud.iov.ota.api.contract.TaskVehicleStateCcp;
-import net.hwyz.iov.cloud.iov.ota.api.contract.VehicleFotaInfoCcp;
-import net.hwyz.iov.cloud.iov.ota.api.feign.ccp.FotaCcpService;
+import net.hwyz.iov.cloud.iov.ota.api.vo.CloudFotaInfoCcp;
+import net.hwyz.iov.cloud.iov.ota.api.vo.VehicleFotaInfoCcp;
+import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.DeviceInfoCcpAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.TaskVehicleAppService;
-import net.hwyz.iov.cloud.iov.ota.service.domain.activity.repository.ActivityRepository;
-import net.hwyz.iov.cloud.iov.ota.service.domain.task.service.TaskService;
-import net.hwyz.iov.cloud.iov.ota.service.domain.taskvehicle.repository.TaskVehicleRepository;
-import net.hwyz.iov.cloud.iov.ota.service.domain.vehicle.model.DeviceInfoVo;
-import net.hwyz.iov.cloud.iov.ota.service.domain.vehicle.model.VehicleDo;
-import net.hwyz.iov.cloud.iov.ota.service.domain.vehicle.repository.VehicleRepository;
-import net.hwyz.iov.cloud.iov.ota.service.facade.assembler.DeviceInfoCcpAssembler;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.DeviceInfoVo;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.VehicleDo;
+import net.hwyz.iov.cloud.iov.ota.service.domain.repository.ActivityRepository;
+import net.hwyz.iov.cloud.iov.ota.service.domain.repository.TaskVehicleRepository;
+import net.hwyz.iov.cloud.iov.ota.service.domain.repository.VehicleRepository;
+import net.hwyz.iov.cloud.iov.ota.service.domain.service.TaskService;
 import net.hwyz.iov.cloud.iov.ota.service.facade.assembler.TaskVehicleProcessCcpAssembler;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.exception.VehicleNotExistException;
+import net.hwyz.iov.cloud.iov.ota.service.common.exception.VehicleNotExistException;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.util.FotaHelper;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -34,7 +33,7 @@ import java.util.List;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping(value = "/ccp/fota")
-public class FotaCcpController extends BaseController implements FotaCcpService {
+public class CcpFotaController extends BaseController {
 
     private final TaskService taskService;
     private final VehicleRepository vehicleRepository;
@@ -50,10 +49,9 @@ public class FotaCcpController extends BaseController implements FotaCcpService 
      * @param vehicleFotaInfo 车辆升级信息
      * @return 云端升级信息
      */
-    @Override
     @PostMapping("/check")
-    public Response<CloudFotaInfoCcp> check(@RequestHeader String vin, @Validated @RequestBody VehicleFotaInfoCcp vehicleFotaInfo) {
-        logger.info("车辆[{}]检查车辆升级信息", vin);
+    public ApiResponse<CloudFotaInfoCcp> check(@RequestHeader String vin, @Validated @RequestBody VehicleFotaInfoCcp vehicleFotaInfo) {
+        log.info("车辆[{}]检查车辆升级信息", vin);
         // 处理车辆信息
         VehicleDo vehicle = vehicleRepository.getById(vin).orElseThrow(() -> new VehicleNotExistException(vin));
         List<DeviceInfoVo> deviceInfoList = DeviceInfoCcpAssembler.INSTANCE.toVoList(vehicleFotaInfo.getDeviceInfoList());
@@ -81,7 +79,7 @@ public class FotaCcpController extends BaseController implements FotaCcpService 
             });
         });
         vehicleRepository.save(vehicle);
-        return new Response<>(cloudFotaInfoCcp[0]);
+        return ApiResponse.ok(cloudFotaInfoCcp[0]);
     }
 
     /**
@@ -91,14 +89,13 @@ public class FotaCcpController extends BaseController implements FotaCcpService 
      * @param taskVehicleProcess 车辆升级任务过程
      * @return 上报结果
      */
-    @Override
     @PostMapping("/reportTaskProcess")
-    public Response<Void> reportTaskProcess(@RequestHeader String vin, @Validated @RequestBody TaskVehicleProcessCcp taskVehicleProcess) {
-        logger.info("车辆[{}]上报车辆升级任务过程", vin);
+    public ApiResponse<Void> reportTaskProcess(@RequestHeader String vin, @Validated @RequestBody TaskVehicleProcessCcp taskVehicleProcess) {
+        log.info("车辆[{}]上报车辆升级任务过程", vin);
         VehicleDo vehicle = vehicleRepository.getById(vin).orElseThrow(() -> new VehicleNotExistException(vin));
         taskService.getVehicleTask(vehicle).ifPresent(task -> {
             if (task.getId().longValue() != taskVehicleProcess.getTaskId()) {
-                logger.warn("车辆[{}]上报车辆升级任务状态任务ID不一致", vin);
+                log.warn("车辆[{}]上报车辆升级任务状态任务ID不一致", vin);
                 return;
             }
             taskVehicleRepository.getByTaskIdAndVin(task.getId(), vin).ifPresent(taskVehicle -> {
@@ -106,7 +103,7 @@ public class FotaCcpController extends BaseController implements FotaCcpService 
                 // TODO 整体结束时更新车辆零件版本
             });
         });
-        return new Response<>();
+        return ApiResponse.ok();
     }
 
     /**
@@ -116,14 +113,13 @@ public class FotaCcpController extends BaseController implements FotaCcpService 
      * @param taskVehicleState 车辆升级任务状态
      * @return 上报结果
      */
-    @Override
     @PostMapping("/reportTaskState")
-    public Response<Void> reportTaskState(String vin, TaskVehicleStateCcp taskVehicleState) {
-        logger.info("车辆[{}]上报车辆升级任务状态", vin);
+    public ApiResponse<Void> reportTaskState(String vin, TaskVehicleStateCcp taskVehicleState) {
+        log.info("车辆[{}]上报车辆升级任务状态", vin);
         VehicleDo vehicle = vehicleRepository.getById(vin).orElseThrow(() -> new VehicleNotExistException(vin));
         taskService.getVehicleTask(vehicle).ifPresent(task -> {
             if (task.getId().longValue() != taskVehicleState.getTaskId()) {
-                logger.warn("车辆[{}]上报车辆升级任务状态任务ID不一致", vin);
+                log.warn("车辆[{}]上报车辆升级任务状态任务ID不一致", vin);
                 return;
             }
             taskVehicleRepository.getByTaskIdAndVin(task.getId(), vin).ifPresent(taskVehicle -> {
@@ -131,6 +127,6 @@ public class FotaCcpController extends BaseController implements FotaCcpService 
                 taskVehicleRepository.save(taskVehicle);
             });
         });
-        return new Response<>();
+        return ApiResponse.ok();
     }
 }

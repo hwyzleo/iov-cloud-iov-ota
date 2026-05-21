@@ -3,12 +3,12 @@ package net.hwyz.iov.cloud.iov.ota.service.application.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.hwyz.iov.cloud.framework.common.util.ParamHelper;
-import net.hwyz.iov.cloud.iov.ota.api.contract.ActivitySoftwareBuildVersionMpt;
-import net.hwyz.iov.cloud.iov.ota.api.contract.enums.ActivityState;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.dao.ActivityCompatiblePnDao;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.dao.ActivityDao;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.dao.ActivityFixedConfigWordDao;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.dao.ActivitySoftwareBuildVersionDao;
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.ActivityState;
+import net.hwyz.iov.cloud.iov.ota.api.vo.ActivitySoftwareBuildVersionMpt;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityCompatiblePnMapper;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityFixedConfigWordMapper;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityMapper;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivitySoftwareBuildVersionMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.ActivityCompatiblePnPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.ActivityFixedConfigWordPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.repository.po.ActivityPo;
@@ -29,10 +29,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ActivityAppService {
 
-    private final ActivityDao activityDao;
-    private final ActivityCompatiblePnDao activityCompatiblePnDao;
-    private final ActivityFixedConfigWordDao activityFixedConfigWordDao;
-    private final ActivitySoftwareBuildVersionDao activitySoftwareBuildVersionDao;
+    private final ActivityMapper activityDao;
+    private final ActivityCompatiblePnMapper activityCompatiblePnDao;
+    private final ActivityFixedConfigWordMapper activityFixedConfigWordDao;
+    private final ActivitySoftwareBuildVersionMapper activitySoftwareBuildVersionDao;
 
     /**
      * 查询升级活动

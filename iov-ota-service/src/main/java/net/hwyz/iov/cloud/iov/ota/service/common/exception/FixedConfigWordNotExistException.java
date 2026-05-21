@@ -1,7 +1,6 @@
 package net.hwyz.iov.cloud.iov.ota.service.common.exception;
 
 import lombok.extern.slf4j.Slf4j;
-import net.hwyz.iov.cloud.iov.ota.service.domain.exception.PotaBaseException;
 
 /**
  * 固定配置字不存在异常
@@ -9,7 +8,7 @@ import net.hwyz.iov.cloud.iov.ota.service.domain.exception.PotaBaseException;
  * @author hwyz_leo
  */
 @Slf4j
-public class FixedConfigWordNotExistException extends PotaBaseException {
+public class FixedConfigWordNotExistException extends OtaBaseException {
 
     public FixedConfigWordNotExistException(Long fixedConfigWordId) {
         super(ERROR_CODE_FIXED_CONFIG_WORD_NOT_EXIST);

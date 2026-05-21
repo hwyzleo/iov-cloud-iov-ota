@@ -1,10 +1,10 @@
-package net.hwyz.iov.cloud.iov.ota.service.domain.task.model;
+package net.hwyz.iov.cloud.iov.ota.service.domain.model.entity;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import net.hwyz.iov.cloud.iov.ota.api.contract.enums.TaskRestrictionType;
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskRestrictionType;
 
 import java.util.Date;
 

@@ -1,13 +1,9 @@
-package net.hwyz.iov.cloud.iov.ota.service.domain.taskvehicle.model;
+package net.hwyz.iov.cloud.iov.ota.service.domain.model.entity;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import net.hwyz.iov.cloud.iov.ota.service.domain.activity.model.ConfigWordVo;
-import net.hwyz.iov.cloud.iov.ota.service.domain.activity.model.SoftwareBuildVersionDependencyVo;
-import net.hwyz.iov.cloud.iov.ota.service.domain.activity.model.SoftwareBuildVersionVo;
-import net.hwyz.iov.cloud.iov.ota.service.domain.activity.model.SoftwarePackageVo;
 
 import java.util.Date;
 import java.util.List;

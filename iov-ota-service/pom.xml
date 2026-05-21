@@ -55,29 +55,10 @@
             <artifactId>framework-kafka-starter</artifactId>
         </dependency>
 
-        <!-- 框架: 审计（FOTA 模块需要 @Log 注解） -->
-        <dependency>
-            <groupId>net.hwyz.iov.cloud.framework</groupId>
-            <artifactId>framework-audit-starter</artifactId>
-        </dependency>
-
-        <!-- 框架: 安全（FOTA 模块需要 @RequiresPermissions、SecurityUtils 等） -->
-        <dependency>
-            <groupId>net.hwyz.iov.cloud.framework</groupId>
-            <artifactId>framework-security-starter</artifactId>
-        </dependency>
-
         <!-- 外部服务: baseline-api（基线服务） -->
         <dependency>
             <groupId>net.hwyz.iov.cloud.ota</groupId>
             <artifactId>baseline-api</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
-        </dependency>
-
-        <!-- 外部服务: pota-api（预设 OTA 服务） -->
-        <dependency>
-            <groupId>net.hwyz.iov.cloud.ota</groupId>
-            <artifactId>pota-api</artifactId>
             <version>0.0.1-SNAPSHOT</version>
         </dependency>
     </dependencies>

@@ -2,10 +2,10 @@ package net.hwyz.iov.cloud.iov.ota.service.infrastructure.cache.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.hwyz.iov.cloud.iov.ota.api.contract.enums.TaskVehicleState;
-import net.hwyz.iov.cloud.iov.ota.service.domain.activity.model.ActivityDo;
-import net.hwyz.iov.cloud.iov.ota.service.domain.task.model.TaskDo;
-import net.hwyz.iov.cloud.iov.ota.service.domain.vehicle.model.VehicleDo;
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskVehicleState;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.ActivityDo;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskDo;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.VehicleDo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.cache.CacheService;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
