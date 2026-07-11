@@ -3,10 +3,10 @@ package net.hwyz.iov.cloud.iov.ota.service.adapter.web.controller.service;
 import cn.hutool.core.util.ObjUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.hwyz.iov.cloud.edd.vmd.api.service.VmdDeviceService;
 import net.hwyz.iov.cloud.edd.vmd.api.service.VmdPartService;
-import net.hwyz.iov.cloud.edd.vmd.api.vo.response.DeviceExResponse;
+import net.hwyz.iov.cloud.edd.vmd.api.service.VmdVehicleNodeService;
 import net.hwyz.iov.cloud.edd.vmd.api.vo.response.PartExResponse;
+import net.hwyz.iov.cloud.edd.vmd.api.vo.response.VehicleNodeExResponse;
 import net.hwyz.iov.cloud.iov.ota.api.vo.SoftwareBuildVersionDependencyExService;
 import net.hwyz.iov.cloud.iov.ota.api.vo.SoftwareBuildVersionExService;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.SoftwareBuildVersionAppService;
@@ -35,7 +35,7 @@ import java.util.List;
 public class SoftwareBuildVersionServiceController {
 
     private final VmdPartService vmdPartService;
-    private final VmdDeviceService vmdDeviceService;
+    private final VmdVehicleNodeService vmdVehicleNodeService;
     private final SoftwarePackageAppService softwarePackageAppService;
     private final SoftwareBuildVersionAppService softwareBuildVersionAppService;
 
@@ -51,16 +51,16 @@ public class SoftwareBuildVersionServiceController {
         if (ObjUtil.isNull(softwareBuildVersionPo)) {
             throw new SoftwareBuildVersionNotExistException(softwareBuildVersionId);
         }
-        PartExResponse part = vmdPartService.getByPn(softwareBuildVersionPo.getSoftwarePn());
+        PartExResponse part = vmdPartService.getByCode(softwareBuildVersionPo.getSoftwarePn());
         if (ObjUtil.isNull(part)) {
             throw new PartNotExistException(softwareBuildVersionPo.getSoftwarePn());
         }
         SoftwareBuildVersionExService softwareBuildVersionExService = SoftwareBuildVersionExServiceAssembler.INSTANCE.fromPo(softwareBuildVersionPo);
         softwareBuildVersionExService.setSoftwarePartName(part.getName());
-        DeviceExResponse device = vmdDeviceService.getByCode(part.getDeviceCode());
-        if (device != null) {
-            softwareBuildVersionExService.setSoftwarePartOta(device.getOtaSupport().contains("FOTA"));
-            softwareBuildVersionExService.setSoftwarePartLockUnlockSecurityComponent(device.getLockUnlockSecurityComponent() > 0);
+        VehicleNodeExResponse vehicleNode = vmdVehicleNodeService.getByCode(part.getVehicleNodeCode());
+        if (vehicleNode != null) {
+            softwareBuildVersionExService.setSoftwarePartOta(vehicleNode.getOtaSupport() != null && vehicleNode.getOtaSupport().contains("OTA"));
+            softwareBuildVersionExService.setSoftwarePartLockUnlockSecurityComponent(Boolean.TRUE.equals(vehicleNode.getCore()));
         }
         List<SoftwarePackagePo> softwarePackageList = softwarePackageAppService.listBySoftwareBuildVersionId(softwareBuildVersionId);
         softwareBuildVersionExService.setSoftwarePackageList(SoftwarePackageExServiceAssembler.INSTANCE.fromPoList(softwarePackageList));

@@ -11,11 +11,12 @@ import net.hwyz.iov.cloud.iov.ota.service.common.exception.BaselineNotExistExcep
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.ConfigWordVo;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.DeviceInfoVo;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.SoftwarePackageVo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.BaselineItemMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.SoftwareBuildVersionPackageMapper;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.BaselineItemPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwareBuildVersionPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwarePackagePo;
-import net.hwyz.iov.cloud.ota.baseline.api.contract.BaselineSoftwareBuildVersionExService;
-import net.hwyz.iov.cloud.ota.baseline.api.feign.service.ExBaselineService;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
@@ -36,7 +37,7 @@ import java.util.stream.Collectors;
 public class FotaHelper {
 
     private final VmdPartService vmdPartService;
-    private final ExBaselineService exBaselineService;
+    private final BaselineItemMapper baselineItemMapper;
     private final SoftwareBuildVersionAppService softwareBuildVersionAppService;
     private final SoftwareBuildVersionPackageMapper softwareBuildVersionPackageMapper;
 
@@ -44,10 +45,6 @@ public class FotaHelper {
      * 软件零件映射
      */
     private static final Map<String, Set<String>> deviceSoftwarePartMap = new ConcurrentHashMap<>();
-    /**
-     * 基线软件内部版本映射
-     */
-    private static final Map<String, Map<String, BaselineSoftwareBuildVersionExService>> baselineSoftwareBuildVersionMap = new ConcurrentHashMap<>();
 
     /**
      * 初始化
@@ -75,29 +72,30 @@ public class FotaHelper {
 
     /**
      * 判断设备是否与基线对齐
+     * <p>
+     * 从本地 MDM 投影表 tb_baseline_item 读取基线应装零件清单，
+     * 校验车辆各 OTA 设备的 deviceCode 与 softwarePn 是否与基线一致。
+     * 版本对齐校验由活动 tb_activity_target_version 在 check 主链路中完成（DSN-CR-002 §4.10）。
      *
      * @param baselineCode   基线编号
      * @param deviceInfoList 设备信息列表
      * @return 是否与基线对齐
      */
     public boolean isBaselineAlignment(String baselineCode, List<DeviceInfoVo> deviceInfoList) {
-        Map<String, BaselineSoftwareBuildVersionExService> softwarePartVersionMap = baselineSoftwareBuildVersionMap.get(baselineCode);
-        if (softwarePartVersionMap == null) {
-            List<BaselineSoftwareBuildVersionExService> baselineSoftwareBuildVersionList = exBaselineService.listSoftwareBuildVersion(baselineCode);
-            if (baselineSoftwareBuildVersionList == null) {
-                throw new BaselineNotExistException(baselineCode);
-            }
-            softwarePartVersionMap = baselineSoftwareBuildVersionList.stream()
-                    .collect(Collectors.toMap(BaselineSoftwareBuildVersionExService::getDeviceCode, softwarePartVersionEx -> softwarePartVersionEx));
-            baselineSoftwareBuildVersionMap.put(baselineCode, softwarePartVersionMap);
+        LambdaQueryWrapper<BaselineItemPo> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(BaselineItemPo::getBaselineCode, baselineCode);
+        List<BaselineItemPo> baselineItemList = baselineItemMapper.selectList(wrapper);
+        if (baselineItemList == null || baselineItemList.isEmpty()) {
+            throw new BaselineNotExistException(baselineCode);
         }
+        Map<String, BaselineItemPo> baselineItemMap = baselineItemList.stream()
+                .collect(Collectors.toMap(BaselineItemPo::getVehicleNodeCode, item -> item, (a, b) -> a));
         for (DeviceInfoVo deviceInfo : deviceInfoList) {
             if (!isOtaSoftwarePart(deviceInfo.getDeviceCode(), deviceInfo.getSoftwarePn())) {
                 continue;
             }
-            BaselineSoftwareBuildVersionExService deviceSoftwareBuildVersion = softwarePartVersionMap.get(deviceInfo.getDeviceCode());
-            if (deviceSoftwareBuildVersion == null || !deviceInfo.getSoftwarePn().equals(deviceSoftwareBuildVersion.getSoftwarePn())
-                    || !deviceInfo.getSoftwarePartVer().equals(deviceSoftwareBuildVersion.getSoftwarePartVer())) {
+            BaselineItemPo baselineItem = baselineItemMap.get(deviceInfo.getDeviceCode());
+            if (baselineItem == null || !deviceInfo.getSoftwarePn().equals(baselineItem.getPartCode())) {
                 return false;
             }
         }

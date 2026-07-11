@@ -24,3 +24,4 @@ spring:
           - application.yaml
           - mysql.yaml
           - redis.yaml
+          - kafka.yaml

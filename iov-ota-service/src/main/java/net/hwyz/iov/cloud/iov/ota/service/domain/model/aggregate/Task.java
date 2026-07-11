@@ -142,6 +142,22 @@ public class Task {
         
         log.info("任务[{}]已取消", id.getValue());
     }
+
+    /**
+     * 结束任务（到达endTime或全部车辆达终态）
+     * 前置守卫：state ∈ {RELEASED, PAUSED}
+     * 后置动作：state -> FINISHED, 移出已发布缓存, 生成任务报告
+     */
+    public void finish() {
+        if (this.state != TaskState.RELEASED && this.state != TaskState.PAUSED) {
+            throw new TaskStateException("只能在已发布或已暂停状态下结束任务");
+        }
+
+        this.state = TaskState.FINISHED;
+        pendingEvents.add(new TaskFinishedEvent(this.id, this.name));
+
+        log.info("任务[{}]已结束", id.getValue());
+    }
     
     public List<TaskEvent> getPendingEvents() {
         return new ArrayList<>(pendingEvents);

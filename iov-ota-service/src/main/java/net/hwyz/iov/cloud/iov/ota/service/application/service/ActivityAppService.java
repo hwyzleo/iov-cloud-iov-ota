@@ -9,10 +9,12 @@ import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.Acti
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityFixedConfigWordMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivitySoftwareBuildVersionMapper;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityTargetVersionMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityCompatiblePnPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityFixedConfigWordPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivitySoftwareBuildVersionPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityTargetVersionPo;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -33,6 +35,7 @@ public class ActivityAppService {
     private final ActivityCompatiblePnMapper activityCompatiblePnDao;
     private final ActivityFixedConfigWordMapper activityFixedConfigWordDao;
     private final ActivitySoftwareBuildVersionMapper activitySoftwareBuildVersionDao;
+    private final ActivityTargetVersionMapper activityTargetVersionDao;
 
     /**
      * 查询升级活动
@@ -79,7 +82,7 @@ public class ActivityAppService {
      * @return 兼容零件号列表
      */
     public List<ActivityFixedConfigWordPo> listFixedConfigWord(Long activityId) {
-        return activityFixedConfigWordDao.selectPoByExample(ActivityFixedConfigWordPo.builder().activityId(activityId).build());
+        return activityFixedConfigWordDao.selectPoWithConfigWordByActivityId(activityId);
     }
 
     /**
@@ -97,9 +100,11 @@ public class ActivityAppService {
      *
      * @param activity                         升级活动
      * @param activitySoftwareBuildVersionList 活动软件内部版本列表
+     * @param activityTargetVersionList        活动目标版本列表（基线活动从本地投影预填）
      * @return 结果
      */
-    public int createActivity(ActivityPo activity, List<ActivitySoftwareBuildVersionPo> activitySoftwareBuildVersionList) {
+    public int createActivity(ActivityPo activity, List<ActivitySoftwareBuildVersionPo> activitySoftwareBuildVersionList,
+                              List<ActivityTargetVersionPo> activityTargetVersionList) {
         activity.setState(ActivityState.PENDING.value);
         int result = activityDao.insertPo(activity);
         if (activitySoftwareBuildVersionList != null && !activitySoftwareBuildVersionList.isEmpty()) {
@@ -108,6 +113,12 @@ public class ActivityAppService {
                 po.setVersionGroup(0);
             });
             activitySoftwareBuildVersionDao.batchInsertPo(activitySoftwareBuildVersionList);
+        }
+        if (activityTargetVersionList != null && !activityTargetVersionList.isEmpty()) {
+            activityTargetVersionList.forEach(po -> {
+                po.setActivityId(activity.getId());
+                activityTargetVersionDao.insert(po);
+            });
         }
         return result;
     }
@@ -129,8 +140,11 @@ public class ActivityAppService {
                 list.add(ActivitySoftwareBuildVersionPo.builder()
                         .activityId(activityId)
                         .softwareBuildVersionId(softwareBuildVersionId)
+                        .critical(false)
+                        .ota(true)
                         .sort(0)
                         .versionGroup(0)
+                        .forceUpgrade(false)
                         .build());
             }
         }

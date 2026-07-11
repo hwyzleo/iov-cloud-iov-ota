@@ -50,4 +50,28 @@ public class ArticlePo extends BasePo {
      */
     @TableField("type")
     private Integer type;
+
+    /**
+     * 语言
+     */
+    @TableField("lang")
+    private String lang;
+
+    /**
+     * 版本
+     */
+    @TableField("version")
+    private String version;
+
+    /**
+     * 文章类型：RELEASE_NOTE / NOTICE / TERMS / PRIVACY
+     */
+    @TableField("article_type")
+    private String articleType;
+
+    /**
+     * 状态：DRAFT / PUBLISHED
+     */
+    @TableField("status")
+    private String status;
 }

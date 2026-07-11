@@ -63,9 +63,9 @@ public class ActivitySoftwareBuildVersionMpt extends BaseRequest {
     private String softwareBuildVer;
 
     /**
-     * 软件来源：1-BOM，2-OTA
+     * 软件来源：BOM/OTA
      */
-    private Integer softwareSource;
+    private String softwareSource;
 
     /**
      * 排序

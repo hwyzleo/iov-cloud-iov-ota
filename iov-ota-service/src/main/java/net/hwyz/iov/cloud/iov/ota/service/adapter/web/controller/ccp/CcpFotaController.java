@@ -86,7 +86,7 @@ public class CcpFotaController extends BaseController {
     }
 
     @PostMapping("/reportTaskState")
-    public ApiResponse<Void> reportTaskState(String vin, TaskVehicleStateCcp taskVehicleState) {
+    public ApiResponse<Void> reportTaskState(@RequestHeader String vin, @Validated @RequestBody TaskVehicleStateCcp taskVehicleState) {
         log.info("车辆[{}]上报车辆升级任务状态", vin);
         VehicleDo vehicle = vehicleRepository.getById(vin).orElseThrow(() -> new VehicleNotExistException(vin));
         taskService.getVehicleTask(vehicle).ifPresent(task -> {

@@ -44,4 +44,22 @@ public class ActivityFixedConfigWordPo extends BasePo {
      */
     @TableField("fixed_config_word_id")
     private Long fixedConfigWordId;
+
+    /**
+     * 配置字代码
+     */
+    @TableField(exist = false)
+    private String configWordCode;
+
+    /**
+     * 配置字名称
+     */
+    @TableField(exist = false)
+    private String configWordName;
+
+    /**
+     * 设备代码
+     */
+    @TableField(exist = false)
+    private String deviceCode;
 }

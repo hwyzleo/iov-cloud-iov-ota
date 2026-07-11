@@ -33,19 +33,19 @@ public class ActivityFixedConfigWordMpt extends BaseRequest {
     private Long fixedConfigWordId;
 
     /**
+     * 配置字代码
+     */
+    private String configWordCode;
+
+    /**
+     * 配置字名称
+     */
+    private String configWordName;
+
+    /**
      * 设备代码
      */
     private String deviceCode;
-
-    /**
-     * 软件零件号
-     */
-    private String softwarePn;
-
-    /**
-     * 分类
-     */
-    private Integer type;
 
     /**
      * 描述

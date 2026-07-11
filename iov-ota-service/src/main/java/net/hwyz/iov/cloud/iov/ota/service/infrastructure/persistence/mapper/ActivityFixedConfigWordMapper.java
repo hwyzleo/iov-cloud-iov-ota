@@ -26,6 +26,14 @@ public interface ActivityFixedConfigWordMapper extends BaseDao<ActivityFixedConf
     List<ActivityFixedConfigWordPo> selectPoByActivityId(Long activityId);
 
     /**
+     * 根据升级活动ID查询固定配置字关系（含配置字详情）
+     *
+     * @param activityId 升级活动ID
+     * @return 固定配置字关系（含配置字详情）
+     */
+    List<ActivityFixedConfigWordPo> selectPoWithConfigWordByActivityId(Long activityId);
+
+    /**
      * 批量物理删除指定活动ID下固定配置字关系
      *
      * @param activityId         升级活动ID

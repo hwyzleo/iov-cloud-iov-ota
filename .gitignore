@@ -70,7 +70,6 @@ target/
 MybatisPlusGenerator.java
 
 spec/
-AGENTS.md
 graphify-out
 .opencode
 docs/superpowers/

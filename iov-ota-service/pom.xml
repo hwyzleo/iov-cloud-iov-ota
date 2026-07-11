@@ -26,6 +26,16 @@
             <groupId>net.hwyz.iov.cloud.edd</groupId>
             <artifactId>edd-vmd-api</artifactId>
         </dependency>
+        <dependency>
+            <groupId>net.hwyz.iov.cloud.edd</groupId>
+            <artifactId>edd-mdm-api</artifactId>
+        </dependency>
+
+        <!-- 框架: Security（KMS签名/加密） -->
+        <dependency>
+            <groupId>net.hwyz.iov.cloud.framework</groupId>
+            <artifactId>framework-security-starter</artifactId>
+        </dependency>
 
         <!-- 框架: MySQL -->
         <dependency>
@@ -55,12 +65,6 @@
             <artifactId>framework-kafka-starter</artifactId>
         </dependency>
 
-        <!-- 外部服务: baseline-api（基线服务） -->
-        <dependency>
-            <groupId>net.hwyz.iov.cloud.ota</groupId>
-            <artifactId>baseline-api</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
-        </dependency>
     </dependencies>
 
 </project>
