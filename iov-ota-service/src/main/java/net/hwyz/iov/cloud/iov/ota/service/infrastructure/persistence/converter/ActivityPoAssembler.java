@@ -1,5 +1,7 @@
 package net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.converter;
 
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TypeApprovalAssessmentState;
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.UpgradePurpose;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.ActivityDo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskPo;
@@ -26,6 +28,8 @@ public interface ActivityPoAssembler {
      */
     @Mappings({
             @Mapping(target = "activityState", expression = "java(net.hwyz.iov.cloud.iov.ota.api.vo.enums.ActivityState.valOf(activityPo.getState()))"),
+            @Mapping(target = "upgradePurpose", expression = "java(net.hwyz.iov.cloud.iov.ota.api.vo.enums.UpgradePurpose.valOf(activityPo.getUpgradePurpose()))"),
+            @Mapping(target = "typeApprovalAssessmentState", expression = "java(net.hwyz.iov.cloud.iov.ota.api.vo.enums.TypeApprovalAssessmentState.valOf(activityPo.getTypeApprovalAssessmentState()))"),
             @Mapping(target = "state", ignore = true)
     })
     ActivityDo toDo(ActivityPo activityPo);
@@ -38,6 +42,8 @@ public interface ActivityPoAssembler {
      */
     @Mappings({
             @Mapping(target = "state", source = "activityState.value"),
+            @Mapping(target = "upgradePurpose", expression = "java(activityDo.getUpgradePurpose() != null ? activityDo.getUpgradePurpose().value : null)"),
+            @Mapping(target = "typeApprovalAssessmentState", expression = "java(activityDo.getTypeApprovalAssessmentState() != null ? activityDo.getTypeApprovalAssessmentState().value : null)"),
             @Mapping(target = "description", source = "description")
     })
     ActivityPo fromDo(ActivityDo activityDo);

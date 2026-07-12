@@ -17,6 +17,12 @@ import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.ActivityCompatib
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.ActivityFixedConfigWordMptAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.ActivityMptAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.ActivitySoftwareBuildVersionMptAssembler;
+import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.ActivityTargetVersionMptAssembler;
+import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.ActivityInstallOrderMptAssembler;
+import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.ActivityDependencyGroupMptAssembler;
+import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.ActivityApprovalMptAssembler;
+import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.ApprovedSwManifestMptAssembler;
+import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.RegulatoryFilingMptAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.CompatiblePnExServiceAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.SoftwareBuildVersionExServiceAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.ActivityAppService;
@@ -34,8 +40,15 @@ import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.Compatib
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwareBuildVersionPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityCompatiblePnPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityFixedConfigWordPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityApprovalPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityDependencyGroupPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityInstallOrderPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivitySoftwareBuildVersionPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityTargetVersionPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ApprovedSwManifestItemPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ApprovedSwManifestPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.RegulatoryFilingPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityTargetVersionPo;
 import net.hwyz.iov.cloud.iov.ota.api.vo.CompatiblePnExService;
 import org.springframework.validation.annotation.Validated;
@@ -477,5 +490,202 @@ public class MptActivityController extends BaseController {
     public ApiResponse<Integer> resortSoftwareBuildVersion(@PathVariable Long activityId, @Validated @RequestBody List<ActivitySoftwareBuildVersionMpt> list) {
         log.info("管理后台用户[{}]重排序基线[{}]关联的软件内部版本", SecurityUtils.getUsername(), activityId);
         return ApiResponse.ok(activityAppService.resortActivitySoftwareBuildVersion(activityId, list));
+    }
+
+    /**
+     * 查询活动多级审批记录
+     *
+     * @param activityId 升级活动ID
+     * @return 审批记录列表
+     */
+    @RequiresPermissions("ota:fota:activity:list")
+    @GetMapping(value = "/{activityId}/listApproval")
+    public ApiResponse<List<ActivityApprovalMpt>> listApproval(@PathVariable Long activityId) {
+        log.info("管理后台用户[{}]查询升级活动[{}]审批记录", SecurityUtils.getUsername(), activityId);
+        return ApiResponse.ok(ActivityApprovalMptAssembler.INSTANCE.fromPoList(activityAppService.listApprovals(activityId)));
+    }
+
+    /**
+     * 多级审批
+     * 串行流程：QUALITY -> PRODUCT -> SECURITY
+     *
+     * @param activityId    升级活动ID
+     * @param approvalStage 审批阶段
+     * @param result        审批结果 PASS / REJECT
+     * @param comment       审批意见
+     * @return 审批记录
+     */
+    @Log(title = "升级活动管理", businessType = BusinessType.UPDATE)
+    @RequiresPermissions("ota:fota:activity:audit")
+    @PostMapping("/{activityId}/action/approve")
+    public ApiResponse<ActivityApprovalMpt> approve(@PathVariable Long activityId,
+                                                    @RequestParam String approvalStage,
+                                                    @RequestParam String result,
+                                                    @RequestParam(required = false) String comment) {
+        log.info("管理后台用户[{}]审批升级活动[{}] 阶段[{}] 结果[{}]", SecurityUtils.getUsername(), activityId, approvalStage, result);
+        ActivityApprovalPo po = activityAppService.approveActivity(activityId, approvalStage,
+                SecurityUtils.getUserId().toString(), result, comment);
+        return ApiResponse.ok(ActivityApprovalMptAssembler.INSTANCE.fromPo(po));
+    }
+
+    /**
+     * 型式批准影响评估
+     *
+     * @param activityId 升级活动ID
+     * @return 评估状态
+     */
+    @Log(title = "升级活动管理", businessType = BusinessType.UPDATE)
+    @RequiresPermissions("ota:fota:activity:audit")
+    @PostMapping("/{activityId}/action/impactAssessment")
+    public ApiResponse<Map<String, Object>> impactAssessment(@PathVariable Long activityId) {
+        log.info("管理后台用户[{}]对升级活动[{}]进行型式批准影响评估", SecurityUtils.getUsername(), activityId);
+        var state = activityAppService.assessTypeApproval(activityId);
+        return ApiResponse.ok(Map.of("typeApprovalAssessmentState", state.value, "label", state.label));
+    }
+
+    // ==================== A1. 目标版本组合 ====================
+
+    @RequiresPermissions("ota:fota:activity:list")
+    @GetMapping(value = "/{activityId}/listTargetVersion")
+    public ApiResponse<List<ActivityTargetVersionMpt>> listTargetVersion(@PathVariable Long activityId) {
+        log.info("管理后台用户[{}]查询升级活动[{}]目标版本组合", SecurityUtils.getUsername(), activityId);
+        return ApiResponse.ok(ActivityTargetVersionMptAssembler.INSTANCE.fromPoList(activityAppService.listTargetVersion(activityId)));
+    }
+
+    @Log(title = "升级活动管理", businessType = BusinessType.UPDATE)
+    @RequiresPermissions("ota:fota:activity:edit")
+    @PostMapping(value = "/{activityId}/action/saveTargetVersion")
+    public ApiResponse<Integer> saveTargetVersion(@PathVariable Long activityId, @Validated @RequestBody ActivityTargetVersionMpt mpt) {
+        log.info("管理后台用户[{}]保存升级活动[{}]目标版本组合", SecurityUtils.getUsername(), activityId);
+        ActivityTargetVersionPo po = ActivityTargetVersionMptAssembler.INSTANCE.toPo(mpt);
+        po.setActivityId(activityId);
+        return ApiResponse.ok(activityAppService.saveTargetVersion(po));
+    }
+
+    @Log(title = "升级活动管理", businessType = BusinessType.DELETE)
+    @RequiresPermissions("ota:fota:activity:edit")
+    @DeleteMapping(value = "/{activityId}/action/deleteTargetVersion/{id}")
+    public ApiResponse<Integer> deleteTargetVersion(@PathVariable Long activityId, @PathVariable Long id) {
+        log.info("管理后台用户[{}]删除升级活动[{}]目标版本[{}]", SecurityUtils.getUsername(), activityId, id);
+        return ApiResponse.ok(activityAppService.deleteTargetVersion(id));
+    }
+
+    // ==================== C1. 安装顺序 ====================
+
+    @RequiresPermissions("ota:fota:activity:list")
+    @GetMapping(value = "/{activityId}/listInstallOrder")
+    public ApiResponse<List<ActivityInstallOrderMpt>> listInstallOrder(@PathVariable Long activityId) {
+        log.info("管理后台用户[{}]查询升级活动[{}]安装顺序", SecurityUtils.getUsername(), activityId);
+        return ApiResponse.ok(ActivityInstallOrderMptAssembler.INSTANCE.fromPoList(activityAppService.listInstallOrder(activityId)));
+    }
+
+    @Log(title = "升级活动管理", businessType = BusinessType.UPDATE)
+    @RequiresPermissions("ota:fota:activity:edit")
+    @PostMapping(value = "/{activityId}/action/saveInstallOrder")
+    public ApiResponse<Integer> saveInstallOrder(@PathVariable Long activityId, @Validated @RequestBody ActivityInstallOrderMpt mpt) {
+        log.info("管理后台用户[{}]保存升级活动[{}]安装顺序", SecurityUtils.getUsername(), activityId);
+        ActivityInstallOrderPo po = ActivityInstallOrderMptAssembler.INSTANCE.toPo(mpt);
+        po.setActivityId(activityId);
+        return ApiResponse.ok(activityAppService.saveInstallOrder(po));
+    }
+
+    @Log(title = "升级活动管理", businessType = BusinessType.DELETE)
+    @RequiresPermissions("ota:fota:activity:edit")
+    @DeleteMapping(value = "/{activityId}/action/deleteInstallOrder/{id}")
+    public ApiResponse<Integer> deleteInstallOrder(@PathVariable Long activityId, @PathVariable Long id) {
+        log.info("管理后台用户[{}]删除升级活动[{}]安装顺序[{}]", SecurityUtils.getUsername(), activityId, id);
+        return ApiResponse.ok(activityAppService.deleteInstallOrder(id));
+    }
+
+    // ==================== C2. 同升同降依赖组 ====================
+
+    @RequiresPermissions("ota:fota:activity:list")
+    @GetMapping(value = "/{activityId}/listDependencyGroup")
+    public ApiResponse<List<ActivityDependencyGroupMpt>> listDependencyGroup(@PathVariable Long activityId) {
+        log.info("管理后台用户[{}]查询升级活动[{}]同升同降依赖组", SecurityUtils.getUsername(), activityId);
+        return ApiResponse.ok(ActivityDependencyGroupMptAssembler.INSTANCE.fromPoList(activityAppService.listDependencyGroup(activityId)));
+    }
+
+    @Log(title = "升级活动管理", businessType = BusinessType.UPDATE)
+    @RequiresPermissions("ota:fota:activity:edit")
+    @PostMapping(value = "/{activityId}/action/saveDependencyGroup")
+    public ApiResponse<Integer> saveDependencyGroup(@PathVariable Long activityId, @Validated @RequestBody ActivityDependencyGroupMpt mpt) {
+        log.info("管理后台用户[{}]保存升级活动[{}]同升同降依赖组", SecurityUtils.getUsername(), activityId);
+        ActivityDependencyGroupPo po = ActivityDependencyGroupMptAssembler.INSTANCE.toPo(mpt);
+        po.setActivityId(activityId);
+        return ApiResponse.ok(activityAppService.saveDependencyGroup(po));
+    }
+
+    @Log(title = "升级活动管理", businessType = BusinessType.DELETE)
+    @RequiresPermissions("ota:fota:activity:edit")
+    @DeleteMapping(value = "/{activityId}/action/deleteDependencyGroup/{id}")
+    public ApiResponse<Integer> deleteDependencyGroup(@PathVariable Long activityId, @PathVariable Long id) {
+        log.info("管理后台用户[{}]删除升级活动[{}]同升同降依赖组[{}]", SecurityUtils.getUsername(), activityId, id);
+        return ApiResponse.ok(activityAppService.deleteDependencyGroup(id));
+    }
+
+    // ==================== D1. 型批版本组合快照（只读） ====================
+
+    @RequiresPermissions("ota:fota:activity:list")
+    @GetMapping(value = "/{activityId}/listManifest")
+    public ApiResponse<List<ApprovedSwManifestMpt>> listManifest(@PathVariable Long activityId) {
+        log.info("管理后台用户[{}]查询升级活动[{}]型批版本组合快照", SecurityUtils.getUsername(), activityId);
+        return ApiResponse.ok(ApprovedSwManifestMptAssembler.INSTANCE.fromPoList(activityAppService.listManifest(activityId)));
+    }
+
+    @RequiresPermissions("ota:fota:activity:list")
+    @GetMapping(value = "/{activityId}/manifest/{manifestId}")
+    public ApiResponse<ApprovedSwManifestMpt> getManifest(@PathVariable Long activityId, @PathVariable Long manifestId) {
+        log.info("管理后台用户[{}]查询型批版本组合快照[{}]", SecurityUtils.getUsername(), manifestId);
+        ApprovedSwManifestPo po = activityAppService.getManifestById(manifestId);
+        ApprovedSwManifestMpt mpt = ApprovedSwManifestMptAssembler.INSTANCE.fromPo(po);
+        if (mpt != null) {
+            List<ApprovedSwManifestItemPo> items = activityAppService.listManifestItems(manifestId);
+            mpt.setItems(items.stream().map(item -> ApprovedSwManifestItemMpt.builder()
+                    .id(item.getId())
+                    .manifestId(item.getManifestId())
+                    .vehicleNodeCode(item.getVehicleNodeCode())
+                    .partCode(item.getPartCode())
+                    .approvedVersion(item.getApprovedVersion())
+                    .build()).collect(Collectors.toList()));
+        }
+        return ApiResponse.ok(mpt);
+    }
+
+    // ==================== D2. 监管备案 ====================
+
+    @RequiresPermissions("ota:fota:filing:list")
+    @GetMapping(value = "/{activityId}/listRegulatoryFiling")
+    public ApiResponse<List<RegulatoryFilingMpt>> listRegulatoryFiling(@PathVariable Long activityId) {
+        log.info("管理后台用户[{}]查询升级活动[{}]监管备案", SecurityUtils.getUsername(), activityId);
+        return ApiResponse.ok(RegulatoryFilingMptAssembler.INSTANCE.fromPoList(activityAppService.listRegulatoryFiling(activityId)));
+    }
+
+    @RequiresPermissions("ota:fota:filing:list")
+    @GetMapping(value = "/{activityId}/regulatoryFiling/{filingId}")
+    public ApiResponse<RegulatoryFilingMpt> getRegulatoryFiling(@PathVariable Long activityId, @PathVariable Long filingId) {
+        log.info("管理后台用户[{}]查询监管备案[{}]", SecurityUtils.getUsername(), filingId);
+        return ApiResponse.ok(RegulatoryFilingMptAssembler.INSTANCE.fromPo(activityAppService.getRegulatoryFilingById(filingId)));
+    }
+
+    @Log(title = "监管备案管理", businessType = BusinessType.INSERT)
+    @RequiresPermissions("ota:fota:filing:add")
+    @PostMapping(value = "/{activityId}/action/saveRegulatoryFiling")
+    public ApiResponse<Integer> saveRegulatoryFiling(@PathVariable Long activityId, @Validated @RequestBody RegulatoryFilingMpt mpt) {
+        log.info("管理后台用户[{}]保存升级活动[{}]监管备案", SecurityUtils.getUsername(), activityId);
+        RegulatoryFilingPo po = RegulatoryFilingMptAssembler.INSTANCE.toPo(mpt);
+        po.setActivityId(activityId);
+        if (po.getId() == null) {
+            return ApiResponse.ok(activityAppService.createRegulatoryFiling(po));
+        }
+        return ApiResponse.ok(activityAppService.updateRegulatoryFiling(po));
+    }
+
+    @Log(title = "监管备案管理", businessType = BusinessType.DELETE)
+    @RequiresPermissions("ota:fota:filing:remove")
+    @DeleteMapping(value = "/{activityId}/action/deleteRegulatoryFiling/{filingId}")
+    public ApiResponse<Integer> deleteRegulatoryFiling(@PathVariable Long activityId, @PathVariable Long filingId) {
+        log.info("管理后台用户[{}]删除监管备案[{}]", SecurityUtils.getUsername(), filingId);
+        return ApiResponse.ok(activityAppService.deleteRegulatoryFiling(filingId));
     }
 }

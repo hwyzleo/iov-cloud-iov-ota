@@ -3,15 +3,15 @@ package net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityTargetVersionPo;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
-import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import java.util.List;
 
-/**
- * ActivityTargetVersion DAO
- *
- * @author hwyz_leo
- */
 @Mapper
 public interface ActivityTargetVersionMapper extends BaseMapper<ActivityTargetVersionPo> {
+
+    @Select("SELECT * FROM tb_activity_target_version WHERE activity_id = #{activityId} AND row_valid = 1")
+    List<ActivityTargetVersionPo> selectByActivityId(@Param("activityId") Long activityId);
 
 }

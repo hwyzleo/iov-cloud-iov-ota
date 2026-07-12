@@ -28,6 +28,11 @@ public class ActivityMpt extends BaseRequest {
     private String name;
 
     /**
+     * 活动编码（系统生成·全局唯一·不可变）
+     */
+    private String activityCode;
+
+    /**
      * 活动版本
      */
     private String version;
@@ -48,12 +53,17 @@ public class ActivityMpt extends BaseRequest {
     private Long privacyAgreementArticleId;
 
     /**
-     * 活动开始时间
+     * 发行说明文章ID
+     */
+    private Long releaseNoteArticleId;
+
+    /**
+     * 活动开始时间（外层约束窗口起）
      */
     private Date startTime;
 
     /**
-     * 活动结束时间
+     * 活动结束时间（外层约束窗口止）
      */
     private Date endTime;
 
@@ -63,9 +73,9 @@ public class ActivityMpt extends BaseRequest {
     private Date releaseTime;
 
     /**
-     * 升级目的
+     * 升级目的：1 缺陷修复 2 功能新增 3 安全补丁 4 合规整改 9 其他
      */
-    private String upgradePurpose;
+    private Integer upgradePurpose;
 
     /**
      * 升级功能项
@@ -83,9 +93,14 @@ public class ActivityMpt extends BaseRequest {
     private Integer state;
 
     /**
-     * 总文件大小（MB）
+     * 总文件大小（字节·只读缓存）
      */
     private Long totalFileSize;
+
+    /**
+     * 文件大小缓存计算时间
+     */
+    private Date sizeCalcTime;
 
     /**
      * 是否基线活动
@@ -96,6 +111,36 @@ public class ActivityMpt extends BaseRequest {
      * 基线代码
      */
     private String baselineCode;
+
+    /**
+     * 是否型批相关
+     */
+    private Boolean isTypeApprovalRelevant;
+
+    /**
+     * 型批影响评估状态：0 未评估 1 通过 2 阻断
+     */
+    private Integer typeApprovalAssessmentState;
+
+    /**
+     * 须知是否需显式同意
+     */
+    private Boolean noticeConsentRequired;
+
+    /**
+     * 条款是否需显式同意
+     */
+    private Boolean termsConsentRequired;
+
+    /**
+     * 隐私是否需显式同意
+     */
+    private Boolean privacyConsentRequired;
+
+    /**
+     * RXSWIN值（只读·manifest回填·仅1:1场景）
+     */
+    private String rxswin;
 
     /**
      * 软件内部版本数量

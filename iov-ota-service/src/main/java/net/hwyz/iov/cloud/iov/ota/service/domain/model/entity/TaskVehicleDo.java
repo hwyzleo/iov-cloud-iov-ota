@@ -123,7 +123,7 @@ public class TaskVehicleDo extends BaseDo<Long> implements DomainObj<TaskVehicle
         this.baselineCode = activity.getBaselineCode();
         this.activityVersion = activity.getVersion();
         this.activityReleaseTime = activity.getReleaseTime();
-        this.upgradePurpose = activity.getUpgradePurpose();
+        this.upgradePurpose = activity.getUpgradePurpose() != null ? activity.getUpgradePurpose().label : null;
         this.upgradeFunction = activity.getUpgradeFunction();
         this.activityStatement = activity.getStatement();
         this.taskStartTime = task.getStartTimeDate();

@@ -31,6 +31,7 @@ public class TaskAppService {
     private final TaskRepository taskRepository;
     private final TaskAssembler taskAssembler;
     private final DomainEventPublisher eventPublisher;
+    private final ActivityAppService activityAppService;
 
     public List<TaskResult> search(String name, Date beginTime, Date endTime) {
         Map<String, Object> map = new HashMap<>();
@@ -57,7 +58,9 @@ public class TaskAppService {
     @Transactional
     public TaskResult createTask(TaskCreateCmd cmd) {
         log.info("创建任务: {}", cmd.getName());
-        
+
+        validateTaskWindowWithinActivity(cmd.getActivityId(), cmd.getStartTime(), cmd.getEndTime());
+
         Task task = Task.create(
             TaskId.of(generateId()),
             cmd.getName(),
@@ -193,5 +196,29 @@ public class TaskAppService {
 
     private Long generateId() {
         return System.currentTimeMillis();
+    }
+
+    /**
+     * 校验任务时间窗完全落在活动计划窗口内
+     *
+     * @param activityId 活动ID
+     * @param taskStart  任务开始时间
+     * @param taskEnd    任务结束时间
+     */
+    private void validateTaskWindowWithinActivity(Long activityId, java.time.Instant taskStart, java.time.Instant taskEnd) {
+        if (activityId == null || taskStart == null || taskEnd == null) {
+            return;
+        }
+        net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityPo activity =
+                activityAppService.getActivityById(activityId);
+        if (activity == null) {
+            return;
+        }
+        if (activity.getStartTime() != null && taskStart.isBefore(activity.getStartTime().toInstant())) {
+            throw new IllegalStateException("任务开始时间不能早于活动计划窗口开始时间");
+        }
+        if (activity.getEndTime() != null && taskEnd.isAfter(activity.getEndTime().toInstant())) {
+            throw new IllegalStateException("任务结束时间不能晚于活动计划窗口结束时间");
+        }
     }
 }

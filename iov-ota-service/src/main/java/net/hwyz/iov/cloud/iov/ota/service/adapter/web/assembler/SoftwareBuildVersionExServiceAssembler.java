@@ -1,10 +1,13 @@
 package net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler;
 
 import net.hwyz.iov.cloud.iov.ota.api.vo.SoftwareBuildVersionExService;
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.SoftwareBuildVersionState;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.SoftwareBuildVersionVo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwareBuildVersionPo;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 import org.mapstruct.Mappings;
+import org.mapstruct.Named;
 import org.mapstruct.factory.Mappers;
 
 import java.util.List;
@@ -36,9 +39,21 @@ public interface SoftwareBuildVersionExServiceAssembler {
      */
     List<SoftwareBuildVersionVo> toVoList(List<SoftwareBuildVersionExService> softwareBuildVersionExServiceList);
 
-    @Mappings({})
+    @Mapping(target = "buildState", source = "buildState", qualifiedByName = "buildStateToInt")
     SoftwareBuildVersionExService fromPo(SoftwareBuildVersionPo softwareBuildVersionPo);
 
     List<SoftwareBuildVersionExService> fromPoList(List<SoftwareBuildVersionPo> softwareBuildVersionPoList);
+
+    @Named("buildStateToInt")
+    default Integer buildStateToInt(String buildState) {
+        if (buildState == null) {
+            return null;
+        }
+        try {
+            return SoftwareBuildVersionState.valueOf(buildState).value;
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
 
 }

@@ -7,6 +7,8 @@ import lombok.extern.slf4j.Slf4j;
 import net.hwyz.iov.cloud.framework.common.domain.BaseDo;
 import net.hwyz.iov.cloud.framework.common.domain.DomainObj;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.ActivityState;
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TypeApprovalAssessmentState;
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.UpgradePurpose;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityPo;
 
 import java.util.Date;
@@ -30,6 +32,11 @@ public class ActivityDo extends BaseDo<Long> implements DomainObj<ActivityDo> {
     private String name;
 
     /**
+     * 活动编码（系统生成·全局唯一·不可变）
+     */
+    private String activityCode;
+
+    /**
      * 活动版本
      */
     private String version;
@@ -50,12 +57,17 @@ public class ActivityDo extends BaseDo<Long> implements DomainObj<ActivityDo> {
     private Long privacyAgreementArticleId;
 
     /**
-     * 活动开始时间
+     * 发行说明文章ID
+     */
+    private Long releaseNoteArticleId;
+
+    /**
+     * 活动开始时间（外层约束窗口起）
      */
     private Date startTime;
 
     /**
-     * 活动结束时间
+     * 活动结束时间（外层约束窗口止）
      */
     private Date endTime;
 
@@ -67,7 +79,7 @@ public class ActivityDo extends BaseDo<Long> implements DomainObj<ActivityDo> {
     /**
      * 升级目的
      */
-    private String upgradePurpose;
+    private UpgradePurpose upgradePurpose;
 
     /**
      * 升级功能项
@@ -85,6 +97,16 @@ public class ActivityDo extends BaseDo<Long> implements DomainObj<ActivityDo> {
     private ActivityState activityState;
 
     /**
+     * 总文件大小（字节·只读缓存）
+     */
+    private Long totalFileSize;
+
+    /**
+     * 文件大小缓存计算时间
+     */
+    private Date sizeCalcTime;
+
+    /**
      * 是否基线活动
      */
     private Boolean baseline;
@@ -93,6 +115,36 @@ public class ActivityDo extends BaseDo<Long> implements DomainObj<ActivityDo> {
      * 基线代码
      */
     private String baselineCode;
+
+    /**
+     * 是否型批相关
+     */
+    private Boolean isTypeApprovalRelevant;
+
+    /**
+     * 型批影响评估状态
+     */
+    private TypeApprovalAssessmentState typeApprovalAssessmentState;
+
+    /**
+     * 须知是否需显式同意
+     */
+    private Boolean noticeConsentRequired;
+
+    /**
+     * 条款是否需显式同意
+     */
+    private Boolean termsConsentRequired;
+
+    /**
+     * 隐私是否需显式同意
+     */
+    private Boolean privacyConsentRequired;
+
+    /**
+     * RXSWIN值（只读·manifest回填·仅1:1场景）
+     */
+    private String rxswin;
 
     /**
      * 备注
@@ -158,10 +210,42 @@ public class ActivityDo extends BaseDo<Long> implements DomainObj<ActivityDo> {
             this.endTime = activityPo.getEndTime();
             stateChange();
         }
+        if (activityPo.getUpgradePurpose() != null) {
+            UpgradePurpose purpose = UpgradePurpose.valOf(activityPo.getUpgradePurpose());
+            if (purpose != null && purpose != this.upgradePurpose) {
+                this.upgradePurpose = purpose;
+                stateChange();
+            }
+        }
+        if (StrUtil.isNotBlank(activityPo.getStatement()) && !activityPo.getStatement().equals(this.statement)) {
+            this.statement = activityPo.getStatement();
+            stateChange();
+        }
+        if (activityPo.getReleaseNoteArticleId() != null && !activityPo.getReleaseNoteArticleId().equals(this.releaseNoteArticleId)) {
+            this.releaseNoteArticleId = activityPo.getReleaseNoteArticleId();
+            stateChange();
+        }
+        if (activityPo.getNoticeConsentRequired() != null && !activityPo.getNoticeConsentRequired().equals(this.noticeConsentRequired)) {
+            this.noticeConsentRequired = activityPo.getNoticeConsentRequired();
+            stateChange();
+        }
+        if (activityPo.getTermsConsentRequired() != null && !activityPo.getTermsConsentRequired().equals(this.termsConsentRequired)) {
+            this.termsConsentRequired = activityPo.getTermsConsentRequired();
+            stateChange();
+        }
+        if (activityPo.getPrivacyConsentRequired() != null && !activityPo.getPrivacyConsentRequired().equals(this.privacyConsentRequired)) {
+            this.privacyConsentRequired = activityPo.getPrivacyConsentRequired();
+            stateChange();
+        }
+        if (activityPo.getIsTypeApprovalRelevant() != null && !activityPo.getIsTypeApprovalRelevant().equals(this.isTypeApprovalRelevant)) {
+            this.isTypeApprovalRelevant = activityPo.getIsTypeApprovalRelevant();
+            stateChange();
+        }
     }
 
     /**
      * 提交活动
+     * 提交后 is_baseline / baseline_code 不可修改
      *
      * @param activityPo 升级活动
      */
@@ -176,7 +260,7 @@ public class ActivityDo extends BaseDo<Long> implements DomainObj<ActivityDo> {
     }
 
     /**
-     * 审核活动
+     * 审核活动（多级审批的一环，外部编排串行调用）
      *
      * @param audit  审核结果
      * @param reason 拒绝原因
@@ -198,11 +282,17 @@ public class ActivityDo extends BaseDo<Long> implements DomainObj<ActivityDo> {
 
     /**
      * 发布活动
+     * 型批相关且评估状态非 PASSED 时阻断发布
      *
      * @return 1: 成功，0: 失败
      */
     public int release() {
         if (this.activityState == ActivityState.APPROVED) {
+            if (Boolean.TRUE.equals(this.isTypeApprovalRelevant)
+                    && this.typeApprovalAssessmentState != TypeApprovalAssessmentState.PASSED) {
+                log.warn("活动[{}]型批相关但评估状态非PASSED，阻断发布", this.getId());
+                return 0;
+            }
             this.releaseTime = new Date();
             this.activityState = ActivityState.RELEASED;
             stateChange();

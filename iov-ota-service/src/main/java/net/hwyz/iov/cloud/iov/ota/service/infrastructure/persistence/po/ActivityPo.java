@@ -41,6 +41,12 @@ public class ActivityPo extends BasePo {
     private String name;
 
     /**
+     * 活动编码（系统生成·全局唯一·不可变）
+     */
+    @TableField("activity_code")
+    private String activityCode;
+
+    /**
      * 活动版本
      */
     @TableField("version")
@@ -83,10 +89,10 @@ public class ActivityPo extends BasePo {
     private Date releaseTime;
 
     /**
-     * 升级目的
+     * 升级目的：1 缺陷修复 2 功能新增 3 安全补丁 4 合规整改 9 其他
      */
     @TableField("upgrade_purpose")
-    private String upgradePurpose;
+    private Integer upgradePurpose;
 
     /**
      * 升级功能项
@@ -107,10 +113,16 @@ public class ActivityPo extends BasePo {
     private Integer state;
 
     /**
-     * 总文件大小（MB）
+     * 总文件大小（字节）
      */
     @TableField("total_file_size")
     private Long totalFileSize;
+
+    /**
+     * 文件大小缓存计算时间
+     */
+    @TableField("size_calc_time")
+    private Date sizeCalcTime;
 
     /**
      * 是否基线活动
@@ -123,4 +135,46 @@ public class ActivityPo extends BasePo {
      */
     @TableField("baseline_code")
     private String baselineCode;
+
+    /**
+     * 是否型批相关
+     */
+    @TableField("is_type_approval_relevant")
+    private Boolean isTypeApprovalRelevant;
+
+    /**
+     * 型批影响评估状态：0 未评估 1 通过 2 阻断
+     */
+    @TableField("type_approval_assessment_state")
+    private Integer typeApprovalAssessmentState;
+
+    /**
+     * 发行说明文章ID
+     */
+    @TableField("release_note_article_id")
+    private Long releaseNoteArticleId;
+
+    /**
+     * 须知是否需显式同意
+     */
+    @TableField("notice_consent_required")
+    private Boolean noticeConsentRequired;
+
+    /**
+     * 条款是否需显式同意
+     */
+    @TableField("terms_consent_required")
+    private Boolean termsConsentRequired;
+
+    /**
+     * 隐私是否需显式同意
+     */
+    @TableField("privacy_consent_required")
+    private Boolean privacyConsentRequired;
+
+    /**
+     * RXSWIN值（只读·manifest回填·仅1:1场景）
+     */
+    @TableField("rxswin")
+    private String rxswin;
 }
