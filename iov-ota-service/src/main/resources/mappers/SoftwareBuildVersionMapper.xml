@@ -15,28 +15,26 @@
         <result column="device_code" property="deviceCode" />
         <result column="software_pn" property="softwarePn" />
         <result column="software_build_ver" property="softwareBuildVer" />
-        <result column="software_report" property="softwareReport" />
-        <result column="software_desc" property="softwareDesc" />
+        <result column="change_note" property="changeNote" />
         <result column="software_source" property="softwareSource" />
-        <result column="adaptive_assembly_pn" property="adaptiveAssemblyPn" />
-        <result column="adaptive_software_pn" property="adaptiveSoftwarePn" />
-        <result column="release_date" property="releaseDate" />
+        <result column="build_state" property="buildState" />
+        <result column="release_time" property="releaseTime" />
     </resultMap>
 
     <!-- 通用查询结果列 -->
     <sql id="baseColumnList">
-        id, device_code, software_pn, software_build_ver, software_report, software_desc, software_source, adaptive_assembly_pn, adaptive_software_pn, release_date, 
+        id, device_code, software_pn, software_build_ver, change_note, software_source, build_state, release_time, 
         description, create_time, create_by, modify_time, modify_by, row_version, row_valid
     </sql>
 
     <!-- 插入 -->
     <insert id="insertPo" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO tb_software_build_version (
-            id, device_code, software_pn, software_build_ver, software_report, software_desc, software_source, adaptive_assembly_pn, adaptive_software_pn, release_date, 
+            id, device_code, software_pn, software_build_ver, change_note, software_source, build_state, release_time, 
             description, create_time, create_by, modify_time, modify_by, row_version, row_valid
         )
         VALUES (
-            #{id}, #{deviceCode}, #{softwarePn}, #{softwareBuildVer}, #{softwareReport}, #{softwareDesc}, #{softwareSource}, #{adaptiveAssemblyPn}, #{adaptiveSoftwarePn}, #{releaseDate}, 
+            #{id}, #{deviceCode}, #{softwarePn}, #{softwareBuildVer}, #{changeNote}, #{softwareSource}, #{buildState}, #{releaseTime}, 
             #{description}, now(), #{createBy}, now(), #{modifyBy}, 1, 1
         )
     </insert>
@@ -44,13 +42,13 @@
     <!-- 批量插入 -->
     <insert id="batchInsertPo" useGeneratedKeys="true" keyProperty="id" parameterType="java.util.List">
         INSERT INTO tb_software_build_version (
-            id, device_code, software_pn, software_build_ver, software_report, software_desc, software_source, adaptive_assembly_pn, adaptive_software_pn, release_date, 
+            id, device_code, software_pn, software_build_ver, change_note, software_source, build_state, release_time, 
             description, create_time, create_by, modify_time, modify_by, row_version, row_valid
         )
         VALUES
         <foreach collection="list" item="item" index="index" separator=",">
         (
-            #{item.id}, #{item.deviceCode}, #{item.softwarePn}, #{item.softwareBuildVer}, #{item.softwareReport}, #{item.softwareDesc}, #{item.softwareSource}, #{item.adaptiveAssemblyPn}, #{item.adaptiveSoftwarePn}, #{item.releaseDate}, 
+            #{item.id}, #{item.deviceCode}, #{item.softwarePn}, #{item.softwareBuildVer}, #{item.changeNote}, #{item.softwareSource}, #{item.buildState}, #{item.releaseTime}, 
             #{item.description}, now(), #{item.createBy}, now(), #{item.modifyBy}, 1, 1
         )
         </foreach>
@@ -68,23 +66,17 @@
         <if test="softwareBuildVer != null and softwareBuildVer != ''">
             t.software_build_ver = #{softwareBuildVer},
         </if>
-        <if test="softwareReport != null and softwareReport != ''">
-            t.software_report = #{softwareReport},
-        </if>
-        <if test="softwareDesc != null and softwareDesc != ''">
-            t.software_desc = #{softwareDesc},
+        <if test="changeNote != null and changeNote != ''">
+            t.change_note = #{changeNote},
         </if>
         <if test="softwareSource != null and softwareSource != ''">
             t.software_source = #{softwareSource},
         </if>
-        <if test="adaptiveAssemblyPn != null and adaptiveAssemblyPn != ''">
-            t.adaptive_assembly_pn = #{adaptiveAssemblyPn},
+        <if test="buildState != null and buildState != ''">
+            t.build_state = #{buildState},
         </if>
-        <if test="adaptiveSoftwarePn != null and adaptiveSoftwarePn != ''">
-            t.adaptive_software_pn = #{adaptiveSoftwarePn},
-        </if>
-        <if test="releaseDate != null">
-            t.release_date = #{releaseDate},
+        <if test="releaseTime != null">
+            t.release_time = #{releaseTime},
         </if>
         <if test="description != null and description != ''">
             t.description = #{description},
@@ -146,23 +138,14 @@
         <if test="softwareBuildVer != null and softwareBuildVer != ''">
             AND t.software_build_ver = #{softwareBuildVer}
         </if>
-        <if test="softwareReport != null and softwareReport != ''">
-            AND t.software_report = #{softwareReport}
-        </if>
-        <if test="softwareDesc != null and softwareDesc != ''">
-            AND t.software_desc = #{softwareDesc}
+        <if test="changeNote != null and changeNote != ''">
+            AND t.change_note = #{changeNote}
         </if>
         <if test="softwareSource != null and softwareSource != ''">
             AND t.software_source = #{softwareSource}
         </if>
-        <if test="adaptiveAssemblyPn != null and adaptiveAssemblyPn != ''">
-            AND t.adaptive_assembly_pn = #{adaptiveAssemblyPn}
-        </if>
-        <if test="adaptiveSoftwarePn != null and adaptiveSoftwarePn != ''">
-            AND t.adaptive_software_pn = #{adaptiveSoftwarePn}
-        </if>
-        <if test="releaseDate != null">
-            AND t.release_date = #{releaseDate}
+        <if test="buildState != null and buildState != ''">
+            AND t.build_state = #{buildState}
         </if>
         <if test="description != null and description != ''">
             AND t.description = #{description}

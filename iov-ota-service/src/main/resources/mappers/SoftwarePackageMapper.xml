@@ -33,22 +33,23 @@
         <result column="release_date" property="releaseDate" />
         <result column="estimated_install_time" property="estimatedInstallTime" />
         <result column="ota" property="ota" />
+        <result column="package_state" property="packageState" />
     </resultMap>
 
     <!-- 通用查询结果列 -->
     <sql id="baseColumnList">
-        id, device_code, software_pn, package_name, package_code, package_url, package_size, package_md5, package_sha256, package_signature, sign_algo, signer_cert_id, package_desc, package_type, package_source, base_software_pn, base_software_ver, package_adaptive_level, adaptive_assembly_pn, release_date, estimated_install_time, ota, 
+        id, device_code, software_pn, package_name, package_code, package_url, package_size, package_md5, package_sha256, package_signature, sign_algo, signer_cert_id, package_desc, package_type, package_source, base_software_pn, base_software_ver, package_adaptive_level, adaptive_assembly_pn, release_date, estimated_install_time, ota, package_state, 
         description, create_time, create_by, modify_time, modify_by, row_version, row_valid
     </sql>
 
     <!-- 插入 -->
     <insert id="insertPo" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO tb_software_package (
-            id, device_code, software_pn, package_name, package_code, package_url, package_size, package_md5, package_sha256, package_signature, sign_algo, signer_cert_id, package_desc, package_type, package_source, base_software_pn, base_software_ver, package_adaptive_level, adaptive_assembly_pn, release_date, estimated_install_time, ota, 
+            id, device_code, software_pn, package_name, package_code, package_url, package_size, package_md5, package_sha256, package_signature, sign_algo, signer_cert_id, package_desc, package_type, package_source, base_software_pn, base_software_ver, package_adaptive_level, adaptive_assembly_pn, release_date, estimated_install_time, ota, package_state, 
             description, create_time, create_by, modify_time, modify_by, row_version, row_valid
         )
         VALUES (
-            #{id}, #{deviceCode}, #{softwarePn}, #{packageName}, #{packageCode}, #{packageUrl}, #{packageSize}, #{packageMd5}, #{packageSha256}, #{packageSignature}, #{signAlgo}, #{signerCertId}, #{packageDesc}, #{packageType}, #{packageSource}, #{baseSoftwarePn}, #{baseSoftwareVer}, #{packageAdaptiveLevel}, #{adaptiveAssemblyPn}, #{releaseDate}, #{estimatedInstallTime}, #{ota}, 
+            #{id}, #{deviceCode}, #{softwarePn}, #{packageName}, #{packageCode}, #{packageUrl}, #{packageSize}, #{packageMd5}, #{packageSha256}, #{packageSignature}, #{signAlgo}, #{signerCertId}, #{packageDesc}, #{packageType}, #{packageSource}, #{baseSoftwarePn}, #{baseSoftwareVer}, #{packageAdaptiveLevel}, #{adaptiveAssemblyPn}, #{releaseDate}, #{estimatedInstallTime}, #{ota}, #{packageState}, 
             #{description}, now(), #{createBy}, now(), #{modifyBy}, 1, 1
         )
     </insert>
@@ -56,13 +57,13 @@
     <!-- 批量插入 -->
     <insert id="batchInsertPo" useGeneratedKeys="true" keyProperty="id" parameterType="java.util.List">
         INSERT INTO tb_software_package (
-            id, device_code, software_pn, package_name, package_code, package_url, package_size, package_md5, package_sha256, package_signature, sign_algo, signer_cert_id, package_desc, package_type, package_source, base_software_pn, base_software_ver, package_adaptive_level, adaptive_assembly_pn, release_date, estimated_install_time, ota, 
+            id, device_code, software_pn, package_name, package_code, package_url, package_size, package_md5, package_sha256, package_signature, sign_algo, signer_cert_id, package_desc, package_type, package_source, base_software_pn, base_software_ver, package_adaptive_level, adaptive_assembly_pn, release_date, estimated_install_time, ota, package_state, 
             description, create_time, create_by, modify_time, modify_by, row_version, row_valid
         )
         VALUES
         <foreach collection="list" item="item" index="index" separator=",">
         (
-            #{item.id}, #{item.deviceCode}, #{item.softwarePn}, #{item.packageName}, #{item.packageCode}, #{item.packageUrl}, #{item.packageSize}, #{item.packageMd5}, #{item.packageSha256}, #{item.packageSignature}, #{item.signAlgo}, #{item.signerCertId}, #{item.packageDesc}, #{item.packageType}, #{item.packageSource}, #{item.baseSoftwarePn}, #{item.baseSoftwareVer}, #{item.packageAdaptiveLevel}, #{item.adaptiveAssemblyPn}, #{item.releaseDate}, #{item.estimatedInstallTime}, #{item.ota}, 
+            #{item.id}, #{item.deviceCode}, #{item.softwarePn}, #{item.packageName}, #{item.packageCode}, #{item.packageUrl}, #{item.packageSize}, #{item.packageMd5}, #{item.packageSha256}, #{item.packageSignature}, #{item.signAlgo}, #{item.signerCertId}, #{item.packageDesc}, #{item.packageType}, #{item.packageSource}, #{item.baseSoftwarePn}, #{item.baseSoftwareVer}, #{item.packageAdaptiveLevel}, #{item.adaptiveAssemblyPn}, #{item.releaseDate}, #{item.estimatedInstallTime}, #{item.ota}, #{item.packageState}, 
             #{item.description}, now(), #{item.createBy}, now(), #{item.modifyBy}, 1, 1
         )
         </foreach>
@@ -130,6 +131,9 @@
         </if>
         <if test="ota != null">
             t.ota = #{ota},
+        </if>
+        <if test="packageState != null and packageState != ''">
+            t.package_state = #{packageState},
         </if>
         <if test="description != null and description != ''">
             t.description = #{description},

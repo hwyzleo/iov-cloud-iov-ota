@@ -340,7 +340,8 @@ public class TaskVehicleDo extends BaseDo<Long> implements DomainObj<TaskVehicle
                 }
             }
             String adaptiveHardwarePn = softwareBuildVersion.getAdaptiveHardwarePn();
-            if (!adaptiveHardwarePn.contains(deviceInfo.getHardwarePn()) && !adaptiveHardwarePn.contains(deviceInfo.getPartNo())) {
+            if (adaptiveHardwarePn != null && !adaptiveHardwarePn.isEmpty()
+                    && !adaptiveHardwarePn.contains(deviceInfo.getHardwarePn()) && !adaptiveHardwarePn.contains(deviceInfo.getPartNo())) {
                 log.warn("车辆[{}]设备[{}]硬件零件号[{}:{}]与软件内部版本硬件零件号[{}]不匹配", vehicle.getId(), deviceInfo.getDeviceCode(),
                         deviceInfo.getHardwarePn(), deviceInfo.getPartNo(), adaptiveHardwarePn);
                 return false;

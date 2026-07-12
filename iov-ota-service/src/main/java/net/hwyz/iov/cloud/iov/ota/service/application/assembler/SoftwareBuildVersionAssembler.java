@@ -26,6 +26,8 @@ public interface SoftwareBuildVersionAssembler {
     @Mapping(target = "softwarePn", expression = "java(cmd.getSoftwarePn() != null ? new SoftwarePn(cmd.getSoftwarePn()) : null)")
     @Mapping(target = "packages", ignore = true)
     @Mapping(target = "dependencies", ignore = true)
+    @Mapping(target = "buildState", ignore = true)
+    @Mapping(target = "releaseTime", ignore = true)
     SoftwareBuildVersion toDomain(CreateSoftwareBuildVersionCmd cmd);
 
     @Mapping(target = "id", expression = "java(cmd.getId() != null ? new SoftwareBuildVersionId(cmd.getId()) : null)")
@@ -33,6 +35,8 @@ public interface SoftwareBuildVersionAssembler {
     @Mapping(target = "softwarePn", expression = "java(cmd.getSoftwarePn() != null ? new SoftwarePn(cmd.getSoftwarePn()) : null)")
     @Mapping(target = "packages", ignore = true)
     @Mapping(target = "dependencies", ignore = true)
+    @Mapping(target = "buildState", ignore = true)
+    @Mapping(target = "releaseTime", ignore = true)
     SoftwareBuildVersion toDomain(ModifySoftwareBuildVersionCmd cmd);
 
     @Mapping(target = "id", expression = "java(domain.getId() != null ? domain.getId().getValue() : null)")
@@ -40,6 +44,8 @@ public interface SoftwareBuildVersionAssembler {
     @Mapping(target = "softwarePn", expression = "java(domain.getSoftwarePn() != null ? domain.getSoftwarePn().getValue() : null)")
     @Mapping(target = "softwarePackageCount", ignore = true)
     @Mapping(target = "dependencyCount", ignore = true)
+    @Mapping(target = "testReportCount", ignore = true)
+    @Mapping(target = "adaptationCount", ignore = true)
     @Mapping(target = "adaptiveLevel", ignore = true)
     SoftwareBuildVersionDto toDto(SoftwareBuildVersion domain);
 

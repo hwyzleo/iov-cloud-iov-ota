@@ -20,6 +20,8 @@ import net.hwyz.iov.cloud.iov.ota.service.application.service.SoftwareBuildVersi
 import net.hwyz.iov.cloud.iov.ota.service.application.service.SoftwarePackageAppService;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwareBuildVersionPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwarePackagePo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwareBuildVersionTestReportPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwareBuildVersionAdaptationPo;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -57,6 +59,8 @@ public class MptSoftwareBuildVersionController extends BaseController {
         softwareBuildVersionMptList.forEach(softwareBuildVersionMpt -> {
             softwareBuildVersionMpt.setSoftwarePackageCount(softwareBuildVersionAppService.countPackage(softwareBuildVersionMpt.getId()));
             softwareBuildVersionMpt.setDependencyCount(softwareBuildVersionAppService.countDependency(softwareBuildVersionMpt.getId()));
+            softwareBuildVersionMpt.setTestReportCount(softwareBuildVersionAppService.countTestReport(softwareBuildVersionMpt.getId()));
+            softwareBuildVersionMpt.setAdaptationCount(softwareBuildVersionAppService.countAdaptation(softwareBuildVersionMpt.getId()));
         });
         return ApiResponse.ok(getPageResult(softwareBuildVersionMptList));
     }
@@ -255,6 +259,81 @@ public class MptSoftwareBuildVersionController extends BaseController {
     public ApiResponse<Integer> removeDependency(@PathVariable Long softwareBuildVersionId, @PathVariable Long[] softwareBuildVersionIds) {
         log.info("管理后台用户[{}]删除软件内部版本[{}]依赖的软件内部版本[{}]", SecurityUtils.getUsername(), softwareBuildVersionId, softwareBuildVersionIds);
         return ApiResponse.ok(softwareBuildVersionAppService.deleteDependency(softwareBuildVersionId, softwareBuildVersionIds));
+    }
+
+    // ==================== CR-004: 发布工作流状态流转 ====================
+
+    @Log(title = "软件内部版本信息管理", businessType = BusinessType.UPDATE)
+    @RequiresPermissions("ota:pota:softwareBuildVersion:edit")
+    @PostMapping(value = "/{softwareBuildVersionId}/action/release")
+    public ApiResponse<Integer> release(@PathVariable Long softwareBuildVersionId) {
+        log.info("管理后台用户[{}]发布软件内部版本[{}]", SecurityUtils.getUsername(), softwareBuildVersionId);
+        return ApiResponse.ok(softwareBuildVersionAppService.releaseSoftwareBuildVersion(softwareBuildVersionId));
+    }
+
+    @Log(title = "软件内部版本信息管理", businessType = BusinessType.UPDATE)
+    @RequiresPermissions("ota:pota:softwareBuildVersion:edit")
+    @PostMapping(value = "/{softwareBuildVersionId}/action/deprecate")
+    public ApiResponse<Integer> deprecate(@PathVariable Long softwareBuildVersionId) {
+        log.info("管理后台用户[{}]停用软件内部版本[{}]", SecurityUtils.getUsername(), softwareBuildVersionId);
+        return ApiResponse.ok(softwareBuildVersionAppService.deprecateSoftwareBuildVersion(softwareBuildVersionId));
+    }
+
+    @Log(title = "软件内部版本信息管理", businessType = BusinessType.UPDATE)
+    @RequiresPermissions("ota:pota:softwareBuildVersion:edit")
+    @PostMapping(value = "/{softwareBuildVersionId}/action/retire")
+    public ApiResponse<Integer> retire(@PathVariable Long softwareBuildVersionId) {
+        log.info("管理后台用户[{}]退役软件内部版本[{}]", SecurityUtils.getUsername(), softwareBuildVersionId);
+        return ApiResponse.ok(softwareBuildVersionAppService.retireSoftwareBuildVersion(softwareBuildVersionId));
+    }
+
+    // ==================== CR-004: 测试报告管理 ====================
+
+    @RequiresPermissions("ota:pota:softwareBuildVersion:list")
+    @GetMapping(value = "/{softwareBuildVersionId}/listTestReport")
+    public ApiResponse<List<SoftwareBuildVersionTestReportPo>> listTestReport(@PathVariable Long softwareBuildVersionId) {
+        log.info("管理后台用户[{}]查询软件内部版本[{}]测试报告", SecurityUtils.getUsername(), softwareBuildVersionId);
+        return ApiResponse.ok(softwareBuildVersionAppService.listTestReports(softwareBuildVersionId));
+    }
+
+    @Log(title = "软件内部版本信息管理", businessType = BusinessType.INSERT)
+    @RequiresPermissions("ota:pota:softwareBuildVersion:edit")
+    @PostMapping(value = "/{softwareBuildVersionId}/action/addTestReport")
+    public ApiResponse<Integer> addTestReport(@PathVariable Long softwareBuildVersionId, @Validated @RequestBody SoftwareBuildVersionTestReportPo testReport) {
+        log.info("管理后台用户[{}]新增软件内部版本[{}]测试报告", SecurityUtils.getUsername(), softwareBuildVersionId);
+        testReport.setSbvId(softwareBuildVersionId);
+        testReport.setCreateBy(SecurityUtils.getUserId().toString());
+        return ApiResponse.ok(softwareBuildVersionAppService.createTestReport(testReport));
+    }
+
+    @Log(title = "软件内部版本信息管理", businessType = BusinessType.DELETE)
+    @RequiresPermissions("ota:pota:softwareBuildVersion:edit")
+    @DeleteMapping(value = "/{softwareBuildVersionId}/testReport/{testReportIds}")
+    public ApiResponse<Integer> removeTestReport(@PathVariable Long softwareBuildVersionId, @PathVariable Long[] testReportIds) {
+        log.info("管理后台用户[{}]删除软件内部版本[{}]测试报告[{}]", SecurityUtils.getUsername(), softwareBuildVersionId, testReportIds);
+        int result = 0;
+        for (Long id : testReportIds) {
+            result += softwareBuildVersionAppService.deleteTestReport(id);
+        }
+        return ApiResponse.ok(result);
+    }
+
+    // ==================== CR-004: 软硬件适配矩阵管理 ====================
+
+    @RequiresPermissions("ota:pota:softwareBuildVersion:list")
+    @GetMapping(value = "/{softwareBuildVersionId}/listAdaptation")
+    public ApiResponse<List<SoftwareBuildVersionAdaptationPo>> listAdaptation(@PathVariable Long softwareBuildVersionId) {
+        log.info("管理后台用户[{}]查询软件内部版本[{}]适配矩阵", SecurityUtils.getUsername(), softwareBuildVersionId);
+        return ApiResponse.ok(softwareBuildVersionAppService.listAdaptations(softwareBuildVersionId));
+    }
+
+    @Log(title = "软件内部版本信息管理", businessType = BusinessType.UPDATE)
+    @RequiresPermissions("ota:pota:softwareBuildVersion:edit")
+    @PostMapping(value = "/{softwareBuildVersionId}/action/saveAdaptation")
+    public ApiResponse<Integer> saveAdaptation(@PathVariable Long softwareBuildVersionId, @Validated @RequestBody List<SoftwareBuildVersionAdaptationPo> adaptations) {
+        log.info("管理后台用户[{}]保存软件内部版本[{}]适配矩阵", SecurityUtils.getUsername(), softwareBuildVersionId);
+        adaptations.forEach(a -> a.setCreateBy(SecurityUtils.getUserId().toString()));
+        return ApiResponse.ok(softwareBuildVersionAppService.saveAdaptations(softwareBuildVersionId, adaptations));
     }
 
 }

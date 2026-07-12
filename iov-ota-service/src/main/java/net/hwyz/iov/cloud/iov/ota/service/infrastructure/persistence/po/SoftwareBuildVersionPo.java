@@ -53,16 +53,10 @@ public class SoftwareBuildVersionPo extends BasePo {
     private String softwareBuildVer;
 
     /**
-     * 软件测试报告
+     * 技术变更说明
      */
-    @TableField("software_report")
-    private String softwareReport;
-
-    /**
-     * 软件说明
-     */
-    @TableField("software_desc")
-    private String softwareDesc;
+    @TableField("change_note")
+    private String changeNote;
 
     /**
      * 软件来源
@@ -71,20 +65,14 @@ public class SoftwareBuildVersionPo extends BasePo {
     private String softwareSource;
 
     /**
-     * 适配的总成零件号
+     * 发布工作流状态: DRAFT/TESTING/RELEASED/DEPRECATED/RETIRED
      */
-    @TableField("adaptive_assembly_pn")
-    private String adaptiveAssemblyPn;
+    @TableField("build_state")
+    private String buildState;
 
     /**
-     * 适配的软件零件号
+     * 发布时间
      */
-    @TableField("adaptive_software_pn")
-    private String adaptiveSoftwarePn;
-
-    /**
-     * 发布日期
-     */
-    @TableField("release_date")
-    private Date releaseDate;
+    @TableField("release_time")
+    private Date releaseTime;
 }

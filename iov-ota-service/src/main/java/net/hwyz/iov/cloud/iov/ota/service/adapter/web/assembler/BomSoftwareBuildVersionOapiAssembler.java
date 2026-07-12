@@ -3,6 +3,7 @@ package net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler;
 import net.hwyz.iov.cloud.iov.ota.api.vo.BomSoftwareBuildVersionOapi;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwareBuildVersionPo;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 import org.mapstruct.Mappings;
 import org.mapstruct.factory.Mappers;
 
@@ -20,27 +21,29 @@ public interface BomSoftwareBuildVersionOapiAssembler {
 
     /**
      * 数据对象转数据传输对象
-     *
-     * @param softwareBuildVersionPo 数据对象
-     * @return 数据传输对象
      */
-    @Mappings({})
+    @Mappings({
+            @Mapping(target = "softwareDesc", source = "changeNote"),
+            @Mapping(target = "releaseDate", source = "releaseTime"),
+            @Mapping(target = "softwareReport", ignore = true),
+            @Mapping(target = "adaptiveHardwarePn", ignore = true),
+            @Mapping(target = "adaptiveSoftwarePn", ignore = true)
+    })
     BomSoftwareBuildVersionOapi fromPo(SoftwareBuildVersionPo softwareBuildVersionPo);
 
     /**
      * 数据传输对象转数据对象
-     *
-     * @param bomSoftwareBuildVersionOapi 数据传输对象
-     * @return 数据对象
+     * BOM 向后兼容：softwareDesc -> changeNote，忽略已删除字段，buildState 默认 DRAFT，releaseDate -> releaseTime
      */
-    @Mappings({})
+    @Mappings({
+            @Mapping(target = "changeNote", source = "softwareDesc"),
+            @Mapping(target = "buildState", constant = "DRAFT"),
+            @Mapping(target = "releaseTime", source = "releaseDate")
+    })
     SoftwareBuildVersionPo toPo(BomSoftwareBuildVersionOapi bomSoftwareBuildVersionOapi);
 
     /**
      * 数据对象列表转数据传输对象列表
-     *
-     * @param softwareBuildVersionPoList 数据对象列表
-     * @return 数据传输对象列表
      */
     List<BomSoftwareBuildVersionOapi> fromPoList(List<SoftwareBuildVersionPo> softwareBuildVersionPoList);
 

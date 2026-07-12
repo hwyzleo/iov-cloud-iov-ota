@@ -126,6 +126,11 @@ public class SoftwarePackageExService {
     private Boolean ota;
 
     /**
+     * 制品可用性状态：1-可用,2-停用,3-吊销,4-退役
+     */
+    private Integer packageState;
+
+    /**
      * 创建时间
      */
     private Date createTime;

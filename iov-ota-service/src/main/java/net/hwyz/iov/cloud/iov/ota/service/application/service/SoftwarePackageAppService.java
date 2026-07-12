@@ -6,6 +6,7 @@ import net.hwyz.iov.cloud.framework.common.util.ParamHelper;
 import net.hwyz.iov.cloud.iov.ota.api.vo.BomSoftwarePackageOapi;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.AdaptiveLevel;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.SoftwarePackageType;
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.SoftwarePackageState;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.BomSoftwarePackageOapiAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.SoftwarePackageMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwarePackagePo;
@@ -85,6 +86,9 @@ public class SoftwarePackageAppService {
     public int createSoftwarePackage(SoftwarePackagePo softwarePackage) {
         applyFieldRules(softwarePackage);
         generatePackageCodeIfAbsent(softwarePackage);
+        if (softwarePackage.getPackageState() == null) {
+            softwarePackage.setPackageState(SoftwarePackageState.ACTIVE.name());
+        }
         return softwarePackageMapper.insertPo(softwarePackage);
     }
 
@@ -122,6 +126,55 @@ public class SoftwarePackageAppService {
      */
     public int deleteSoftwarePackageByIds(Long[] ids) {
         return softwarePackageMapper.batchPhysicalDeletePo(ids);
+    }
+
+    // ==================== CR-004: 制品可用性状态流转 ====================
+
+    /**
+     * 停用软件包
+     */
+    public int deprecateSoftwarePackage(Long id) {
+        SoftwarePackagePo po = softwarePackageMapper.selectPoById(id);
+        if (po == null) {
+            throw new IllegalArgumentException("软件包不存在: " + id);
+        }
+        if (!SoftwarePackageState.ACTIVE.name().equals(po.getPackageState())) {
+            throw new IllegalStateException("当前制品状态[" + po.getPackageState() + "]不允许停用");
+        }
+        po.setPackageState(SoftwarePackageState.DEPRECATED.name());
+        return softwarePackageMapper.updatePo(po);
+    }
+
+    /**
+     * 吊销软件包
+     */
+    public int revokeSoftwarePackage(Long id) {
+        SoftwarePackagePo po = softwarePackageMapper.selectPoById(id);
+        if (po == null) {
+            throw new IllegalArgumentException("软件包不存在: " + id);
+        }
+        if (!SoftwarePackageState.ACTIVE.name().equals(po.getPackageState())
+                && !SoftwarePackageState.DEPRECATED.name().equals(po.getPackageState())) {
+            throw new IllegalStateException("当前制品状态[" + po.getPackageState() + "]不允许吊销");
+        }
+        po.setPackageState(SoftwarePackageState.REVOKED.name());
+        return softwarePackageMapper.updatePo(po);
+    }
+
+    /**
+     * 退役软件包
+     */
+    public int retireSoftwarePackage(Long id) {
+        SoftwarePackagePo po = softwarePackageMapper.selectPoById(id);
+        if (po == null) {
+            throw new IllegalArgumentException("软件包不存在: " + id);
+        }
+        if (!SoftwarePackageState.DEPRECATED.name().equals(po.getPackageState())
+                && !SoftwarePackageState.REVOKED.name().equals(po.getPackageState())) {
+            throw new IllegalStateException("当前制品状态[" + po.getPackageState() + "]不允许退役");
+        }
+        po.setPackageState(SoftwarePackageState.RETIRED.name());
+        return softwarePackageMapper.updatePo(po);
     }
 
     /**

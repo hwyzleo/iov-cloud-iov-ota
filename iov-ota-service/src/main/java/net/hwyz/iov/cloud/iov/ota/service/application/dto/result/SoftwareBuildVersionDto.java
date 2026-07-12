@@ -15,13 +15,13 @@ public class SoftwareBuildVersionDto {
     private String deviceCode;
     private String softwarePn;
     private String softwareBuildVer;
-    private String softwareReport;
-    private String softwareDesc;
+    private String changeNote;
     private String softwareSource;
-    private String adaptiveAssemblyPn;
-    private String adaptiveSoftwarePn;
-    private Instant releaseDate;
+    private String buildState;
+    private Instant releaseTime;
     private Integer softwarePackageCount;
     private Integer dependencyCount;
+    private Integer testReportCount;
+    private Integer adaptationCount;
     private Integer adaptiveLevel;
 }

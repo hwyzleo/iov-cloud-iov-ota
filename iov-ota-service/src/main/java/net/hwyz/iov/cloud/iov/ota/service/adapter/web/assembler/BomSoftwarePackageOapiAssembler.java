@@ -3,6 +3,7 @@ package net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler;
 import net.hwyz.iov.cloud.iov.ota.api.vo.BomSoftwarePackageOapi;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwarePackagePo;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 import org.mapstruct.Mappings;
 import org.mapstruct.factory.Mappers;
 
@@ -29,11 +30,11 @@ public interface BomSoftwarePackageOapiAssembler {
 
     /**
      * 数据传输对象转数据对象
-     *
-     * @param bomSoftwarePackageOapi 数据传输对象
-     * @return 数据对象
+     * BOM 向后兼容：packageState 默认 ACTIVE
      */
-    @Mappings({})
+    @Mappings({
+            @Mapping(target = "packageState", constant = "ACTIVE")
+    })
     SoftwarePackagePo toPo(BomSoftwarePackageOapi bomSoftwarePackageOapi);
 
     /**

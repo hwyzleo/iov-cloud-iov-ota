@@ -38,14 +38,9 @@ public class SoftwareBuildVersionMpt extends BaseRequest {
     private String softwareBuildVer;
 
     /**
-     * 软件测试报告
+     * 技术变更说明
      */
-    private String softwareReport;
-
-    /**
-     * 软件说明
-     */
-    private String softwareDesc;
+    private String changeNote;
 
     /**
      * 软件来源
@@ -53,19 +48,14 @@ public class SoftwareBuildVersionMpt extends BaseRequest {
     private String softwareSource;
 
     /**
-     * 适配的总成零件号
+     * 发布工作流状态：DRAFT-草稿,TESTING-测试中,RELEASED-已发布,DEPRECATED-停用,RETIRED-退役
      */
-    private String adaptiveAssemblyPn;
+    private String buildState;
 
     /**
-     * 适配的软件零件号
+     * 发布时间
      */
-    private String adaptiveSoftwarePn;
-
-    /**
-     * 发布日期
-     */
-    private Date releaseDate;
+    private Date releaseTime;
 
     /**
      * 创建时间
@@ -81,6 +71,16 @@ public class SoftwareBuildVersionMpt extends BaseRequest {
      * 依赖数量
      */
     private Integer dependencyCount;
+
+    /**
+     * 测试报告数量
+     */
+    private Integer testReportCount;
+
+    /**
+     * 适配矩阵数量
+     */
+    private Integer adaptationCount;
 
     /**
      * 适配级别

@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.SoftwareBuildVersionAdaptationMapper">
+
+    <resultMap id="baseResultMap" type="net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwareBuildVersionAdaptationPo">
+        <id column="id" property="id" />
+        <result column="description" property="description" />
+        <result column="create_time" property="createTime" />
+        <result column="create_by" property="createBy" />
+        <result column="modify_time" property="modifyTime" />
+        <result column="modify_by" property="modifyBy" />
+        <result column="row_version" property="rowVersion" />
+        <result column="row_valid" property="rowValid" />
+        <result column="sbv_id" property="sbvId" />
+        <result column="hardware_assembly_pn" property="hardwareAssemblyPn" />
+        <result column="hardware_ver" property="hardwareVer" />
+        <result column="adaptive_level" property="adaptiveLevel" />
+        <result column="sort" property="sort" />
+    </resultMap>
+
+    <sql id="baseColumnList">
+        id, sbv_id, hardware_assembly_pn, hardware_ver, adaptive_level, sort,
+        description, create_time, create_by, modify_time, modify_by, row_version, row_valid
+    </sql>
+
+    <insert id="insertPo" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO tb_software_build_version_adaptation (
+            id, sbv_id, hardware_assembly_pn, hardware_ver, adaptive_level, sort,
+            description, create_time, create_by, modify_time, modify_by, row_version, row_valid
+        )
+        VALUES (
+            #{id}, #{sbvId}, #{hardwareAssemblyPn}, #{hardwareVer}, #{adaptiveLevel}, #{sort},
+            #{description}, now(), #{createBy}, now(), #{modifyBy}, 1, 1
+        )
+    </insert>
+
+    <insert id="batchInsertPo" useGeneratedKeys="true" keyProperty="id" parameterType="java.util.List">
+        INSERT INTO tb_software_build_version_adaptation (
+            id, sbv_id, hardware_assembly_pn, hardware_ver, adaptive_level, sort,
+            description, create_time, create_by, modify_time, modify_by, row_version, row_valid
+        )
+        VALUES
+        <foreach collection="list" item="item" index="index" separator=",">
+        (
+            #{item.id}, #{item.sbvId}, #{item.hardwareAssemblyPn}, #{item.hardwareVer}, #{item.adaptiveLevel}, #{item.sort},
+            #{item.description}, now(), #{item.createBy}, now(), #{item.modifyBy}, 1, 1
+        )
+        </foreach>
+    </insert>
+
+    <update id="updatePo" parameterType="net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwareBuildVersionAdaptationPo">
+        UPDATE tb_software_build_version_adaptation t SET
+        <if test="sbvId != null">
+            t.sbv_id = #{sbvId},
+        </if>
+        <if test="hardwareAssemblyPn != null and hardwareAssemblyPn != ''">
+            t.hardware_assembly_pn = #{hardwareAssemblyPn},
+        </if>
+        <if test="hardwareVer != null and hardwareVer != ''">
+            t.hardware_ver = #{hardwareVer},
+        </if>
+        <if test="adaptiveLevel != null">
+            t.adaptive_level = #{adaptiveLevel},
+        </if>
+        <if test="sort != null">
+            t.sort = #{sort},
+        </if>
+        <if test="description != null and description != ''">
+            t.description = #{description},
+        </if>
+        <if test="modifyBy != null">
+            t.modify_by = #{modifyBy},
+        </if>
+        t.row_version = t.row_version + 1,
+        t.modify_time = now()
+        WHERE id = #{id}
+    </update>
+
+    <update id="logicalDeletePo" parameterType="Long">
+        UPDATE tb_software_build_version_adaptation t SET
+        t.row_version = t.row_version + 1,
+        t.modify_time = now(),
+        t.row_valid = 0
+        WHERE t.id = #{value}
+    </update>
+
+    <delete id="physicalDeletePo" parameterType="Long">
+        DELETE FROM tb_software_build_version_adaptation t
+        WHERE t.id = #{value}
+    </delete>
+
+    <delete id="batchPhysicalDeletePo" parameterType="Long">
+        DELETE FROM tb_software_build_version_adaptation t
+        WHERE t.id IN
+        <foreach collection="array" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <select id="selectPoById" parameterType="Long" resultMap="baseResultMap">
+        SELECT <include refid="baseColumnList"/>
+        FROM tb_software_build_version_adaptation t
+        WHERE t.id = #{value}
+        AND t.row_valid = 1
+    </select>
+
+    <select id="selectPoByExample" parameterType="net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwareBuildVersionAdaptationPo" resultMap="baseResultMap">
+        SELECT <include refid="baseColumnList"/>
+        FROM tb_software_build_version_adaptation t
+        WHERE t.row_valid = 1
+        <if test="id != null">
+            AND t.id = #{id}
+        </if>
+        <if test="sbvId != null">
+            AND t.sbv_id = #{sbvId}
+        </if>
+        <if test="hardwareAssemblyPn != null and hardwareAssemblyPn != ''">
+            AND t.hardware_assembly_pn = #{hardwareAssemblyPn}
+        </if>
+        ORDER BY t.sort ASC, t.id DESC
+    </select>
+
+    <select id="selectPoByMap" parameterType="java.util.Map" resultMap="baseResultMap">
+        SELECT <include refid="baseColumnList"/>
+        FROM tb_software_build_version_adaptation t
+        WHERE t.row_valid = 1
+        ORDER BY t.sort ASC, t.id DESC
+    </select>
+
+    <select id="selectPoBySbvId" parameterType="java.util.Map" resultMap="baseResultMap">
+        SELECT <include refid="baseColumnList"/>
+        FROM tb_software_build_version_adaptation t
+        WHERE t.row_valid = 1
+        AND t.sbv_id = #{sbvId}
+        ORDER BY t.sort ASC, t.id DESC
+    </select>
+
+    <select id="countPoByMap" parameterType="java.util.Map" resultType="int">
+        SELECT COUNT(*)
+        FROM tb_software_build_version_adaptation t
+        WHERE t.row_valid = 1
+    </select>
+
+    <!-- 根据软件内部版本ID统计适配矩阵数量 -->
+    <select id="countBySbvId" parameterType="java.util.Map" resultType="int">
+        SELECT COUNT(*)
+        FROM tb_software_build_version_adaptation t
+        WHERE t.row_valid = 1
+          AND t.sbv_id = #{sbvId}
+    </select>
+
+    <delete id="deletePoBySbvId" parameterType="java.util.Map">
+        DELETE FROM tb_software_build_version_adaptation
+        WHERE sbv_id = #{sbvId}
+    </delete>
+
+</mapper>

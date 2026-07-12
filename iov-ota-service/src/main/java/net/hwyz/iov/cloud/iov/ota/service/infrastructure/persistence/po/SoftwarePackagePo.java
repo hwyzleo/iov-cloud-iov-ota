@@ -159,4 +159,10 @@ public class SoftwarePackagePo extends BasePo {
      */
     @TableField("ota")
     private Boolean ota;
+
+    /**
+     * 制品可用性状态: ACTIVE/DEPRECATED/REVOKED/RETIRED
+     */
+    @TableField("package_state")
+    private String packageState;
 }

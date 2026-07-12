@@ -71,12 +71,9 @@ public class SoftwareBuildVersionServiceController {
             exService.setDeviceCode(softwareBuildVersion.getDeviceCode());
             exService.setSoftwarePn(softwareBuildVersion.getSoftwarePn());
             exService.setSoftwareBuildVer(softwareBuildVersion.getSoftwareBuildVer());
-            exService.setSoftwareReport(softwareBuildVersion.getSoftwareReport());
-            exService.setSoftwareDesc(softwareBuildVersion.getSoftwareDesc());
+            exService.setChangeNote(softwareBuildVersion.getChangeNote());
             exService.setSoftwareSource(softwareBuildVersion.getSoftwareSource());
-            exService.setAdaptiveAssemblyPn(softwareBuildVersion.getAdaptiveAssemblyPn());
-            exService.setAdaptiveSoftwarePn(softwareBuildVersion.getAdaptiveSoftwarePn());
-            exService.setReleaseDate(softwareBuildVersion.getReleaseDate());
+            exService.setReleaseTime(softwareBuildVersion.getReleaseTime());
             exService.setCreateTime(softwareBuildVersion.getCreateTime());
         });
         softwareBuildVersionExService.setDependencyList(dependencyExServiceList);

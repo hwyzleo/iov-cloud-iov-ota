@@ -33,4 +33,5 @@ public class SoftwarePackageDto {
     private Date releaseDate;
     private Integer estimatedInstallTime;
     private Boolean ota;
+    private String packageState;
 }

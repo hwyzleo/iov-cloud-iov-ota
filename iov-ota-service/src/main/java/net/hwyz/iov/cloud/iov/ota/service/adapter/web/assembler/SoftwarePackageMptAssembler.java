@@ -3,6 +3,7 @@ package net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler;
 import net.hwyz.iov.cloud.iov.ota.api.vo.SoftwarePackageMpt;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwarePackagePo;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 import org.mapstruct.Mappings;
 import org.mapstruct.factory.Mappers;
 
@@ -24,7 +25,9 @@ public interface SoftwarePackageMptAssembler {
      * @param softwarePackagePo 数据对象
      * @return 数据传输对象
      */
-    @Mappings({})
+    @Mappings({
+            @Mapping(target = "packageState", expression = "java(softwarePackagePo.getPackageState() == null ? null : net.hwyz.iov.cloud.iov.ota.api.vo.enums.SoftwarePackageState.valueOf(softwarePackagePo.getPackageState()).value)")
+    })
     SoftwarePackageMpt fromPo(SoftwarePackagePo softwarePackagePo);
 
     /**
@@ -33,7 +36,9 @@ public interface SoftwarePackageMptAssembler {
      * @param softwarePackageMpt 数据传输对象
      * @return 数据对象
      */
-    @Mappings({})
+    @Mappings({
+            @Mapping(target = "packageState", expression = "java(softwarePackageMpt.getPackageState() == null ? null : net.hwyz.iov.cloud.iov.ota.api.vo.enums.SoftwarePackageState.valOf(softwarePackageMpt.getPackageState()).name())")
+    })
     SoftwarePackagePo toPo(SoftwarePackageMpt softwarePackageMpt);
 
     /**

@@ -2,6 +2,7 @@ package net.hwyz.iov.cloud.iov.ota.service.domain.model.aggregate;
 
 import lombok.Builder;
 import lombok.Data;
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.SoftwareBuildVersionState;
 import net.hwyz.iov.cloud.iov.ota.service.common.exception.OtaBaseException;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.SoftwareBuildVersionDependency;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.SoftwarePackage;
@@ -24,16 +25,14 @@ public class SoftwareBuildVersion implements Serializable {
     private DeviceCode deviceCode;
     private SoftwarePn softwarePn;
     private String softwareBuildVer;
-    private String softwareReport;
-    private String softwareDesc;
+    private String changeNote;
     private String softwareSource;
-    private String adaptiveAssemblyPn;
-    private String adaptiveSoftwarePn;
-    private Instant releaseDate;
-    
+    private String buildState;
+    private Instant releaseTime;
+
     @Builder.Default
     private List<SoftwarePackage> packages = new ArrayList<>();
-    
+
     @Builder.Default
     private List<SoftwareBuildVersionDependency> dependencies = new ArrayList<>();
 
@@ -72,7 +71,7 @@ public class SoftwareBuildVersion implements Serializable {
      * 业务规则：不能重复依赖同一版本
      */
     public void addDependency(SoftwareBuildVersionDependency dependency) {
-        if (dependencies.stream().anyMatch(d -> 
+        if (dependencies.stream().anyMatch(d ->
             d.getDependencySoftwareBuildVersionId().equals(dependency.getDependencySoftwareBuildVersionId()))) {
             throw new OtaBaseException("依赖关系已存在，不能重复添加");
         }
@@ -102,5 +101,50 @@ public class SoftwareBuildVersion implements Serializable {
      */
     public int countDependencies() {
         return dependencies.size();
+    }
+
+    /**
+     * 是否已发布
+     */
+    public boolean isReleased() {
+        return SoftwareBuildVersionState.RELEASED.name().equals(this.buildState);
+    }
+
+    /**
+     * 发布版本
+     * 业务规则：仅 DRAFT/TESTING 状态可发布
+     */
+    public void release() {
+        if (SoftwareBuildVersionState.DRAFT.name().equals(this.buildState)
+                || SoftwareBuildVersionState.TESTING.name().equals(this.buildState)) {
+            this.buildState = SoftwareBuildVersionState.RELEASED.name();
+            this.releaseTime = Instant.now();
+        } else {
+            throw new OtaBaseException("当前状态[" + this.buildState + "]不允许发布");
+        }
+    }
+
+    /**
+     * 停用版本
+     * 业务规则：仅 RELEASED 状态可停用
+     */
+    public void deprecate() {
+        if (SoftwareBuildVersionState.RELEASED.name().equals(this.buildState)) {
+            this.buildState = SoftwareBuildVersionState.DEPRECATED.name();
+        } else {
+            throw new OtaBaseException("当前状态[" + this.buildState + "]不允许停用");
+        }
+    }
+
+    /**
+     * 退役版本
+     * 业务规则：DEPRECATED 状态可退役
+     */
+    public void retire() {
+        if (SoftwareBuildVersionState.DEPRECATED.name().equals(this.buildState)) {
+            this.buildState = SoftwareBuildVersionState.RETIRED.name();
+        } else {
+            throw new OtaBaseException("当前状态[" + this.buildState + "]不允许退役");
+        }
     }
 }

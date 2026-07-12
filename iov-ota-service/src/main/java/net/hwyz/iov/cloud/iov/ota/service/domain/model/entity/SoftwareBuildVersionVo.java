@@ -59,14 +59,9 @@ public class SoftwareBuildVersionVo {
     private String softwareBuildVer;
 
     /**
-     * 软件测试报告
+     * 技术变更说明
      */
-    private String softwareReport;
-
-    /**
-     * 软件说明
-     */
-    private String softwareDesc;
+    private String changeNote;
 
     /**
      * 软件来源：BOM/OTA
@@ -74,19 +69,19 @@ public class SoftwareBuildVersionVo {
     private String softwareSource;
 
     /**
+     * 发布工作流状态
+     */
+    private String buildState;
+
+    /**
      * 适配的总成硬件零件号
      */
     private String adaptiveHardwarePn;
 
     /**
-     * 适配的总成软件零件号
+     * 发布时间
      */
-    private String adaptiveSoftwarePn;
-
-    /**
-     * 发布日期
-     */
-    private Date publishDate;
+    private Date releaseTime;
 
     /**
      * 软件包数量

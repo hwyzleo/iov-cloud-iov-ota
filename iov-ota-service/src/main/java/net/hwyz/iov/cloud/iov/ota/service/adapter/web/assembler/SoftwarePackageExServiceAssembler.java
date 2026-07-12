@@ -39,7 +39,9 @@ public interface SoftwarePackageExServiceAssembler {
      */
     List<SoftwarePackageVo> toVoList(List<SoftwarePackageExService> softwarePackageExServiceList);
 
-    @Mappings({})
+    @Mappings({
+            @Mapping(target = "packageState", expression = "java(softwarePackagePo.getPackageState() == null ? null : net.hwyz.iov.cloud.iov.ota.api.vo.enums.SoftwarePackageState.valueOf(softwarePackagePo.getPackageState()).value)")
+    })
     SoftwarePackageExService fromPo(SoftwarePackagePo softwarePackagePo);
 
     List<SoftwarePackageExService> fromPoList(List<SoftwarePackagePo> softwarePackagePoList);

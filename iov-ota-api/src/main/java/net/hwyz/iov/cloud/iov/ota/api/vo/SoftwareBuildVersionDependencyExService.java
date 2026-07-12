@@ -64,14 +64,9 @@ public class SoftwareBuildVersionDependencyExService {
     private String softwareBuildVer;
 
     /**
-     * 软件测试报告
+     * 技术变更说明
      */
-    private String softwareReport;
-
-    /**
-     * 软件说明
-     */
-    private String softwareDesc;
+    private String changeNote;
 
     /**
      * 软件来源
@@ -79,19 +74,9 @@ public class SoftwareBuildVersionDependencyExService {
     private String softwareSource;
 
     /**
-     * 适配的总成零件号
+     * 发布时间
      */
-    private String adaptiveAssemblyPn;
-
-    /**
-     * 适配的软件零件号
-     */
-    private String adaptiveSoftwarePn;
-
-    /**
-     * 发布日期
-     */
-    private Date releaseDate;
+    private Date releaseTime;
 
     /**
      * 创建时间

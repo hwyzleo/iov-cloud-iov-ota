@@ -19,10 +19,16 @@ import net.hwyz.iov.cloud.iov.ota.service.domain.service.SoftwareBuildVersionDom
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.SoftwareBuildVersionMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.SoftwareBuildVersionDependencyMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.SoftwareBuildVersionPackageMapper;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.SoftwareBuildVersionTestReportMapper;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.SoftwareBuildVersionAdaptationMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwareBuildVersionDependencyPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwareBuildVersionPackagePo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwareBuildVersionPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwareBuildVersionTestReportPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwareBuildVersionAdaptationPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwarePackagePo;
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.SoftwareBuildVersionState;
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.SoftwarePackageState;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -45,6 +51,8 @@ public class SoftwareBuildVersionAppService {
     private final SoftwarePackageAppService softwarePackageAppService;
     private final SoftwareBuildVersionPackageMapper softwareBuildVersionPackageMapper;
     private final SoftwareBuildVersionDependencyMapper softwareBuildVersionDependencyMapper;
+    private final SoftwareBuildVersionTestReportMapper softwareBuildVersionTestReportMapper;
+    private final SoftwareBuildVersionAdaptationMapper softwareBuildVersionAdaptationMapper;
 
     /**
      * 查询软件零件版本信息
@@ -163,6 +171,9 @@ public class SoftwareBuildVersionAppService {
      * @return 结果
      */
     public int createSoftwareBuildVersion(SoftwareBuildVersionPo softwareBuildVersion) {
+        if (softwareBuildVersion.getBuildState() == null) {
+            softwareBuildVersion.setBuildState(SoftwareBuildVersionState.DRAFT.name());
+        }
         return softwareBuildVersionMapper.insertPo(softwareBuildVersion);
     }
 
@@ -189,7 +200,7 @@ public class SoftwareBuildVersionAppService {
             softwareBuildVersionPo = BomSoftwareBuildVersionOapiAssembler.INSTANCE.toPo(bomSoftwareBuildVersion);
             softwareBuildVersionMapper.insertPo(softwareBuildVersionPo);
         } else {
-            softwareBuildVersionPo.setReleaseDate(bomSoftwareBuildVersion.getReleaseDate());
+            softwareBuildVersionPo.setReleaseTime(bomSoftwareBuildVersion.getReleaseDate());
             softwareBuildVersionMapper.updatePo(softwareBuildVersionPo);
         }
         List<BomSoftwarePackageOapi> softwarePackageList = bomSoftwareBuildVersion.getSoftwarePackageList();
@@ -359,6 +370,134 @@ public class SoftwareBuildVersionAppService {
      */
     public int countDependency(Long softwareBuildVersionId) {
         return softwareBuildVersionDependencyMapper.countBySoftwareBuildVersionId(softwareBuildVersionId);
+    }
+
+    /**
+     * 统计软件内部版本测试报告数量
+     *
+     * @param softwareBuildVersionId 软件内部版本ID
+     * @return 软件内部版本测试报告数量
+     */
+    public int countTestReport(Long softwareBuildVersionId) {
+        return softwareBuildVersionTestReportMapper.countBySbvId(softwareBuildVersionId);
+    }
+
+    /**
+     * 统计软件内部版本适配矩阵数量
+     *
+     * @param softwareBuildVersionId 软件内部版本ID
+     * @return 软件内部版本适配矩阵数量
+     */
+    public int countAdaptation(Long softwareBuildVersionId) {
+        return softwareBuildVersionAdaptationMapper.countBySbvId(softwareBuildVersionId);
+    }
+
+    // ==================== CR-004: 发布工作流状态流转 ====================
+
+    /**
+     * 发布软件内部版本
+     */
+    public int releaseSoftwareBuildVersion(Long id) {
+        SoftwareBuildVersionPo po = softwareBuildVersionMapper.selectPoById(id);
+        if (po == null) {
+            throw new IllegalArgumentException("软件内部版本不存在: " + id);
+        }
+        SoftwareBuildVersionState currentState = SoftwareBuildVersionState.valueOf(po.getBuildState());
+        if (currentState != SoftwareBuildVersionState.DRAFT && currentState != SoftwareBuildVersionState.TESTING) {
+            throw new IllegalStateException("当前状态[" + po.getBuildState() + "]不允许发布");
+        }
+        po.setBuildState(SoftwareBuildVersionState.RELEASED.name());
+        po.setReleaseTime(new Date());
+        return softwareBuildVersionMapper.updatePo(po);
+    }
+
+    /**
+     * 停用软件内部版本
+     */
+    public int deprecateSoftwareBuildVersion(Long id) {
+        SoftwareBuildVersionPo po = softwareBuildVersionMapper.selectPoById(id);
+        if (po == null) {
+            throw new IllegalArgumentException("软件内部版本不存在: " + id);
+        }
+        if (!SoftwareBuildVersionState.RELEASED.name().equals(po.getBuildState())) {
+            throw new IllegalStateException("当前状态[" + po.getBuildState() + "]不允许停用");
+        }
+        po.setBuildState(SoftwareBuildVersionState.DEPRECATED.name());
+        return softwareBuildVersionMapper.updatePo(po);
+    }
+
+    /**
+     * 退役软件内部版本
+     */
+    public int retireSoftwareBuildVersion(Long id) {
+        SoftwareBuildVersionPo po = softwareBuildVersionMapper.selectPoById(id);
+        if (po == null) {
+            throw new IllegalArgumentException("软件内部版本不存在: " + id);
+        }
+        if (!SoftwareBuildVersionState.DEPRECATED.name().equals(po.getBuildState())) {
+            throw new IllegalStateException("当前状态[" + po.getBuildState() + "]不允许退役");
+        }
+        po.setBuildState(SoftwareBuildVersionState.RETIRED.name());
+        return softwareBuildVersionMapper.updatePo(po);
+    }
+
+    // ==================== CR-004: 测试报告子表管理 ====================
+
+    /**
+     * 查询测试报告列表
+     */
+    public List<SoftwareBuildVersionTestReportPo> listTestReports(Long sbvId) {
+        return softwareBuildVersionTestReportMapper.selectPoBySbvId(sbvId);
+    }
+
+    /**
+     * 新增测试报告
+     */
+    public int createTestReport(SoftwareBuildVersionTestReportPo testReport) {
+        return softwareBuildVersionTestReportMapper.insertPo(testReport);
+    }
+
+    /**
+     * 删除测试报告
+     */
+    public int deleteTestReport(Long id) {
+        return softwareBuildVersionTestReportMapper.physicalDeletePo(id);
+    }
+
+    // ==================== CR-004: 软硬件适配矩阵管理 ====================
+
+    /**
+     * 查询适配矩阵列表
+     */
+    public List<SoftwareBuildVersionAdaptationPo> listAdaptations(Long sbvId) {
+        return softwareBuildVersionAdaptationMapper.selectPoBySbvId(sbvId);
+    }
+
+    /**
+     * 保存适配矩阵（先删后增，全量替换）
+     */
+    public int saveAdaptations(Long sbvId, List<SoftwareBuildVersionAdaptationPo> adaptations) {
+        softwareBuildVersionAdaptationMapper.deletePoBySbvId(sbvId);
+        if (adaptations != null && !adaptations.isEmpty()) {
+            adaptations.forEach(a -> a.setSbvId(sbvId));
+            return softwareBuildVersionAdaptationMapper.batchInsertPo(adaptations);
+        }
+        return 0;
+    }
+
+    // ==================== CR-004: 双重发布门禁校验 ====================
+
+    /**
+     * 校验软件内部版本是否可被引用下发
+     * 门禁：版本 build_state = RELEASED 且其引用的所有软件包 package_state = ACTIVE
+     */
+    public boolean checkReleaseGate(Long sbvId) {
+        SoftwareBuildVersionPo po = softwareBuildVersionMapper.selectPoById(sbvId);
+        if (po == null || !SoftwareBuildVersionState.RELEASED.name().equals(po.getBuildState())) {
+            return false;
+        }
+        List<SoftwarePackagePo> packages = softwarePackageAppService.listBySoftwareBuildVersionId(sbvId);
+        return packages.stream().allMatch(pkg -> SoftwarePackageState.ACTIVE.name().equals(pkg.getPackageState()));
     }
 
 }

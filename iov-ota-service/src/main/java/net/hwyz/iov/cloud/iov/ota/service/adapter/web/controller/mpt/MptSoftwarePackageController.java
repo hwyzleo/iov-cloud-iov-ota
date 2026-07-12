@@ -123,4 +123,30 @@ public class MptSoftwarePackageController extends BaseController {
         return ApiResponse.ok(softwarePackageAppService.deleteSoftwarePackageByIds(softwarePackageIds));
     }
 
+    // ==================== CR-004: 制品可用性状态流转 ====================
+
+    @Log(title = "软件包信息管理", businessType = BusinessType.UPDATE)
+    @RequiresPermissions("ota:pota:softwarePackage:edit")
+    @PostMapping(value = "/{softwarePackageId}/action/deprecate")
+    public ApiResponse<Integer> deprecate(@PathVariable Long softwarePackageId) {
+        log.info("管理后台用户[{}]停用软件包[{}]", SecurityUtils.getUsername(), softwarePackageId);
+        return ApiResponse.ok(softwarePackageAppService.deprecateSoftwarePackage(softwarePackageId));
+    }
+
+    @Log(title = "软件包信息管理", businessType = BusinessType.UPDATE)
+    @RequiresPermissions("ota:pota:softwarePackage:edit")
+    @PostMapping(value = "/{softwarePackageId}/action/revoke")
+    public ApiResponse<Integer> revoke(@PathVariable Long softwarePackageId) {
+        log.info("管理后台用户[{}]吊销软件包[{}]", SecurityUtils.getUsername(), softwarePackageId);
+        return ApiResponse.ok(softwarePackageAppService.revokeSoftwarePackage(softwarePackageId));
+    }
+
+    @Log(title = "软件包信息管理", businessType = BusinessType.UPDATE)
+    @RequiresPermissions("ota:pota:softwarePackage:edit")
+    @PostMapping(value = "/{softwarePackageId}/action/retire")
+    public ApiResponse<Integer> retire(@PathVariable Long softwarePackageId) {
+        log.info("管理后台用户[{}]退役软件包[{}]", SecurityUtils.getUsername(), softwarePackageId);
+        return ApiResponse.ok(softwarePackageAppService.retireSoftwarePackage(softwarePackageId));
+    }
+
 }

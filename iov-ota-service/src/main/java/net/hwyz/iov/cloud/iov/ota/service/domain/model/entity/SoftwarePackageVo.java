@@ -116,11 +116,6 @@ public class SoftwarePackageVo {
     private AdaptiveLevel packageAdaptiveLevel;
 
     /**
-     * 适配的总成软件零件号
-     */
-    private String adaptiveSoftwarePn;
-
-    /**
      * 发布日期
      */
     private Date publishDate;
@@ -134,6 +129,11 @@ public class SoftwarePackageVo {
      * 是否是OTA包
      */
     private Boolean ota;
+
+    /**
+     * 制品可用性状态
+     */
+    private String packageState;
 
     /**
      * 是否匹配

@@ -36,6 +36,7 @@ public class ActivityAppService {
     private final ActivityFixedConfigWordMapper activityFixedConfigWordDao;
     private final ActivitySoftwareBuildVersionMapper activitySoftwareBuildVersionDao;
     private final ActivityTargetVersionMapper activityTargetVersionDao;
+    private final SoftwareBuildVersionAppService softwareBuildVersionAppService;
 
     /**
      * 查询升级活动
@@ -137,6 +138,9 @@ public class ActivityAppService {
         List<ActivitySoftwareBuildVersionPo> list = new ArrayList<>();
         for (Long softwareBuildVersionId : softwareBuildVersionIds) {
             if (!softwareBuildVersionIdSet.contains(softwareBuildVersionId)) {
+                if (!softwareBuildVersionAppService.checkReleaseGate(softwareBuildVersionId)) {
+                    throw new IllegalStateException("软件内部版本[" + softwareBuildVersionId + "]未通过发布门禁校验（版本需RELEASED且引用软件包均ACTIVE）");
+                }
                 list.add(ActivitySoftwareBuildVersionPo.builder()
                         .activityId(activityId)
                         .softwareBuildVersionId(softwareBuildVersionId)

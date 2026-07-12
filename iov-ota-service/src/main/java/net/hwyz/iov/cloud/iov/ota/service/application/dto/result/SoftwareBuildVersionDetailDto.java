@@ -16,12 +16,10 @@ public class SoftwareBuildVersionDetailDto {
     private String deviceCode;
     private String softwarePn;
     private String softwareBuildVer;
-    private String softwareReport;
-    private String softwareDesc;
+    private String changeNote;
     private String softwareSource;
-    private String adaptiveAssemblyPn;
-    private String adaptiveSoftwarePn;
-    private Instant releaseDate;
+    private String buildState;
+    private Instant releaseTime;
     private List<SoftwarePackageDto> packages;
     private List<SoftwareBuildVersionDependencyDto> dependencies;
 }
