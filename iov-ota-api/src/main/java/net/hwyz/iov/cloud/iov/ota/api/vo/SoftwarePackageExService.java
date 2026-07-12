@@ -51,9 +51,29 @@ public class SoftwarePackageExService {
     private Long packageSize;
 
     /**
-     * 软件包MD5
+     * 软件包MD5（弱/兼容校验）
      */
     private String packageMd5;
+
+    /**
+     * 软件包SHA-256（权威完整性校验）
+     */
+    private String packageSha256;
+
+    /**
+     * 软件包数字签名
+     */
+    private String packageSignature;
+
+    /**
+     * 签名算法（RSA/ECDSA/SM2）
+     */
+    private String signAlgo;
+
+    /**
+     * 签名证书标识（引用KMS/PKI）
+     */
+    private String signerCertId;
 
     /**
      * 软件包说明
@@ -71,17 +91,22 @@ public class SoftwarePackageExService {
     private String packageSource;
 
     /**
-     * 基础软件零件号
+     * 基础软件零件号（仅DELTA必填）
      */
     private String baseSoftwarePn;
 
     /**
-     * 软件包适配级别：1-基础版本及以下，2-基础版本及以上，3-与基础版本一致
+     * 基础软件版本（仅DELTA，与baseSoftwarePn成对）
+     */
+    private String baseSoftwareVer;
+
+    /**
+     * 软件包适配级别：1-LE,2-GE,3-EQ（DELTA必填，FULL默认LE）
      */
     private Integer packageAdaptiveLevel;
 
     /**
-     * 适配的总成零件号
+     * 适配的硬件总成零件号
      */
     private String adaptiveAssemblyPn;
 

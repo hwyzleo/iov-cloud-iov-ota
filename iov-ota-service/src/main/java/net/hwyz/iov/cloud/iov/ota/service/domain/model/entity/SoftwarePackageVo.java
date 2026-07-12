@@ -61,9 +61,29 @@ public class SoftwarePackageVo {
     private Long packageSize;
 
     /**
-     * 软件包MD5
+     * 软件包MD5（弱/兼容校验）
      */
     private String packageMd5;
+
+    /**
+     * 软件包SHA-256（权威完整性校验）
+     */
+    private String packageSha256;
+
+    /**
+     * 软件包数字签名
+     */
+    private String packageSignature;
+
+    /**
+     * 签名算法（RSA/ECDSA/SM2）
+     */
+    private String signAlgo;
+
+    /**
+     * 签名证书标识（引用KMS/PKI）
+     */
+    private String signerCertId;
 
     /**
      * 软件包说明

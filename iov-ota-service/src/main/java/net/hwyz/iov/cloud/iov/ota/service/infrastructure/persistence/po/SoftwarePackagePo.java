@@ -71,10 +71,34 @@ public class SoftwarePackagePo extends BasePo {
     private Long packageSize;
 
     /**
-     * 软件包MD5
+     * 软件包MD5（弱/兼容校验）
      */
     @TableField("package_md5")
     private String packageMd5;
+
+    /**
+     * 软件包SHA-256（权威完整性校验）
+     */
+    @TableField("package_sha256")
+    private String packageSha256;
+
+    /**
+     * 软件包数字签名
+     */
+    @TableField("package_signature")
+    private String packageSignature;
+
+    /**
+     * 签名算法（RSA/ECDSA/SM2）
+     */
+    @TableField("sign_algo")
+    private String signAlgo;
+
+    /**
+     * 签名证书标识（引用KMS/PKI）
+     */
+    @TableField("signer_cert_id")
+    private String signerCertId;
 
     /**
      * 软件包说明
@@ -95,19 +119,25 @@ public class SoftwarePackagePo extends BasePo {
     private String packageSource;
 
     /**
-     * 基础软件零件号
+     * 基础软件零件号（仅DELTA必填）
      */
     @TableField("base_software_pn")
     private String baseSoftwarePn;
 
     /**
-     * 软件包适配级别：1-基础版本及以下，2-基础版本及以上，3-与基础版本一致
+     * 基础软件版本（仅DELTA，与base_software_pn成对）
+     */
+    @TableField("base_software_ver")
+    private String baseSoftwareVer;
+
+    /**
+     * 软件包适配级别：1-LE,2-GE,3-EQ（DELTA必填，FULL默认LE）
      */
     @TableField("package_adaptive_level")
     private Integer packageAdaptiveLevel;
 
     /**
-     * 适配的总成零件号
+     * 适配的硬件总成零件号
      */
     @TableField("adaptive_assembly_pn")
     private String adaptiveAssemblyPn;

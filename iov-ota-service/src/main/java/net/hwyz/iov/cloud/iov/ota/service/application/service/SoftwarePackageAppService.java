@@ -4,6 +4,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.hwyz.iov.cloud.framework.common.util.ParamHelper;
 import net.hwyz.iov.cloud.iov.ota.api.vo.BomSoftwarePackageOapi;
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.AdaptiveLevel;
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.SoftwarePackageType;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.BomSoftwarePackageOapiAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.SoftwarePackageMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwarePackagePo;
@@ -13,6 +15,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * 软件包信息应用服务类
@@ -80,6 +83,8 @@ public class SoftwarePackageAppService {
      * @return 结果
      */
     public int createSoftwarePackage(SoftwarePackagePo softwarePackage) {
+        applyFieldRules(softwarePackage);
+        generatePackageCodeIfAbsent(softwarePackage);
         return softwarePackageMapper.insertPo(softwarePackage);
     }
 
@@ -91,6 +96,8 @@ public class SoftwarePackageAppService {
      */
     public SoftwarePackagePo createSoftwarePackage(BomSoftwarePackageOapi bomSoftwarePackage) {
         SoftwarePackagePo softwarePackagePo = BomSoftwarePackageOapiAssembler.INSTANCE.toPo(bomSoftwarePackage);
+        applyFieldRules(softwarePackagePo);
+        generatePackageCodeIfAbsent(softwarePackagePo);
         softwarePackageMapper.insertPo(softwarePackagePo);
         return softwarePackagePo;
     }
@@ -102,6 +109,8 @@ public class SoftwarePackageAppService {
      * @return 结果
      */
     public int modifySoftwarePackage(SoftwarePackagePo softwarePackage) {
+        applyFieldRules(softwarePackage);
+        softwarePackage.setPackageCode(null);
         return softwarePackageMapper.updatePo(softwarePackage);
     }
 
@@ -113,6 +122,46 @@ public class SoftwarePackageAppService {
      */
     public int deleteSoftwarePackageByIds(Long[] ids) {
         return softwarePackageMapper.batchPhysicalDeletePo(ids);
+    }
+
+    /**
+     * 生成软件包代码（系统生成·唯一·不可变）
+     * 格式：{device_code}-{software_pn}-{FULL/DELTA}-{8位UUID}
+     */
+    private void generatePackageCodeIfAbsent(SoftwarePackagePo softwarePackage) {
+        if (softwarePackage.getPackageCode() == null || softwarePackage.getPackageCode().isBlank()) {
+            String deviceCode = softwarePackage.getDeviceCode() != null ? softwarePackage.getDeviceCode() : "UNKNOWN";
+            String softwarePn = softwarePackage.getSoftwarePn() != null ? softwarePackage.getSoftwarePn() : "UNKNOWN";
+            String packageType = softwarePackage.getPackageType() != null ? softwarePackage.getPackageType() : "UNKNOWN";
+            String shortUuid = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+            softwarePackage.setPackageCode(deviceCode + "-" + softwarePn + "-" + packageType + "-" + shortUuid);
+        }
+    }
+
+    /**
+     * 应用字段规则（DSN-CR-003 §3.8）
+     * - base_software_pn / base_software_ver：仅 DELTA 必填，FULL 时清空
+     * - package_adaptive_level：DELTA 必填，FULL 默认 LE(1)
+     */
+    private void applyFieldRules(SoftwarePackagePo softwarePackage) {
+        String packageType = softwarePackage.getPackageType();
+        if (SoftwarePackageType.DELTA.name().equals(packageType)) {
+            if (softwarePackage.getBaseSoftwarePn() == null || softwarePackage.getBaseSoftwarePn().isBlank()) {
+                throw new IllegalArgumentException("DELTA包的基础软件零件号(base_software_pn)不能为空");
+            }
+            if (softwarePackage.getBaseSoftwareVer() == null || softwarePackage.getBaseSoftwareVer().isBlank()) {
+                throw new IllegalArgumentException("DELTA包的基础软件版本(base_software_ver)不能为空");
+            }
+            if (softwarePackage.getPackageAdaptiveLevel() == null) {
+                throw new IllegalArgumentException("DELTA包的适配级别(package_adaptive_level)不能为空");
+            }
+        } else if (SoftwarePackageType.FULL.name().equals(packageType)) {
+            softwarePackage.setBaseSoftwarePn(null);
+            softwarePackage.setBaseSoftwareVer(null);
+            if (softwarePackage.getPackageAdaptiveLevel() == null) {
+                softwarePackage.setPackageAdaptiveLevel(AdaptiveLevel.LE.value);
+            }
+        }
     }
 
 }

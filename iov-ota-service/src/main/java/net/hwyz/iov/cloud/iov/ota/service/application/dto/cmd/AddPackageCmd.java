@@ -15,7 +15,16 @@ public class AddPackageCmd {
     private String packageType;
     private String packageUrl;
     private String packageMd5;
+    private String packageSha256;
+    private String packageSignature;
+    private String signAlgo;
+    private String signerCertId;
     private Long packageSize;
     private String packageDesc;
+    private String packageSource;
+    private String baseSoftwarePn;
+    private String baseSoftwareVer;
+    private Integer packageAdaptiveLevel;
+    private String adaptiveAssemblyPn;
     private String createBy;
 }
