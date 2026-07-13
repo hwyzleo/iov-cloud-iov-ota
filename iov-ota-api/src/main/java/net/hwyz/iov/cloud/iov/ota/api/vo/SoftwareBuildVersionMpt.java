@@ -33,6 +33,11 @@ public class SoftwareBuildVersionMpt extends BaseRequest {
     private String softwarePn;
 
     /**
+     * 软件零件名称
+     */
+    private String softwarePartName;
+
+    /**
      * 软件内部版本
      */
     private String softwareBuildVer;

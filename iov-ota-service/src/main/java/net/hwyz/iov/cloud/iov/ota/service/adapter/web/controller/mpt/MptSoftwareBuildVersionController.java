@@ -1,8 +1,11 @@
 package net.hwyz.iov.cloud.iov.ota.service.adapter.web.controller.mpt;
 
+import cn.hutool.core.util.ObjUtil;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.hwyz.iov.cloud.edd.mdm.api.service.MdmPartService;
+import net.hwyz.iov.cloud.edd.mdm.api.vo.response.PartResponse;
 import net.hwyz.iov.cloud.framework.audit.annotation.Log;
 import net.hwyz.iov.cloud.framework.audit.enums.BusinessType;
 import net.hwyz.iov.cloud.framework.common.bean.ApiResponse;
@@ -39,6 +42,7 @@ import java.util.List;
 @RequestMapping(value = "/api/mpt/softwareBuildVersion/v1")
 public class MptSoftwareBuildVersionController extends BaseController {
 
+    private final MdmPartService mdmPartService;
     private final SoftwarePackageAppService softwarePackageAppService;
     private final SoftwareBuildVersionAppService softwareBuildVersionAppService;
 
@@ -61,6 +65,10 @@ public class MptSoftwareBuildVersionController extends BaseController {
             softwareBuildVersionMpt.setDependencyCount(softwareBuildVersionAppService.countDependency(softwareBuildVersionMpt.getId()));
             softwareBuildVersionMpt.setTestReportCount(softwareBuildVersionAppService.countTestReport(softwareBuildVersionMpt.getId()));
             softwareBuildVersionMpt.setAdaptationCount(softwareBuildVersionAppService.countAdaptation(softwareBuildVersionMpt.getId()));
+            PartResponse part = mdmPartService.getByCode(softwareBuildVersionMpt.getSoftwarePn());
+            if (ObjUtil.isNotNull(part)) {
+                softwareBuildVersionMpt.setSoftwarePartName(part.getName());
+            }
         });
         return ApiResponse.ok(getPageResult(softwareBuildVersionMptList));
     }

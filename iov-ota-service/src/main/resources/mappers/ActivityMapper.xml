@@ -13,6 +13,7 @@
         <result column="row_version" property="rowVersion" />
         <result column="row_valid" property="rowValid" />
         <result column="name" property="name" />
+        <result column="activity_code" property="activityCode" />
         <result column="upgrade_notice_article_id" property="upgradeNoticeArticleId" />
         <result column="activity_term_article_id" property="activityTermArticleId" />
         <result column="privacy_agreement_article_id" property="privacyAgreementArticleId" />
@@ -26,22 +27,33 @@
         <result column="total_file_size" property="totalFileSize" />
         <result column="baseline" property="baseline" />
         <result column="baseline_code" property="baselineCode" />
+        <result column="size_calc_time" property="sizeCalcTime" />
+        <result column="is_type_approval_relevant" property="isTypeApprovalRelevant" />
+        <result column="type_approval_assessment_state" property="typeApprovalAssessmentState" />
+        <result column="release_note_article_id" property="releaseNoteArticleId" />
+        <result column="notice_consent_required" property="noticeConsentRequired" />
+        <result column="terms_consent_required" property="termsConsentRequired" />
+        <result column="privacy_consent_required" property="privacyConsentRequired" />
+        <result column="rxswin" property="rxswin" />
     </resultMap>
 
     <!-- 通用查询结果列 -->
     <sql id="baseColumnList">
-        id, name, upgrade_notice_article_id, activity_term_article_id, privacy_agreement_article_id, start_time, end_time, release_time, upgrade_purpose, upgrade_function, statement, state, total_file_size, baseline, baseline_code,
+        id, name, activity_code, upgrade_notice_article_id, activity_term_article_id, privacy_agreement_article_id, start_time, end_time, release_time, upgrade_purpose, upgrade_function, statement, state, total_file_size, baseline, baseline_code,
+        size_calc_time, is_type_approval_relevant, type_approval_assessment_state, release_note_article_id, notice_consent_required, terms_consent_required, privacy_consent_required, rxswin,
         description, create_time, create_by, modify_time, modify_by, row_version, row_valid
     </sql>
 
     <!-- 插入 -->
     <insert id="insertPo" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO tb_activity (
-            id, name, upgrade_notice_article_id, activity_term_article_id, privacy_agreement_article_id, start_time, end_time, release_time, upgrade_purpose, upgrade_function, statement, state, total_file_size, baseline, baseline_code,
+            id, name, activity_code, upgrade_notice_article_id, activity_term_article_id, privacy_agreement_article_id, start_time, end_time, release_time, upgrade_purpose, upgrade_function, statement, state, total_file_size, baseline, baseline_code,
+            size_calc_time, is_type_approval_relevant, type_approval_assessment_state, release_note_article_id, notice_consent_required, terms_consent_required, privacy_consent_required, rxswin,
             description, create_time, create_by, modify_time, modify_by, row_version, row_valid
         )
         VALUES (
-            #{id}, #{name}, #{upgradeNoticeArticleId}, #{activityTermArticleId}, #{privacyAgreementArticleId}, #{startTime}, #{endTime}, #{releaseTime}, #{upgradePurpose}, #{upgradeFunction}, #{statement}, #{state}, #{totalFileSize}, #{baseline}, #{baselineCode},
+            #{id}, #{name}, #{activityCode}, #{upgradeNoticeArticleId}, #{activityTermArticleId}, #{privacyAgreementArticleId}, #{startTime}, #{endTime}, #{releaseTime}, #{upgradePurpose}, #{upgradeFunction}, #{statement}, #{state}, #{totalFileSize}, #{baseline}, #{baselineCode},
+            #{sizeCalcTime}, #{isTypeApprovalRelevant}, #{typeApprovalAssessmentState}, #{releaseNoteArticleId}, #{noticeConsentRequired}, #{termsConsentRequired}, #{privacyConsentRequired}, #{rxswin},
             #{description}, now(), #{createBy}, now(), #{modifyBy}, 1, 1
         )
     </insert>
@@ -49,13 +61,15 @@
     <!-- 批量插入 -->
     <insert id="batchInsertPo" useGeneratedKeys="true" keyProperty="id" parameterType="java.util.List">
         INSERT INTO tb_activity (
-            id, name, upgrade_notice_article_id, activity_term_article_id, privacy_agreement_article_id, start_time, end_time, release_time, upgrade_purpose, upgrade_function, statement, state, total_file_size, baseline, baseline_code,
+            id, name, activity_code, upgrade_notice_article_id, activity_term_article_id, privacy_agreement_article_id, start_time, end_time, release_time, upgrade_purpose, upgrade_function, statement, state, total_file_size, baseline, baseline_code,
+            size_calc_time, is_type_approval_relevant, type_approval_assessment_state, release_note_article_id, notice_consent_required, terms_consent_required, privacy_consent_required, rxswin,
             description, create_time, create_by, modify_time, modify_by, row_version, row_valid
         )
         VALUES
         <foreach collection="list" item="item" index="index" separator=",">
         (
-            #{item.id}, #{item.name}, #{item.upgradeNoticeArticleId}, #{item.activityTermArticleId}, #{item.privacyAgreementArticleId}, #{item.startTime}, #{item.endTime}, #{item.releaseTime}, #{item.upgradePurpose}, #{item.upgradeFunction}, #{item.statement}, #{item.state}, #{item.totalFileSize}, #{item.baseline}, #{item.baselineCode},
+            #{item.id}, #{item.name}, #{item.activityCode}, #{item.upgradeNoticeArticleId}, #{item.activityTermArticleId}, #{item.privacyAgreementArticleId}, #{item.startTime}, #{item.endTime}, #{item.releaseTime}, #{item.upgradePurpose}, #{item.upgradeFunction}, #{item.statement}, #{item.state}, #{item.totalFileSize}, #{item.baseline}, #{item.baselineCode},
+            #{item.sizeCalcTime}, #{item.isTypeApprovalRelevant}, #{item.typeApprovalAssessmentState}, #{item.releaseNoteArticleId}, #{item.noticeConsentRequired}, #{item.termsConsentRequired}, #{item.privacyConsentRequired}, #{item.rxswin},
             #{item.description}, now(), #{item.createBy}, now(), #{item.modifyBy}, 1, 1
         )
         </foreach>
@@ -66,6 +80,9 @@
         UPDATE tb_activity t SET
         <if test="name != null and name != ''">
             t.name = #{name},
+        </if>
+        <if test="activityCode != null and activityCode != ''">
+            t.activity_code = #{activityCode},
         </if>
         <if test="upgradeNoticeArticleId != null">
             t.upgrade_notice_article_id = #{upgradeNoticeArticleId},
@@ -105,6 +122,30 @@
         </if>
         <if test="baselineCode != null and baselineCode != ''">
             t.baseline_code = #{baselineCode},
+        </if>
+        <if test="sizeCalcTime != null">
+            t.size_calc_time = #{sizeCalcTime},
+        </if>
+        <if test="isTypeApprovalRelevant != null">
+            t.is_type_approval_relevant = #{isTypeApprovalRelevant},
+        </if>
+        <if test="typeApprovalAssessmentState != null">
+            t.type_approval_assessment_state = #{typeApprovalAssessmentState},
+        </if>
+        <if test="releaseNoteArticleId != null">
+            t.release_note_article_id = #{releaseNoteArticleId},
+        </if>
+        <if test="noticeConsentRequired != null">
+            t.notice_consent_required = #{noticeConsentRequired},
+        </if>
+        <if test="termsConsentRequired != null">
+            t.terms_consent_required = #{termsConsentRequired},
+        </if>
+        <if test="privacyConsentRequired != null">
+            t.privacy_consent_required = #{privacyConsentRequired},
+        </if>
+        <if test="rxswin != null and rxswin != ''">
+            t.rxswin = #{rxswin},
         </if>
         <if test="description != null and description != ''">
             t.description = #{description},
@@ -159,6 +200,9 @@
         </if>
         <if test="name != null and name != ''">
             AND t.name = #{name}
+        </if>
+        <if test="activityCode != null and activityCode != ''">
+            AND t.activity_code = #{activityCode}
         </if>
         <if test="upgradeNoticeArticleId != null">
             AND t.upgrade_notice_article_id = #{upgradeNoticeArticleId}

@@ -3,9 +3,9 @@ package net.hwyz.iov.cloud.iov.ota.service.adapter.web.controller.service;
 import cn.hutool.core.util.ObjUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.hwyz.iov.cloud.edd.vmd.api.service.VmdPartService;
+import net.hwyz.iov.cloud.edd.mdm.api.service.MdmPartService;
+import net.hwyz.iov.cloud.edd.mdm.api.vo.response.PartResponse;
 import net.hwyz.iov.cloud.edd.vmd.api.service.VmdVehicleNodeService;
-import net.hwyz.iov.cloud.edd.vmd.api.vo.response.PartExResponse;
 import net.hwyz.iov.cloud.edd.vmd.api.vo.response.VehicleNodeExResponse;
 import net.hwyz.iov.cloud.iov.ota.api.vo.SoftwareBuildVersionDependencyExService;
 import net.hwyz.iov.cloud.iov.ota.api.vo.SoftwareBuildVersionExService;
@@ -34,7 +34,7 @@ import java.util.List;
 @RequestMapping(value = "/api/service/softwareBuildVersion/v1")
 public class SoftwareBuildVersionServiceController {
 
-    private final VmdPartService vmdPartService;
+    private final MdmPartService mdmPartService;
     private final VmdVehicleNodeService vmdVehicleNodeService;
     private final SoftwarePackageAppService softwarePackageAppService;
     private final SoftwareBuildVersionAppService softwareBuildVersionAppService;
@@ -51,7 +51,7 @@ public class SoftwareBuildVersionServiceController {
         if (ObjUtil.isNull(softwareBuildVersionPo)) {
             throw new SoftwareBuildVersionNotExistException(softwareBuildVersionId);
         }
-        PartExResponse part = vmdPartService.getByCode(softwareBuildVersionPo.getSoftwarePn());
+        PartResponse part = mdmPartService.getByCode(softwareBuildVersionPo.getSoftwarePn());
         if (ObjUtil.isNull(part)) {
             throw new PartNotExistException(softwareBuildVersionPo.getSoftwarePn());
         }

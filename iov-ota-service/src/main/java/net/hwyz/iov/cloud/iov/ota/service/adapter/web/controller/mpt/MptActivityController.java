@@ -1,8 +1,11 @@
 package net.hwyz.iov.cloud.iov.ota.service.adapter.web.controller.mpt;
 
+import cn.hutool.core.util.ObjUtil;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.hwyz.iov.cloud.edd.mdm.api.service.MdmPartService;
+import net.hwyz.iov.cloud.edd.mdm.api.vo.response.PartResponse;
 import net.hwyz.iov.cloud.framework.audit.annotation.Log;
 import net.hwyz.iov.cloud.framework.audit.enums.BusinessType;
 import net.hwyz.iov.cloud.framework.common.bean.ApiResponse;
@@ -69,6 +72,7 @@ import java.util.stream.Collectors;
 public class MptActivityController extends BaseController {
 
     private final CacheService cacheService;
+    private final MdmPartService mdmPartService;
     private final ActivityAppService activityAppService;
     private final ActivityRepository activityRepository;
     private final CompatiblePnAppService compatiblePnAppService;
@@ -131,11 +135,12 @@ public class MptActivityController extends BaseController {
             if (po.getVersionGroup().intValue() == group) {
                 ActivitySoftwareBuildVersionMpt mpt = ActivitySoftwareBuildVersionMptAssembler.INSTANCE.fromPo(po);
                 SoftwareBuildVersionPo softwareBuildVersion = softwareBuildVersionAppService.getSoftwareBuildVersionById(mpt.getSoftwareBuildVersionId());
-                SoftwareBuildVersionExService softwareBuildVersionExService = SoftwareBuildVersionExServiceAssembler.INSTANCE.fromPo(softwareBuildVersion);
-                mpt.setDeviceCode(softwareBuildVersionExService.getDeviceCode());
-                mpt.setSoftwarePn(softwareBuildVersionExService.getSoftwarePn());
-                mpt.setSoftwarePartName(softwareBuildVersionExService.getSoftwarePartName());
-                mpt.setSoftwarePartVer(softwareBuildVersionExService.getSoftwarePartVer());
+                mpt.setDeviceCode(softwareBuildVersion.getDeviceCode());
+                mpt.setSoftwarePn(softwareBuildVersion.getSoftwarePn());
+                PartResponse part = mdmPartService.getByCode(softwareBuildVersion.getSoftwarePn());
+                if (ObjUtil.isNotNull(part)) {
+                    mpt.setSoftwarePartName(part.getName());
+                }
                 mpt.setSoftwareBuildVer(softwareBuildVersion.getSoftwareBuildVer());
                 mpt.setSoftwareSource(softwareBuildVersion.getSoftwareSource());
                 mptList.add(mpt);
