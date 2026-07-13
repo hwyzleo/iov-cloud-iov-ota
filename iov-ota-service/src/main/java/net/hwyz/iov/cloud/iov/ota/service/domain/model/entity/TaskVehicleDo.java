@@ -121,7 +121,6 @@ public class TaskVehicleDo extends BaseDo<Long> implements DomainObj<TaskVehicle
      */
     public void loadBaseInfo(ActivityDo activity, Task task) {
         this.baselineCode = activity.getBaselineCode();
-        this.activityVersion = activity.getVersion();
         this.activityReleaseTime = activity.getReleaseTime();
         this.upgradePurpose = activity.getUpgradePurpose() != null ? activity.getUpgradePurpose().label : null;
         this.upgradeFunction = activity.getUpgradeFunction();

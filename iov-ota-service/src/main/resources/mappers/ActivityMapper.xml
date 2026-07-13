@@ -13,7 +13,6 @@
         <result column="row_version" property="rowVersion" />
         <result column="row_valid" property="rowValid" />
         <result column="name" property="name" />
-        <result column="version" property="version" />
         <result column="upgrade_notice_article_id" property="upgradeNoticeArticleId" />
         <result column="activity_term_article_id" property="activityTermArticleId" />
         <result column="privacy_agreement_article_id" property="privacyAgreementArticleId" />
@@ -31,18 +30,18 @@
 
     <!-- 通用查询结果列 -->
     <sql id="baseColumnList">
-        id, name, version, upgrade_notice_article_id, activity_term_article_id, privacy_agreement_article_id, start_time, end_time, release_time, upgrade_purpose, upgrade_function, statement, state, total_file_size, baseline, baseline_code,
+        id, name, upgrade_notice_article_id, activity_term_article_id, privacy_agreement_article_id, start_time, end_time, release_time, upgrade_purpose, upgrade_function, statement, state, total_file_size, baseline, baseline_code,
         description, create_time, create_by, modify_time, modify_by, row_version, row_valid
     </sql>
 
     <!-- 插入 -->
     <insert id="insertPo" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO tb_activity (
-            id, name, version, upgrade_notice_article_id, activity_term_article_id, privacy_agreement_article_id, start_time, end_time, release_time, upgrade_purpose, upgrade_function, statement, state, total_file_size, baseline, baseline_code,
+            id, name, upgrade_notice_article_id, activity_term_article_id, privacy_agreement_article_id, start_time, end_time, release_time, upgrade_purpose, upgrade_function, statement, state, total_file_size, baseline, baseline_code,
             description, create_time, create_by, modify_time, modify_by, row_version, row_valid
         )
         VALUES (
-            #{id}, #{name}, #{version}, #{upgradeNoticeArticleId}, #{activityTermArticleId}, #{privacyAgreementArticleId}, #{startTime}, #{endTime}, #{releaseTime}, #{upgradePurpose}, #{upgradeFunction}, #{statement}, #{state}, #{totalFileSize}, #{baseline}, #{baselineCode},
+            #{id}, #{name}, #{upgradeNoticeArticleId}, #{activityTermArticleId}, #{privacyAgreementArticleId}, #{startTime}, #{endTime}, #{releaseTime}, #{upgradePurpose}, #{upgradeFunction}, #{statement}, #{state}, #{totalFileSize}, #{baseline}, #{baselineCode},
             #{description}, now(), #{createBy}, now(), #{modifyBy}, 1, 1
         )
     </insert>
@@ -50,13 +49,13 @@
     <!-- 批量插入 -->
     <insert id="batchInsertPo" useGeneratedKeys="true" keyProperty="id" parameterType="java.util.List">
         INSERT INTO tb_activity (
-            id, name, version, upgrade_notice_article_id, activity_term_article_id, privacy_agreement_article_id, start_time, end_time, release_time, upgrade_purpose, upgrade_function, statement, state, total_file_size, baseline, baseline_code,
+            id, name, upgrade_notice_article_id, activity_term_article_id, privacy_agreement_article_id, start_time, end_time, release_time, upgrade_purpose, upgrade_function, statement, state, total_file_size, baseline, baseline_code,
             description, create_time, create_by, modify_time, modify_by, row_version, row_valid
         )
         VALUES
         <foreach collection="list" item="item" index="index" separator=",">
         (
-            #{item.id}, #{item.name}, #{item.version}, #{item.upgradeNoticeArticleId}, #{item.activityTermArticleId}, #{item.privacyAgreementArticleId}, #{item.startTime}, #{item.endTime}, #{item.releaseTime}, #{item.upgradePurpose}, #{item.upgradeFunction}, #{item.statement}, #{item.state}, #{item.totalFileSize}, #{item.baseline}, #{item.baselineCode},
+            #{item.id}, #{item.name}, #{item.upgradeNoticeArticleId}, #{item.activityTermArticleId}, #{item.privacyAgreementArticleId}, #{item.startTime}, #{item.endTime}, #{item.releaseTime}, #{item.upgradePurpose}, #{item.upgradeFunction}, #{item.statement}, #{item.state}, #{item.totalFileSize}, #{item.baseline}, #{item.baselineCode},
             #{item.description}, now(), #{item.createBy}, now(), #{item.modifyBy}, 1, 1
         )
         </foreach>
@@ -67,9 +66,6 @@
         UPDATE tb_activity t SET
         <if test="name != null and name != ''">
             t.name = #{name},
-        </if>
-        <if test="version != null and version != ''">
-            t.version = #{version},
         </if>
         <if test="upgradeNoticeArticleId != null">
             t.upgrade_notice_article_id = #{upgradeNoticeArticleId},
@@ -163,9 +159,6 @@
         </if>
         <if test="name != null and name != ''">
             AND t.name = #{name}
-        </if>
-        <if test="version != null and version != ''">
-            AND t.version = #{version}
         </if>
         <if test="upgradeNoticeArticleId != null">
             AND t.upgrade_notice_article_id = #{upgradeNoticeArticleId}

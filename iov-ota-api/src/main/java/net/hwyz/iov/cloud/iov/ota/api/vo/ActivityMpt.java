@@ -33,11 +33,6 @@ public class ActivityMpt extends BaseRequest {
     private String activityCode;
 
     /**
-     * 活动版本
-     */
-    private String version;
-
-    /**
      * 升级须知文章ID
      */
     private Long upgradeNoticeArticleId;

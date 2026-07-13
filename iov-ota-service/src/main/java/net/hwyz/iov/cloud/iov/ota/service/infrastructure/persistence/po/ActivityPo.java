@@ -47,12 +47,6 @@ public class ActivityPo extends BasePo {
     private String activityCode;
 
     /**
-     * 活动版本
-     */
-    @TableField("version")
-    private String version;
-
-    /**
      * 升级须知文章ID
      */
     @TableField("upgrade_notice_article_id")

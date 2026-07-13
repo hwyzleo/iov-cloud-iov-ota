@@ -37,11 +37,6 @@ public class ActivityDo extends BaseDo<Long> implements DomainObj<ActivityDo> {
     private String activityCode;
 
     /**
-     * 活动版本
-     */
-    private String version;
-
-    /**
      * 升级须知文章ID
      */
     private Long upgradeNoticeArticleId;
@@ -196,10 +191,6 @@ public class ActivityDo extends BaseDo<Long> implements DomainObj<ActivityDo> {
     public void edit(ActivityPo activityPo) {
         if (StrUtil.isNotBlank(activityPo.getName()) && !activityPo.getName().equals(this.name)) {
             this.name = activityPo.getName();
-            stateChange();
-        }
-        if (StrUtil.isNotBlank(activityPo.getVersion()) && !activityPo.getVersion().equals(this.version)) {
-            this.version = activityPo.getVersion();
             stateChange();
         }
         if (activityPo.getStartTime() != null && !activityPo.getStartTime().equals(this.startTime)) {
