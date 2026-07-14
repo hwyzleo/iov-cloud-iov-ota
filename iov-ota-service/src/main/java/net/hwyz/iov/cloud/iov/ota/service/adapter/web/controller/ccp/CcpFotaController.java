@@ -9,6 +9,7 @@ import net.hwyz.iov.cloud.iov.ota.api.contract.TaskVehicleStateCcp;
 import net.hwyz.iov.cloud.iov.ota.api.vo.CloudFotaInfoCcp;
 import net.hwyz.iov.cloud.iov.ota.api.vo.VehicleFotaInfoCcp;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.DeviceInfoCcpAssembler;
+import net.hwyz.iov.cloud.iov.ota.service.application.service.CompatiblePnAppService;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.TaskVehicleAppService;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.aggregate.Task;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.DeviceInfoVo;
@@ -37,6 +38,7 @@ public class CcpFotaController extends BaseController {
     private final ActivityRepository activityRepository;
     private final TaskVehicleRepository taskVehicleRepository;
     private final TaskVehicleAppService taskVehicleAppService;
+    private final CompatiblePnAppService compatiblePnAppService;
 
     @PostMapping("/check")
     public ApiResponse<CloudFotaInfoCcp> check(@RequestHeader String vin, @Validated @RequestBody VehicleFotaInfoCcp vehicleFotaInfo) {
@@ -58,7 +60,7 @@ public class CcpFotaController extends BaseController {
                 taskVehicleRepository.getByTaskIdAndVin(task.getId().getValue(), vin).ifPresent(taskVehicle -> {
                     taskVehicle.loadBaseInfo(activity, task);
                     taskVehicle.loadStrategy(task);
-                    taskVehicle.loadSoftwareBuildVersion(activity, task, vehicle, fotaHelper);
+                    taskVehicle.loadSoftwareBuildVersion(activity, task, vehicle, fotaHelper, compatiblePnAppService.buildCompatiblePnMap());
                     taskVehicle.loadArticle(activity);
                     cloudFotaInfoCcp[0] = taskVehicle.toCloudFotaInfoCcp();
                     taskVehicleRepository.save(taskVehicle);

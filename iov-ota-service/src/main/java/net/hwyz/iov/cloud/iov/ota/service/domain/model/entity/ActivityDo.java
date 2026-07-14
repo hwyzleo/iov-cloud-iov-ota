@@ -14,7 +14,6 @@ import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.Activity
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * 升级活动领域对象
@@ -157,11 +156,6 @@ public class ActivityDo extends BaseDo<Long> implements DomainObj<ActivityDo> {
     private List<ConfigWordVo> fixedConfigWordList;
 
     /**
-     * 兼容零件号Map
-     */
-    private Map<String, Set<String>> compatiblePnMap;
-
-    /**
      * 初始化
      */
     public void init() {
@@ -171,15 +165,12 @@ public class ActivityDo extends BaseDo<Long> implements DomainObj<ActivityDo> {
     /**
      * 加载信息
      *
-     * @param groupSoftwareBuildVersionMap 分组软件内部版本信息Map
-     * @param fixedConfigWordList          固定配置字信息列表
-     * @param compatiblePnMap              兼容零件号Map
+     * @param groupUpgradeTargetMap 分组升级对象信息Map
+     * @param fixedConfigWordList   固定配置字信息列表
      */
-    public void load(Map<Integer, List<ActivityUpgradeTargetVo>> groupUpgradeTargetMap, List<ConfigWordVo> fixedConfigWordList,
-                     Map<String, Set<String>> compatiblePnMap) {
+    public void load(Map<Integer, List<ActivityUpgradeTargetVo>> groupUpgradeTargetMap, List<ConfigWordVo> fixedConfigWordList) {
         this.groupUpgradeTargetMap = groupUpgradeTargetMap;
         this.fixedConfigWordList = fixedConfigWordList;
-        this.compatiblePnMap = compatiblePnMap;
         stateLoad();
     }
 

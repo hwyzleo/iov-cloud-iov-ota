@@ -21,7 +21,6 @@ import static org.mockito.Mockito.*;
 class ActivityAppServiceTest {
 
     @Mock private ActivityMapper activityDao;
-    @Mock private ActivityCompatiblePnMapper activityCompatiblePnDao;
     @Mock private ActivityFixedConfigWordMapper activityFixedConfigWordDao;
     @Mock private ActivityUpgradeTargetMapper activityUpgradeTargetDao;
     @Mock private ActivityGroupPolicyMapper activityGroupPolicyDao;

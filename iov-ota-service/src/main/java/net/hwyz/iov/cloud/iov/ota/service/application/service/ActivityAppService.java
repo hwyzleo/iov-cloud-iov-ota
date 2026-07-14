@@ -7,7 +7,6 @@ import net.hwyz.iov.cloud.iov.ota.api.vo.enums.ActivityState;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.ApprovalLevel;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TypeApprovalAssessmentState;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityApprovalMapper;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityCompatiblePnMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityFixedConfigWordMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityUpgradeTargetMapper;
@@ -16,7 +15,6 @@ import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.Appr
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ApprovedSwManifestMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.RegulatoryFilingMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityApprovalPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityCompatiblePnPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityFixedConfigWordPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityGroupPolicyPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityPo;
@@ -42,7 +40,6 @@ public class ActivityAppService {
 
     private final ActivityMapper activityDao;
     private final ActivityApprovalMapper activityApprovalDao;
-    private final ActivityCompatiblePnMapper activityCompatiblePnDao;
     private final ActivityFixedConfigWordMapper activityFixedConfigWordDao;
     private final ActivityUpgradeTargetMapper activityUpgradeTargetDao;
     private final ActivityGroupPolicyMapper activityGroupPolicyDao;
@@ -80,20 +77,10 @@ public class ActivityAppService {
     }
 
     /**
-     * 获取升级活动下的兼容零件号列表
+     * 获取升级活动下的固定配置字列表
      *
      * @param activityId 升级活动ID
-     * @return 兼容零件号列表
-     */
-    public List<ActivityCompatiblePnPo> listCompatiblePn(Long activityId) {
-        return activityCompatiblePnDao.selectPoByExample(ActivityCompatiblePnPo.builder().activityId(activityId).build());
-    }
-
-    /**
-     * 获取升级活动下的兼容零件号列表
-     *
-     * @param activityId 升级活动ID
-     * @return 兼容零件号列表
+     * @return 固定配置字列表
      */
     public List<ActivityFixedConfigWordPo> listFixedConfigWord(Long activityId) {
         return activityFixedConfigWordDao.selectPoWithConfigWordByActivityId(activityId);
@@ -195,32 +182,6 @@ public class ActivityAppService {
     }
 
     /**
-     * 新增升级活动兼容零件号
-     *
-     * @param activityId      升级活动ID
-     * @param compatiblePnIds 兼容零件号ID数组
-     * @return 结果
-     */
-    public int createCompatiblePn(Long activityId, Long[] compatiblePnIds) {
-        Set<Long> compatiblePnIdSet = listCompatiblePn(activityId).stream()
-                .map(ActivityCompatiblePnPo::getCompatiblePnId)
-                .collect(Collectors.toSet());
-        List<ActivityCompatiblePnPo> list = new ArrayList<>();
-        for (Long compatiblePnId : compatiblePnIds) {
-            if (!compatiblePnIdSet.contains(compatiblePnId)) {
-                list.add(ActivityCompatiblePnPo.builder()
-                        .activityId(activityId)
-                        .compatiblePnId(compatiblePnId)
-                        .build());
-            }
-        }
-        if (!list.isEmpty()) {
-            return activityCompatiblePnDao.batchInsertPo(list);
-        }
-        return 0;
-    }
-
-    /**
      * 新增升级活动固定配置字
      *
      * @param activityId         升级活动ID
@@ -306,17 +267,6 @@ public class ActivityAppService {
      */
     public int deleteUpgradeTarget(Long activityId, Long[] ids) {
         return activityUpgradeTargetDao.batchPhysicalDeletePoByActivityIdAndIds(activityId, ids);
-    }
-
-    /**
-     * 删除升级活动兼容零件号信息
-     *
-     * @param activityId      升级活动ID
-     * @param compatiblePnIds 兼容零件号ID数组
-     * @return 结果
-     */
-    public int deleteCompatiblePn(Long activityId, Long[] compatiblePnIds) {
-        return activityCompatiblePnDao.batchPhysicalDeletePoByActivityIdAndCompatiblePnIds(activityId, compatiblePnIds);
     }
 
     /**

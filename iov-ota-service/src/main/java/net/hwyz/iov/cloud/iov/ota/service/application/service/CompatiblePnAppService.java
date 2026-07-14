@@ -6,10 +6,8 @@ import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.Comp
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.CompatiblePnPo;
 import org.springframework.stereotype.Service;
 
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * 兼容零件号应用服务类
@@ -79,6 +77,22 @@ public class CompatiblePnAppService {
      */
     public int deleteCompatiblePnByIds(Long[] ids) {
         return compatiblePnMapper.batchPhysicalDeletePo(ids);
+    }
+
+    /**
+     * 构建全局兼容零件号Map
+     * key: deviceCode + pn, value: 兼容零件号集合
+     *
+     * @return 兼容零件号Map
+     */
+    public Map<String, Set<String>> buildCompatiblePnMap() {
+        Map<String, Set<String>> compatiblePnMap = new HashMap<>();
+        search(null, null, null, null).forEach(compatiblePn -> {
+            String key = compatiblePn.getDeviceCode() + compatiblePn.getPn();
+            Set<String> compatiblePnSet = compatiblePnMap.computeIfAbsent(key, k -> new HashSet<>());
+            compatiblePnSet.addAll(List.of(compatiblePn.getCompatiblePn().split(",")));
+        });
+        return compatiblePnMap;
     }
 
 }

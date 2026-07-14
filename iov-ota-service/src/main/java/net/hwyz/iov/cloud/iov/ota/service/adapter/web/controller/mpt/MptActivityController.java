@@ -16,17 +16,14 @@ import net.hwyz.iov.cloud.framework.web.controller.BaseController;
 import net.hwyz.iov.cloud.framework.web.util.PageUtil;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.ActivityState;
 import net.hwyz.iov.cloud.iov.ota.api.vo.*;
-import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.ActivityCompatiblePnMptAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.ActivityFixedConfigWordMptAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.ActivityMptAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityUpgradeTargetPo;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.ActivityApprovalMptAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.ApprovedSwManifestMptAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.RegulatoryFilingMptAssembler;
-import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.CompatiblePnExServiceAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.SoftwareBuildVersionExServiceAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.ActivityAppService;
-import net.hwyz.iov.cloud.iov.ota.service.application.service.CompatiblePnAppService;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.SoftwareBuildVersionAppService;
 import net.hwyz.iov.cloud.iov.ota.service.common.exception.ActivityNotExistException;
 import net.hwyz.iov.cloud.iov.ota.service.common.exception.BaselineNotExistException;
@@ -36,9 +33,7 @@ import net.hwyz.iov.cloud.iov.ota.service.domain.repository.ActivityRepository;
 import net.hwyz.iov.cloud.iov.ota.service.domain.repository.BaselineItemRepository;
 import net.hwyz.iov.cloud.iov.ota.service.domain.repository.BaselineRepository;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.cache.CacheService;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.CompatiblePnPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwareBuildVersionPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityCompatiblePnPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityFixedConfigWordPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityApprovalPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityGroupPolicyPo;
@@ -46,7 +41,6 @@ import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.Activity
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ApprovedSwManifestItemPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ApprovedSwManifestPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.RegulatoryFilingPo;
-import net.hwyz.iov.cloud.iov.ota.api.vo.CompatiblePnExService;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -68,7 +62,6 @@ public class MptActivityController extends BaseController {
     private final MdmPartService mdmPartService;
     private final ActivityAppService activityAppService;
     private final ActivityRepository activityRepository;
-    private final CompatiblePnAppService compatiblePnAppService;
     private final SoftwareBuildVersionAppService softwareBuildVersionAppService;
     private final BaselineRepository baselineRepository;
     private final BaselineItemRepository baselineItemRepository;
@@ -162,32 +155,6 @@ public class MptActivityController extends BaseController {
     }
 
     /**
-     * 列出升级活动下兼容零件号
-     *
-     * @param activityId 升级活动ID
-     * @return 兼容零件号列表
-     */
-    @RequiresPermissions("ota:fota:activity:list")
-    @GetMapping(value = "/{activityId}/listCompatiblePn")
-    public ApiResponse<List<ActivityCompatiblePnMpt>> listCompatiblePn(@PathVariable Long activityId) {
-        log.info("管理后台用户[{}]列出升级活动[{}]下兼容零件号", SecurityUtils.getUsername(), activityId);
-        List<ActivityCompatiblePnPo> poList = activityAppService.listCompatiblePn(activityId);
-        List<ActivityCompatiblePnMpt> mptList = ActivityCompatiblePnMptAssembler.INSTANCE.fromPoList(poList);
-        mptList.forEach(mpt -> {
-            CompatiblePnPo compatiblePn = compatiblePnAppService.getCompatiblePnById(mpt.getCompatiblePnId());
-            if (compatiblePn != null) {
-                CompatiblePnExService compatiblePnExService = CompatiblePnExServiceAssembler.INSTANCE.fromPo(compatiblePn);
-                mpt.setType(compatiblePnExService.getType());
-                mpt.setDeviceCode(compatiblePnExService.getDeviceCode());
-                mpt.setPn(compatiblePnExService.getPn());
-                mpt.setCompatiblePn(compatiblePnExService.getCompatiblePn());
-                mpt.setDescription(compatiblePnExService.getDescription());
-            }
-        });
-        return ApiResponse.ok(mptList);
-    }
-
-    /**
      * 列出升级活动下固定配置字
      *
      * @param activityId 升级活动ID
@@ -276,21 +243,6 @@ public class MptActivityController extends BaseController {
     public ApiResponse<Integer> addUpgradeTarget(@PathVariable Long activityId, @PathVariable Long[] softwareBuildVersionIds) {
         log.info("管理后台用户[{}]新增升级活动[{}]关联的升级对象[{}]", SecurityUtils.getUsername(), activityId, softwareBuildVersionIds);
         return ApiResponse.ok(activityAppService.createUpgradeTarget(activityId, softwareBuildVersionIds));
-    }
-
-    /**
-     * 新增关联的兼容零件号
-     *
-     * @param activityId      升级活动ID
-     * @param compatiblePnIds 兼容零件号ID数组
-     * @return 结果
-     */
-    @Log(title = "升级活动管理", businessType = BusinessType.UPDATE)
-    @RequiresPermissions("ota:fota:activity:edit")
-    @PostMapping(value = "/{activityId}/action/addCompatiblePn/{compatiblePnIds}")
-    public ApiResponse<Integer> addCompatiblePn(@PathVariable Long activityId, @PathVariable Long[] compatiblePnIds) {
-        log.info("管理后台用户[{}]新增升级活动[{}]关联的兼容零件号[{}]", SecurityUtils.getUsername(), activityId, compatiblePnIds);
-        return ApiResponse.ok(activityAppService.createCompatiblePn(activityId, compatiblePnIds));
     }
 
     /**
@@ -444,21 +396,6 @@ public class MptActivityController extends BaseController {
     public ApiResponse<Integer> removeUpgradeTarget(@PathVariable Long activityId, @PathVariable Long[] softwareBuildVersionIds) {
         log.info("管理后台用户[{}]删除升级活动[{}]关联的升级对象[{}]", SecurityUtils.getUsername(), activityId, softwareBuildVersionIds);
         return ApiResponse.ok(activityAppService.deleteUpgradeTarget(activityId, softwareBuildVersionIds));
-    }
-
-    /**
-     * 删除关联的兼容零件号
-     *
-     * @param activityId      升级活动ID
-     * @param compatiblePnIds 兼容零件号ID数组
-     * @return 结果
-     */
-    @Log(title = "升级活动管理", businessType = BusinessType.UPDATE)
-    @RequiresPermissions("ota:fota:activity:edit")
-    @PostMapping(value = "/{activityId}/action/removeCompatiblePn/{compatiblePnIds}")
-    public ApiResponse<Integer> removeCompatiblePn(@PathVariable Long activityId, @PathVariable Long[] compatiblePnIds) {
-        log.info("管理后台用户[{}]删除升级活动[{}]关联的兼容零件号[{}]", SecurityUtils.getUsername(), activityId, compatiblePnIds);
-        return ApiResponse.ok(activityAppService.deleteCompatiblePn(activityId, compatiblePnIds));
     }
 
     /**

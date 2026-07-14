@@ -87,6 +87,12 @@ public class TaskVehicleDo extends BaseDo<Long> implements DomainObj<TaskVehicle
     private List<TaskVehicleSoftwareBuildVersionVo> softwareBuildVersionList;
 
     /**
+     * 兼容零件号Map（来自全局 tb_compatible_pn）
+     * key: deviceCode + pn, value: 兼容零件号集合
+     */
+    private Map<String, Set<String>> compatiblePnMap;
+
+    /**
      * 升级须知文章ID
      */
     private Long upgradeNoticeArticleId;
@@ -138,7 +144,9 @@ public class TaskVehicleDo extends BaseDo<Long> implements DomainObj<TaskVehicle
         }
     }
 
-    public void loadSoftwareBuildVersion(ActivityDo activity, Task task, VehicleDo vehicle, FotaHelper fotaHelper) {
+    public void loadSoftwareBuildVersion(ActivityDo activity, Task task, VehicleDo vehicle, FotaHelper fotaHelper,
+                                         Map<String, Set<String>> compatiblePnMap) {
+        this.compatiblePnMap = compatiblePnMap;
         this.softwareBuildVersionList = new ArrayList<>();
         Map<Integer, List<ActivityUpgradeTargetVo>> groupUpgradeTargetMap = activity.getGroupUpgradeTargetMap();
         TaskVehicleSoftwareBuildVersionVo taskVehicleSoftwareBuildVersion;
@@ -305,7 +313,6 @@ public class TaskVehicleDo extends BaseDo<Long> implements DomainObj<TaskVehicle
         TaskRestrictionVo comparisonCriteriaVo = task.getTaskRestrictionMap().get(TaskRestrictionType.COMPARISON_CRITERIA);
         boolean comparisonCriteria = Boolean.parseBoolean(comparisonCriteriaVo.getRestrictionExpression());
         SoftwareBuildVersionVo softwareBuildVersion = activityUpgradeTarget.getSoftwareBuildVersion();
-        Map<String, Set<String>> compatiblePnMap = activity.getCompatiblePnMap();
         boolean softwarePnMatch = softwareBuildVersion.getSoftwarePn().equals(deviceInfo.getSoftwarePn());
         if (!softwarePnMatch && comparisonCriteria) {
             softwarePnMatch = compatiblePnMap.get(deviceInfo.getDeviceCode()).contains(softwareBuildVersion.getSoftwarePn());
