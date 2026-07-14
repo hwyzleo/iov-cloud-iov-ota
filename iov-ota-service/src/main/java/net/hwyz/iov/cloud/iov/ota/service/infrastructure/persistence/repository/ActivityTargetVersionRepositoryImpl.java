@@ -24,7 +24,7 @@ public class ActivityTargetVersionRepositoryImpl implements ActivityTargetVersio
 
     @Override
     public Optional<ActivityTargetVersion> getById(Long id) {
-        ActivityTargetVersionPo po = mapper.selectById(id);
+        ActivityTargetVersionPo po = mapper.selectPoById(id);
         return Optional.ofNullable(po != null && Boolean.TRUE.equals(po.getRowValid()) ? toDomain(po) : null);
     }
 
@@ -32,17 +32,17 @@ public class ActivityTargetVersionRepositoryImpl implements ActivityTargetVersio
     public ActivityTargetVersion save(ActivityTargetVersion entity) {
         ActivityTargetVersionPo po = toPo(entity);
         if (entity.getId() == null) {
-            mapper.insert(po);
+            mapper.insertPo(po);
             entity.setId(po.getId());
         } else {
-            mapper.updateById(po);
+            mapper.updatePo(po);
         }
         return entity;
     }
 
     @Override
     public void deleteById(Long id) {
-        mapper.deleteById(id);
+        mapper.logicalDeletePo(id);
     }
 
     private ActivityTargetVersion toDomain(ActivityTargetVersionPo po) {

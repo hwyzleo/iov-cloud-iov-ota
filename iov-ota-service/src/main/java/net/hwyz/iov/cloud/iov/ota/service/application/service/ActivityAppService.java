@@ -6,26 +6,21 @@ import net.hwyz.iov.cloud.framework.common.util.ParamHelper;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.ActivityState;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.ApprovalLevel;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TypeApprovalAssessmentState;
-import net.hwyz.iov.cloud.iov.ota.api.vo.ActivitySoftwareBuildVersionMpt;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityApprovalMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityCompatiblePnMapper;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityDependencyGroupMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityFixedConfigWordMapper;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityInstallOrderMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityMapper;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivitySoftwareBuildVersionMapper;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityTargetVersionMapper;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityUpgradeTargetMapper;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityGroupPolicyMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ApprovedSwManifestItemMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ApprovedSwManifestMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.RegulatoryFilingMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityApprovalPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityCompatiblePnPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityDependencyGroupPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityFixedConfigWordPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityInstallOrderPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityGroupPolicyPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivitySoftwareBuildVersionPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityTargetVersionPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityUpgradeTargetPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ApprovedSwManifestItemPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ApprovedSwManifestPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.RegulatoryFilingPo;
@@ -49,10 +44,8 @@ public class ActivityAppService {
     private final ActivityApprovalMapper activityApprovalDao;
     private final ActivityCompatiblePnMapper activityCompatiblePnDao;
     private final ActivityFixedConfigWordMapper activityFixedConfigWordDao;
-    private final ActivitySoftwareBuildVersionMapper activitySoftwareBuildVersionDao;
-    private final ActivityTargetVersionMapper activityTargetVersionDao;
-    private final ActivityInstallOrderMapper activityInstallOrderDao;
-    private final ActivityDependencyGroupMapper activityDependencyGroupDao;
+    private final ActivityUpgradeTargetMapper activityUpgradeTargetDao;
+    private final ActivityGroupPolicyMapper activityGroupPolicyDao;
     private final ApprovedSwManifestMapper approvedSwManifestDao;
     private final ApprovedSwManifestItemMapper approvedSwManifestItemDao;
     private final RegulatoryFilingMapper regulatoryFilingDao;
@@ -82,8 +75,8 @@ public class ActivityAppService {
      * @param activityId 升级活动ID
      * @return 软件内部版本列表
      */
-    public List<ActivitySoftwareBuildVersionPo> listSoftwareBuildVersion(Long activityId) {
-        return activitySoftwareBuildVersionDao.selectPoByActivityId(activityId);
+    public List<ActivityUpgradeTargetPo> listUpgradeTarget(Long activityId) {
+        return activityUpgradeTargetDao.selectPoByActivityId(activityId);
     }
 
     /**
@@ -124,8 +117,7 @@ public class ActivityAppService {
      * @param activityTargetVersionList        活动目标版本列表（基线活动从本地投影预填）
      * @return 结果
      */
-    public int createActivity(ActivityPo activity, List<ActivitySoftwareBuildVersionPo> activitySoftwareBuildVersionList,
-                               List<ActivityTargetVersionPo> activityTargetVersionList) {
+    public int createActivity(ActivityPo activity, List<ActivityUpgradeTargetPo> activityUpgradeTargetList) {
         activity.setState(ActivityState.PENDING.value);
         activity.setActivityCode(generateActivityCode());
         activity.setTypeApprovalAssessmentState(TypeApprovalAssessmentState.NOT_ASSESSED.value);
@@ -142,18 +134,20 @@ public class ActivityAppService {
             activity.setPrivacyConsentRequired(false);
         }
         int result = activityDao.insertPo(activity);
-        if (activitySoftwareBuildVersionList != null && !activitySoftwareBuildVersionList.isEmpty()) {
-            activitySoftwareBuildVersionList.forEach(po -> {
+        if (activityUpgradeTargetList != null && !activityUpgradeTargetList.isEmpty()) {
+            int seq = 1;
+            for (ActivityUpgradeTargetPo po : activityUpgradeTargetList) {
                 po.setActivityId(activity.getId());
-                po.setVersionGroup(0);
-            });
-            activitySoftwareBuildVersionDao.batchInsertPo(activitySoftwareBuildVersionList);
-        }
-        if (activityTargetVersionList != null && !activityTargetVersionList.isEmpty()) {
-            activityTargetVersionList.forEach(po -> {
-                po.setActivityId(activity.getId());
-                activityTargetVersionDao.insert(po);
-            });
+                // 如果source_type未设置，默认为手动
+                if (po.getSourceType() == null) {
+                    po.setSourceType(0);
+                }
+                // 如果install_seq未设置，默认递增
+                if (po.getInstallSeq() == null) {
+                    po.setInstallSeq(seq++);
+                }
+            }
+            activityUpgradeTargetDao.batchInsertPo(activityUpgradeTargetList);
         }
         return result;
     }
@@ -165,29 +159,37 @@ public class ActivityAppService {
      * @param softwareBuildVersionIds 软件内部版本ID数组
      * @return 结果
      */
-    public int createSoftwareBuildVersion(Long activityId, Long[] softwareBuildVersionIds) {
-        Set<Long> softwareBuildVersionIdSet = listSoftwareBuildVersion(activityId).stream()
-                .map(ActivitySoftwareBuildVersionPo::getSoftwareBuildVersionId)
+    public int createUpgradeTarget(Long activityId, Long[] softwareBuildVersionIds) {
+        List<ActivityUpgradeTargetPo> existingTargets = listUpgradeTarget(activityId);
+        Set<Long> existingSoftwareBuildVersionIds = existingTargets.stream()
+                .map(ActivityUpgradeTargetPo::getSoftwareBuildVersionId)
+                .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
-        List<ActivitySoftwareBuildVersionPo> list = new ArrayList<>();
+        int maxInstallSeq = existingTargets.stream()
+                .map(ActivityUpgradeTargetPo::getInstallSeq)
+                .filter(Objects::nonNull)
+                .max(Integer::compareTo)
+                .orElse(0);
+        List<ActivityUpgradeTargetPo> list = new ArrayList<>();
         for (Long softwareBuildVersionId : softwareBuildVersionIds) {
-            if (!softwareBuildVersionIdSet.contains(softwareBuildVersionId)) {
+            if (!existingSoftwareBuildVersionIds.contains(softwareBuildVersionId)) {
                 if (!softwareBuildVersionAppService.checkReleaseGate(softwareBuildVersionId)) {
                     throw new IllegalStateException("软件内部版本[" + softwareBuildVersionId + "]未通过发布门禁校验（版本需RELEASED且引用软件包均ACTIVE）");
                 }
-                list.add(ActivitySoftwareBuildVersionPo.builder()
+                list.add(ActivityUpgradeTargetPo.builder()
                         .activityId(activityId)
                         .softwareBuildVersionId(softwareBuildVersionId)
+                        .sourceType(0) // 手动
                         .critical(false)
                         .ota(true)
-                        .sort(0)
-                        .versionGroup(0)
+                        .installSeq(++maxInstallSeq)
+                        .groupNo(0)
                         .forceUpgrade(false)
                         .build());
             }
         }
         if (!list.isEmpty()) {
-            return activitySoftwareBuildVersionDao.batchInsertPo(list);
+            return activityUpgradeTargetDao.batchInsertPo(list);
         }
         return 0;
     }
@@ -257,23 +259,32 @@ public class ActivityAppService {
     /**
      * 修改升级活动软件内部版本信息
      *
-     * @param activityId              升级活动ID
-     * @param softwareBuildVersionIds 软件内部版本ID数组
-     * @param sorts                   排序数组
-     * @param groups                  组数数组
+     * @param activityId 升级活动ID
+     * @param list       升级活动升级对象列表
      * @return 结果
      */
-    public int modifyActivitySoftwareBuildVersion(Long activityId, Long[] softwareBuildVersionIds, Integer[] sorts, Integer[] groups) {
-        listSoftwareBuildVersion(activityId).forEach(po -> {
-            for (int i = 0; i < softwareBuildVersionIds.length; i++) {
-                if (po.getSoftwareBuildVersionId().longValue() == softwareBuildVersionIds[i]) {
-                    po.setSort(sorts[i]);
-                    po.setVersionGroup(groups[i]);
-                    activitySoftwareBuildVersionDao.updatePo(po);
+    public int modifyUpgradeTarget(Long activityId, List<ActivityUpgradeTargetPo> list) {
+        AtomicInteger result = new AtomicInteger();
+        listUpgradeTarget(activityId).forEach(po -> {
+            list.forEach(target -> {
+                if (po.getId().longValue() == target.getId()) {
+                    boolean changed = false;
+                    if (!Objects.equals(po.getSoftwareBuildVersionId(), target.getSoftwareBuildVersionId())) {
+                        po.setSoftwareBuildVersionId(target.getSoftwareBuildVersionId());
+                        changed = true;
+                    }
+                    if (!Objects.equals(po.getForceUpgrade(), target.getForceUpgrade())) {
+                        po.setForceUpgrade(target.getForceUpgrade());
+                        changed = true;
+                    }
+                    if (changed) {
+                        activityUpgradeTargetDao.updatePo(po);
+                        result.getAndIncrement();
+                    }
                 }
-            }
+            });
         });
-        return 1;
+        return result.get();
     }
 
     /**
@@ -293,8 +304,8 @@ public class ActivityAppService {
      * @param softwareBuildVersionIds 软件内部版本ID数组
      * @return 结果
      */
-    public int deleteSoftwareBuildVersion(Long activityId, Long[] softwareBuildVersionIds) {
-        return activitySoftwareBuildVersionDao.batchPhysicalDeletePoByActivityIdAndSoftwareBuildVersionIds(activityId, softwareBuildVersionIds);
+    public int deleteUpgradeTarget(Long activityId, Long[] ids) {
+        return activityUpgradeTargetDao.batchPhysicalDeletePoByActivityIdAndIds(activityId, ids);
     }
 
     /**
@@ -326,15 +337,15 @@ public class ActivityAppService {
      * @param list       组数数组
      * @return 结果
      */
-    public int regroupActivitySoftwareBuildVersion(Long activityId, List<ActivitySoftwareBuildVersionMpt> list) {
+    public int regroupUpgradeTarget(Long activityId, List<ActivityUpgradeTargetPo> list) {
         AtomicInteger result = new AtomicInteger();
-        listSoftwareBuildVersion(activityId).forEach(po -> {
-            list.forEach(mpt -> {
-                if (po.getId().longValue() == mpt.getId()) {
-                    if (po.getVersionGroup().intValue() != mpt.getVersionGroup()) {
-                        po.setVersionGroup(mpt.getVersionGroup());
-                        po.setSort(0);
-                        activitySoftwareBuildVersionDao.updatePo(po);
+        listUpgradeTarget(activityId).forEach(po -> {
+            list.forEach(target -> {
+                if (po.getId().longValue() == target.getId()) {
+                    if (!Objects.equals(po.getGroupNo(), target.getGroupNo())) {
+                        po.setGroupNo(target.getGroupNo());
+                        po.setInstallSeq(0);
+                        activityUpgradeTargetDao.updatePo(po);
                         result.getAndIncrement();
                     }
                 }
@@ -350,14 +361,14 @@ public class ActivityAppService {
      * @param list       组数数组
      * @return 结果
      */
-    public int resortActivitySoftwareBuildVersion(Long activityId, List<ActivitySoftwareBuildVersionMpt> list) {
+    public int resortUpgradeTarget(Long activityId, List<ActivityUpgradeTargetPo> list) {
         AtomicInteger result = new AtomicInteger();
-        listSoftwareBuildVersion(activityId).forEach(po -> {
-            list.forEach(mpt -> {
-                if (po.getId().longValue() == mpt.getId()) {
-                    if (po.getSort().intValue() != mpt.getSort()) {
-                        po.setSort(mpt.getSort());
-                        activitySoftwareBuildVersionDao.updatePo(po);
+        listUpgradeTarget(activityId).forEach(po -> {
+            list.forEach(target -> {
+                if (po.getId().longValue() == target.getId()) {
+                    if (po.getInstallSeq() == null || po.getInstallSeq().intValue() != target.getInstallSeq()) {
+                        po.setInstallSeq(target.getInstallSeq());
+                        activityUpgradeTargetDao.updatePo(po);
                         result.getAndIncrement();
                     }
                 }
@@ -372,8 +383,8 @@ public class ActivityAppService {
      * @param activityId 升级活动ID
      * @return 基线软件零件版本数量
      */
-    public int countActivitySoftwareBuildVersion(Long activityId) {
-        return activitySoftwareBuildVersionDao.countByActivityId(activityId);
+    public int countUpgradeTarget(Long activityId) {
+        return activityUpgradeTargetDao.countByActivityId(activityId);
     }
 
     /**
@@ -470,9 +481,9 @@ public class ActivityAppService {
      * @param activityId 升级活动ID
      */
     public void refreshTotalFileSize(Long activityId) {
-        List<ActivitySoftwareBuildVersionPo> sbvList = activitySoftwareBuildVersionDao.selectPoByActivityId(activityId);
+        List<ActivityUpgradeTargetPo> targetList = activityUpgradeTargetDao.selectPoByActivityId(activityId);
         long totalSize = 0L;
-        for (ActivitySoftwareBuildVersionPo sbv : sbvList) {
+        for (ActivityUpgradeTargetPo target : targetList) {
             // TODO: 汇总关联软件包大小
         }
         ActivityPo update = new ActivityPo();
@@ -484,53 +495,27 @@ public class ActivityAppService {
 
     // ==================== A1. 目标版本组合 ====================
 
-    public List<ActivityTargetVersionPo> listTargetVersion(Long activityId) {
-        return activityTargetVersionDao.selectByActivityId(activityId);
-    }
-
-    public int saveTargetVersion(ActivityTargetVersionPo po) {
-        if (po.getId() == null) {
-            return activityTargetVersionDao.insert(po);
-        }
-        return activityTargetVersionDao.updateById(po);
-    }
-
-    public int deleteTargetVersion(Long id) {
-        return activityTargetVersionDao.deleteById(id);
-    }
+    // 目标版本组合功能已并入升级对象表，相关方法已移除
 
     // ==================== C1. 安装顺序 ====================
 
-    public List<ActivityInstallOrderPo> listInstallOrder(Long activityId) {
-        return activityInstallOrderDao.selectByActivityId(activityId);
-    }
-
-    public int saveInstallOrder(ActivityInstallOrderPo po) {
-        if (po.getId() == null) {
-            return activityInstallOrderDao.insert(po);
-        }
-        return activityInstallOrderDao.updateById(po);
-    }
-
-    public int deleteInstallOrder(Long id) {
-        return activityInstallOrderDao.deleteById(id);
-    }
+    // 安装顺序功能已并入升级对象表，相关方法已移除
 
     // ==================== C2. 同升同降依赖组 ====================
 
-    public List<ActivityDependencyGroupPo> listDependencyGroup(Long activityId) {
-        return activityDependencyGroupDao.selectByActivityId(activityId);
+    public List<ActivityGroupPolicyPo> listGroupPolicy(Long activityId) {
+        return activityGroupPolicyDao.selectByActivityId(activityId);
     }
 
-    public int saveDependencyGroup(ActivityDependencyGroupPo po) {
+    public int saveGroupPolicy(ActivityGroupPolicyPo po) {
         if (po.getId() == null) {
-            return activityDependencyGroupDao.insert(po);
+            return activityGroupPolicyDao.insertPo(po);
         }
-        return activityDependencyGroupDao.updateById(po);
+        return activityGroupPolicyDao.updatePo(po);
     }
 
-    public int deleteDependencyGroup(Long id) {
-        return activityDependencyGroupDao.deleteById(id);
+    public int deleteGroupPolicy(Long id) {
+        return activityGroupPolicyDao.logicalDeletePo(id);
     }
 
     // ==================== D1. 型批版本组合快照（只读） ====================

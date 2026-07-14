@@ -140,27 +140,27 @@ public class TaskVehicleDo extends BaseDo<Long> implements DomainObj<TaskVehicle
 
     public void loadSoftwareBuildVersion(ActivityDo activity, Task task, VehicleDo vehicle, FotaHelper fotaHelper) {
         this.softwareBuildVersionList = new ArrayList<>();
-        Map<Integer, List<ActivitySoftwareBuildVersionVo>> groupSoftwareBuildVersionMap = activity.getGroupSoftwareBuildVersionMap();
+        Map<Integer, List<ActivityUpgradeTargetVo>> groupUpgradeTargetMap = activity.getGroupUpgradeTargetMap();
         TaskVehicleSoftwareBuildVersionVo taskVehicleSoftwareBuildVersion;
-        for (Integer group : groupSoftwareBuildVersionMap.keySet()) {
-            List<ActivitySoftwareBuildVersionVo> groupSoftwareBuildVersionList = groupSoftwareBuildVersionMap.get(group);
-            if (groupAdaptationMatch(groupSoftwareBuildVersionList, vehicle, activity, task)) {
-                for (ActivitySoftwareBuildVersionVo activitySoftwareBuildVersion : groupSoftwareBuildVersionList) {
-                    if (!activitySoftwareBuildVersion.getOta()) {
-                        log.info("车辆[{}]设备[{}]版本[{}]不支持OTA升级，忽略", activitySoftwareBuildVersion.getSoftwareBuildVersion().getDeviceCode(),
-                                activitySoftwareBuildVersion.getSoftwareBuildVersion().getSoftwareBuildVer(), vehicle.getId());
+        for (Integer group : groupUpgradeTargetMap.keySet()) {
+            List<ActivityUpgradeTargetVo> groupUpgradeTargetList = groupUpgradeTargetMap.get(group);
+            if (groupAdaptationMatch(groupUpgradeTargetList, vehicle, activity, task)) {
+                for (ActivityUpgradeTargetVo activityUpgradeTarget : groupUpgradeTargetList) {
+                    if (!activityUpgradeTarget.getOta()) {
+                        log.info("车辆[{}]设备[{}]版本[{}]不支持OTA升级，忽略", activityUpgradeTarget.getSoftwareBuildVersion().getDeviceCode(),
+                                activityUpgradeTarget.getSoftwareBuildVersion().getSoftwareBuildVer(), vehicle.getId());
                         continue;
                     }
-                    List<ConfigWordVo> softwareConfigWordList = activitySoftwareBuildVersion.getConfigWordList();
+                    List<ConfigWordVo> softwareConfigWordList = activityUpgradeTarget.getConfigWordList();
                     List<ConfigWordVo> fixedConfigWordList = activity.getFixedConfigWordList();
                     taskVehicleSoftwareBuildVersion = new TaskVehicleSoftwareBuildVersionVo();
                     taskVehicleSoftwareBuildVersion.setGroup(group);
-                    taskVehicleSoftwareBuildVersion.setForceUpgrade(activitySoftwareBuildVersion.getForceUpgrade());
-                    taskVehicleSoftwareBuildVersion.setSoftwareBuildVersion(activitySoftwareBuildVersion.getSoftwareBuildVersion());
-                    taskVehicleSoftwareBuildVersion.setSoftwarePackageList(activitySoftwareBuildVersion.getSoftwarePackageList());
-                    taskVehicleSoftwareBuildVersion.setSoftwareBuildVersionDependencyList(activitySoftwareBuildVersion.getSoftwareBuildVersionDependencyList());
+                    taskVehicleSoftwareBuildVersion.setForceUpgrade(activityUpgradeTarget.getForceUpgrade());
+                    taskVehicleSoftwareBuildVersion.setSoftwareBuildVersion(activityUpgradeTarget.getSoftwareBuildVersion());
+                    taskVehicleSoftwareBuildVersion.setSoftwarePackageList(activityUpgradeTarget.getSoftwarePackageList());
+                    taskVehicleSoftwareBuildVersion.setSoftwareBuildVersionDependencyList(activityUpgradeTarget.getSoftwareBuildVersionDependencyList());
                     taskVehicleSoftwareBuildVersion.setConfigWordList(softwareConfigWordList);
-                    DeviceInfoVo vehicleDeviceInfo = vehicle.getDeviceMap().get(activitySoftwareBuildVersion.getSoftwareBuildVersion().getDeviceCode());
+                    DeviceInfoVo vehicleDeviceInfo = vehicle.getDeviceMap().get(activityUpgradeTarget.getSoftwareBuildVersion().getDeviceCode());
                     if (Boolean.parseBoolean(this.strategyMap.get(TaskStrategyType.ROLLBACK))) {
                         List<SoftwarePackageVo> rollbackSoftwarePackage = fotaHelper.getSoftwareBuildVersionPackages(vehicleDeviceInfo.getDeviceCode(),
                                 vehicleDeviceInfo.getSoftwarePn() + vehicleDeviceInfo.getSoftwarePartVer(),
@@ -262,29 +262,29 @@ public class TaskVehicleDo extends BaseDo<Long> implements DomainObj<TaskVehicle
      * 同组内软件有任何一个不适配，不影响其他软件适配，直到适配结束
      * 非基线OTA软件适配，同组内软件有任何一个不适配，不进行升级
      *
-     * @param groupSoftwareBuildVersionList 组软件内部版本列表
+     * @param groupUpgradeTargetList 组升级对象列表
      * @param vehicle                       车辆
      * @param activity                      升级活动
      * @param task                          升级任务
      * @return true: 适配成功，false: 适配失败
      */
-    private boolean groupAdaptationMatch(List<ActivitySoftwareBuildVersionVo> groupSoftwareBuildVersionList, VehicleDo vehicle,
+    private boolean groupAdaptationMatch(List<ActivityUpgradeTargetVo> groupUpgradeTargetList, VehicleDo vehicle,
                                          ActivityDo activity, Task task) {
-        for (int i = groupSoftwareBuildVersionList.size() - 1; i > 0; i--) {
-            ActivitySoftwareBuildVersionVo activitySoftwareBuildVersion = groupSoftwareBuildVersionList.get(i);
-            SoftwareBuildVersionVo softwareBuildVersion = activitySoftwareBuildVersion.getSoftwareBuildVersion();
+        for (int i = groupUpgradeTargetList.size() - 1; i > 0; i--) {
+            ActivityUpgradeTargetVo activityUpgradeTarget = groupUpgradeTargetList.get(i);
+            SoftwareBuildVersionVo softwareBuildVersion = activityUpgradeTarget.getSoftwareBuildVersion();
             DeviceInfoVo deviceInfo = vehicle.getDeviceMap().get(softwareBuildVersion.getDeviceCode());
             boolean adaptiveResult = false;
             if (deviceInfo == null) {
                 log.warn("车辆[{}]待升级设备[{}]没有上报，跳过", vehicle.getId(), softwareBuildVersion.getDeviceCode());
             } else {
-                adaptiveResult = deviceAdaptationMatch(deviceInfo, activitySoftwareBuildVersion, activity, task, vehicle);
+                adaptiveResult = deviceAdaptationMatch(deviceInfo, activityUpgradeTarget, activity, task, vehicle);
             }
             if (!adaptiveResult) {
                 if (!activity.getBaseline()) {
                     return false;
                 }
-                groupSoftwareBuildVersionList.remove(i);
+                groupUpgradeTargetList.remove(i);
             }
         }
         return true;
@@ -294,17 +294,17 @@ public class TaskVehicleDo extends BaseDo<Long> implements DomainObj<TaskVehicle
      * 设备适配比对
      *
      * @param deviceInfo                   设备信息
-     * @param activitySoftwareBuildVersion 活动软件内部版本
+     * @param activityUpgradeTarget 活动软件内部版本
      * @param activity                     升级活动
      * @param task                         升级任务
      * @param vehicle                      车辆
      * @return true: 适配成功，false: 适配失败
      */
-    private boolean deviceAdaptationMatch(DeviceInfoVo deviceInfo, ActivitySoftwareBuildVersionVo activitySoftwareBuildVersion,
+    private boolean deviceAdaptationMatch(DeviceInfoVo deviceInfo, ActivityUpgradeTargetVo activityUpgradeTarget,
                                           ActivityDo activity, Task task, VehicleDo vehicle) {
         TaskRestrictionVo comparisonCriteriaVo = task.getTaskRestrictionMap().get(TaskRestrictionType.COMPARISON_CRITERIA);
         boolean comparisonCriteria = Boolean.parseBoolean(comparisonCriteriaVo.getRestrictionExpression());
-        SoftwareBuildVersionVo softwareBuildVersion = activitySoftwareBuildVersion.getSoftwareBuildVersion();
+        SoftwareBuildVersionVo softwareBuildVersion = activityUpgradeTarget.getSoftwareBuildVersion();
         Map<String, Set<String>> compatiblePnMap = activity.getCompatiblePnMap();
         boolean softwarePnMatch = softwareBuildVersion.getSoftwarePn().equals(deviceInfo.getSoftwarePn());
         if (!softwarePnMatch && comparisonCriteria) {
@@ -317,7 +317,7 @@ public class TaskVehicleDo extends BaseDo<Long> implements DomainObj<TaskVehicle
         }
         TaskRestrictionVo adaptationSubjectVo = task.getTaskRestrictionMap().get(TaskRestrictionType.ADAPTATION_SUBJECT);
         AdaptiveSubject adaptationSubject = AdaptiveSubject.valOf(Integer.parseInt(adaptationSubjectVo.getRestrictionExpression()));
-        for (SoftwarePackageVo softwarePackage : activitySoftwareBuildVersion.getSoftwarePackageList()) {
+        for (SoftwarePackageVo softwarePackage : activityUpgradeTarget.getSoftwarePackageList()) {
             if (adaptationSubject == AdaptiveSubject.NONE) {
                 if (softwarePackage.getPackageType() == SoftwarePackageType.DELTA) {
                     // 即使适配主体无需比对，差分包仍然需要适配基础版本
@@ -345,7 +345,7 @@ public class TaskVehicleDo extends BaseDo<Long> implements DomainObj<TaskVehicle
                         deviceInfo.getHardwarePn(), deviceInfo.getPartNo(), adaptiveHardwarePn);
                 return false;
             }
-            if (activitySoftwareBuildVersion.getForceUpgrade()) {
+            if (activityUpgradeTarget.getForceUpgrade()) {
                 log.info("车辆[{}]设备[{}]软件包[{}]强制升级，跳过校验", vehicle.getId(), softwareBuildVersion.getDeviceCode(), softwarePackage.getPackageName());
                 softwarePackage.setMatch(true);
                 continue;
@@ -388,7 +388,7 @@ public class TaskVehicleDo extends BaseDo<Long> implements DomainObj<TaskVehicle
             }
             if (!activity.getBaseline()) {
                 // 非基线需要进行依赖项校验
-                if (!dependencyMatch(activitySoftwareBuildVersion.getSoftwareBuildVersionDependencyList(), vehicle,
+                if (!dependencyMatch(activityUpgradeTarget.getSoftwareBuildVersionDependencyList(), vehicle,
                         comparisonCriteria, compatiblePnMap, adaptationSubject)) {
                     log.warn("车辆[{}]设备[{}]软件包[{}]依赖项不匹配，忽略", vehicle.getId(), softwareBuildVersion.getDeviceCode(), softwarePackage.getPackageName());
                     continue;

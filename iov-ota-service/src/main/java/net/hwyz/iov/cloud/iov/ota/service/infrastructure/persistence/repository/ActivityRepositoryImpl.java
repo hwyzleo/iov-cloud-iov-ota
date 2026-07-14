@@ -11,15 +11,16 @@ import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.SoftwareBuildVer
 import net.hwyz.iov.cloud.iov.ota.service.application.service.CompatiblePnAppService;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.SoftwareBuildVersionAppService;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.ActivityDo;
-import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.ActivitySoftwareBuildVersionVo;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.ActivityUpgradeTargetVo;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.ConfigWordVo;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.SoftwareBuildVersionVo;
 import net.hwyz.iov.cloud.iov.ota.service.domain.repository.ActivityRepository;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.cache.CacheService;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.converter.ActivityPoAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityCompatiblePnMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityFixedConfigWordMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityMapper;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivitySoftwareBuildVersionMapper;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityUpgradeTargetMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.SoftwareBuildVersionPackageMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.SoftwareBuildVersionDependencyMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.CompatiblePnPo;
@@ -52,34 +53,49 @@ public class ActivityRepositoryImpl extends AbstractRepository<Long, ActivityDo>
     private final SoftwareBuildVersionAppService softwareBuildVersionAppService;
     private final SoftwareBuildVersionPackageMapper softwareBuildVersionPackageDao;
     private final SoftwareBuildVersionDependencyMapper softwareBuildVersionDependencyDao;
-    private final ActivitySoftwareBuildVersionMapper activitySoftwareBuildVersionDao;
+    private final ActivityUpgradeTargetMapper activityUpgradeTargetDao;
 
     @Override
     public Optional<ActivityDo> getById(Long id) {
         return Optional.ofNullable(cacheService.getActivity(id).orElseGet(() -> {
             ActivityPo activityPo = activityDao.selectPoById(id);
             if (activityPo != null) {
-                Map<Integer, List<ActivitySoftwareBuildVersionVo>> groupSoftwareBuildVersionMap = new HashMap<>();
-                activitySoftwareBuildVersionDao.selectPoByActivityId(id).forEach(activitySoftwareBuildVersion -> {
-                    List<ActivitySoftwareBuildVersionVo> groupList = groupSoftwareBuildVersionMap.computeIfAbsent(activitySoftwareBuildVersion.getVersionGroup(), k -> new ArrayList<>());
-                    SoftwareBuildVersionPo softwareBuildVersion = softwareBuildVersionAppService.getSoftwareBuildVersionById(activitySoftwareBuildVersion.getSoftwareBuildVersionId());
-                    SoftwareBuildVersionExService softwareBuildVersionExService = SoftwareBuildVersionExServiceAssembler.INSTANCE.fromPo(softwareBuildVersion);
-                    groupList.add(ActivitySoftwareBuildVersionVo.builder()
-                            .group(activitySoftwareBuildVersion.getVersionGroup())
-                            .forceUpgrade(activitySoftwareBuildVersion.getForceUpgrade())
-                            .softwareBuildVersion(SoftwareBuildVersionExServiceAssembler.INSTANCE.toVo(softwareBuildVersionExService))
-                            .softwarePackageList(SoftwarePackageExServiceAssembler.INSTANCE.toVoList(SoftwarePackageExServiceAssembler.INSTANCE.fromPoList(
-                                softwareBuildVersionPackageDao.selectPoBySoftwareBuildVersionId(softwareBuildVersion.getId())
+                Map<Integer, List<ActivityUpgradeTargetVo>> groupUpgradeTargetMap = new HashMap<>();
+                activityUpgradeTargetDao.selectPoByActivityId(id).forEach(target -> {
+                    List<ActivityUpgradeTargetVo> groupList = groupUpgradeTargetMap.computeIfAbsent(target.getGroupNo() != null ? target.getGroupNo() : 0, k -> new ArrayList<>());
+                    SoftwareBuildVersionVo sbvVo = null;
+                    if (target.getSoftwareBuildVersionId() != null) {
+                        SoftwareBuildVersionPo softwareBuildVersion = softwareBuildVersionAppService.getSoftwareBuildVersionById(target.getSoftwareBuildVersionId());
+                        SoftwareBuildVersionExService softwareBuildVersionExService = SoftwareBuildVersionExServiceAssembler.INSTANCE.fromPo(softwareBuildVersion);
+                        sbvVo = SoftwareBuildVersionExServiceAssembler.INSTANCE.toVo(softwareBuildVersionExService);
+                    }
+                    groupList.add(ActivityUpgradeTargetVo.builder()
+                            .id(target.getId())
+                            .activityId(target.getActivityId())
+                            .sourceType(target.getSourceType())
+                            .baselineCode(target.getBaselineCode())
+                            .vehicleNodeCode(target.getVehicleNodeCode())
+                            .partCode(target.getPartCode())
+                            .softwareBuildVersionId(target.getSoftwareBuildVersionId())
+                            .critical(target.getCritical())
+                            .ota(target.getOta())
+                            .installSeq(target.getInstallSeq())
+                            .parallelGroup(target.getParallelGroup())
+                            .groupNo(target.getGroupNo())
+                            .forceUpgrade(target.getForceUpgrade())
+                            .softwareBuildVersion(sbvVo)
+                            .softwarePackageList(sbvVo != null ? SoftwarePackageExServiceAssembler.INSTANCE.toVoList(SoftwarePackageExServiceAssembler.INSTANCE.fromPoList(
+                                softwareBuildVersionPackageDao.selectPoBySoftwareBuildVersionId(target.getSoftwareBuildVersionId())
                                     .stream().map(pkgRel -> {
                                         SoftwarePackagePo pkg = new SoftwarePackagePo();
                                         pkg.setId(pkgRel.getSoftwarePackageId());
                                         return pkg;
-                                    }).toList())))
-                            .softwareBuildVersionDependencyList(SoftwareBuildVersionDependencyExServiceAssembler.INSTANCE.toVoList(
+                                    }).toList())) : new ArrayList<>())
+                            .softwareBuildVersionDependencyList(sbvVo != null ? SoftwareBuildVersionDependencyExServiceAssembler.INSTANCE.toVoList(
                                 SoftwareBuildVersionDependencyExServiceAssembler.INSTANCE.fromPoList(
-                                    softwareBuildVersionDependencyDao.selectPoBySoftwareBuildVersionId(softwareBuildVersion.getId()))))
+                                    softwareBuildVersionDependencyDao.selectPoBySoftwareBuildVersionId(target.getSoftwareBuildVersionId()))) : new ArrayList<>())
                             .configWordList(new ArrayList<>())
-                            .createTime(activitySoftwareBuildVersion.getCreateTime())
+                            .createTime(target.getCreateTime())
                             .build()
                     );
                 });
@@ -96,7 +112,7 @@ public class ActivityRepositoryImpl extends AbstractRepository<Long, ActivityDo>
                     }
                 });
                 ActivityDo activityDoTmp = ActivityPoAssembler.INSTANCE.toDo(activityPo);
-                activityDoTmp.load(groupSoftwareBuildVersionMap, fixedConfigWordList, compatiblePnMap);
+                activityDoTmp.load(groupUpgradeTargetMap, fixedConfigWordList, compatiblePnMap);
                 cacheService.setActivity(activityDoTmp);
                 return activityDoTmp;
             }

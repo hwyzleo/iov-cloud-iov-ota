@@ -149,7 +149,7 @@ public class ActivityDo extends BaseDo<Long> implements DomainObj<ActivityDo> {
     /**
      * 分组软件内部版本信息Map
      */
-    private Map<Integer, List<ActivitySoftwareBuildVersionVo>> groupSoftwareBuildVersionMap;
+    private Map<Integer, List<ActivityUpgradeTargetVo>> groupUpgradeTargetMap;
 
     /**
      * 固定配置字信息列表
@@ -175,9 +175,9 @@ public class ActivityDo extends BaseDo<Long> implements DomainObj<ActivityDo> {
      * @param fixedConfigWordList          固定配置字信息列表
      * @param compatiblePnMap              兼容零件号Map
      */
-    public void load(Map<Integer, List<ActivitySoftwareBuildVersionVo>> groupSoftwareBuildVersionMap, List<ConfigWordVo> fixedConfigWordList,
+    public void load(Map<Integer, List<ActivityUpgradeTargetVo>> groupUpgradeTargetMap, List<ConfigWordVo> fixedConfigWordList,
                      Map<String, Set<String>> compatiblePnMap) {
-        this.groupSoftwareBuildVersionMap = groupSoftwareBuildVersionMap;
+        this.groupUpgradeTargetMap = groupUpgradeTargetMap;
         this.fixedConfigWordList = fixedConfigWordList;
         this.compatiblePnMap = compatiblePnMap;
         stateLoad();
@@ -327,10 +327,10 @@ public class ActivityDo extends BaseDo<Long> implements DomainObj<ActivityDo> {
      */
     private boolean checkCriticalDevices(VehicleDo vehicle) {
         if (this.baseline) {
-            for (List<ActivitySoftwareBuildVersionVo> list : groupSoftwareBuildVersionMap.values()) {
-                for (ActivitySoftwareBuildVersionVo entity : list) {
-                    if (entity.getCritical() && !vehicle.getDeviceMap().containsKey(entity.getSoftwareBuildVersion().getDeviceCode())) {
-                        log.warn("车辆[{}]关键设备[{}]不满足升级条件", vehicle.getId(), entity.getSoftwareBuildVersion().getDeviceCode());
+            for (List<ActivityUpgradeTargetVo> list : groupUpgradeTargetMap.values()) {
+                for (ActivityUpgradeTargetVo entity : list) {
+                    if (entity.getCritical() && !vehicle.getDeviceMap().containsKey(entity.getVehicleNodeCode())) {
+                        log.warn("车辆[{}]关键设备[{}]不满足升级条件", vehicle.getId(), entity.getVehicleNodeCode());
                         return false;
                     }
                 }

@@ -19,10 +19,7 @@ import net.hwyz.iov.cloud.iov.ota.api.vo.*;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.ActivityCompatiblePnMptAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.ActivityFixedConfigWordMptAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.ActivityMptAssembler;
-import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.ActivitySoftwareBuildVersionMptAssembler;
-import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.ActivityTargetVersionMptAssembler;
-import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.ActivityInstallOrderMptAssembler;
-import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.ActivityDependencyGroupMptAssembler;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityUpgradeTargetPo;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.ActivityApprovalMptAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.ApprovedSwManifestMptAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.RegulatoryFilingMptAssembler;
@@ -44,15 +41,11 @@ import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.Software
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityCompatiblePnPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityFixedConfigWordPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityApprovalPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityDependencyGroupPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityInstallOrderPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityGroupPolicyPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivitySoftwareBuildVersionPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityTargetVersionPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ApprovedSwManifestItemPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ApprovedSwManifestPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.RegulatoryFilingPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityTargetVersionPo;
 import net.hwyz.iov.cloud.iov.ota.api.vo.CompatiblePnExService;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -94,7 +87,7 @@ public class MptActivityController extends BaseController {
         List<ActivityPo> activityPoList = activityAppService.search(activity.getName(), activity.getState(),
                 getBeginTime(activity), getEndTime(activity));
         List<ActivityMpt> activityMptList = PageUtil.convert(activityPoList, ActivityMptAssembler.INSTANCE::fromPo);
-        activityMptList.forEach(activityMpt -> activityMpt.setSoftwareBuildVersionCount(activityAppService.countActivitySoftwareBuildVersion(activityMpt.getId())));
+        activityMptList.forEach(activityMpt -> activityMpt.setUpgradeTargetCount(activityAppService.countUpgradeTarget(activityMpt.getId())));
         return ApiResponse.ok(getPageResult(activityMptList));
     }
 
@@ -115,41 +108,56 @@ public class MptActivityController extends BaseController {
     }
 
     /**
-     * 列出升级活动下软件内部版本
+     * 列出升级活动下升级对象
      *
      * @param activityId 升级活动ID
      * @param group      组
-     * @return 软件内部版本列表
+     * @return 升级对象列表
      */
     @RequiresPermissions("ota:fota:activity:list")
-    @GetMapping(value = "/{activityId}/listSoftwareBuildVersion")
-    public ApiResponse<Map<String, Object>> listSoftwareBuildVersion(@PathVariable Long activityId, @RequestParam(required = false) Integer group) {
-        log.info("管理后台用户[{}]列出升级活动[{}]下软件零件版本", SecurityUtils.getUsername(), activityId);
-        List<ActivitySoftwareBuildVersionPo> poList = activityAppService.listSoftwareBuildVersion(activityId);
-        Set<Integer> groupSet = poList.stream().map(ActivitySoftwareBuildVersionPo::getVersionGroup).collect(Collectors.toSet());
+    @GetMapping(value = "/{activityId}/listUpgradeTarget")
+    public ApiResponse<Map<String, Object>> listUpgradeTarget(@PathVariable Long activityId, @RequestParam(required = false) Integer group) {
+        log.info("管理后台用户[{}]列出升级活动[{}]下升级对象", SecurityUtils.getUsername(), activityId);
+        List<ActivityUpgradeTargetPo> poList = activityAppService.listUpgradeTarget(activityId);
+        Set<Integer> groupSet = poList.stream().map(ActivityUpgradeTargetPo::getGroupNo).collect(Collectors.toSet());
         if (group == null && !groupSet.isEmpty()) {
             group = groupSet.iterator().next();
         }
-        List<ActivitySoftwareBuildVersionMpt> mptList = new ArrayList<>();
-        for (ActivitySoftwareBuildVersionPo po : poList) {
-            if (po.getVersionGroup().intValue() == group) {
-                ActivitySoftwareBuildVersionMpt mpt = ActivitySoftwareBuildVersionMptAssembler.INSTANCE.fromPo(po);
-                SoftwareBuildVersionPo softwareBuildVersion = softwareBuildVersionAppService.getSoftwareBuildVersionById(mpt.getSoftwareBuildVersionId());
-                mpt.setDeviceCode(softwareBuildVersion.getDeviceCode());
-                mpt.setSoftwarePn(softwareBuildVersion.getSoftwarePn());
-                PartResponse part = mdmPartService.getByCode(softwareBuildVersion.getSoftwarePn());
-                if (ObjUtil.isNotNull(part)) {
-                    mpt.setSoftwarePartName(part.getName());
+        List<Map<String, Object>> resultList = new ArrayList<>();
+        for (ActivityUpgradeTargetPo po : poList) {
+            if (po.getGroupNo() != null && po.getGroupNo().intValue() == group) {
+                Map<String, Object> item = new HashMap<>();
+                item.put("id", po.getId());
+                item.put("activityId", po.getActivityId());
+                item.put("sourceType", po.getSourceType());
+                item.put("baselineCode", po.getBaselineCode());
+                item.put("vehicleNodeCode", po.getVehicleNodeCode());
+                item.put("partCode", po.getPartCode());
+                item.put("softwareBuildVersionId", po.getSoftwareBuildVersionId());
+                item.put("critical", po.getCritical());
+                item.put("ota", po.getOta());
+                item.put("installSeq", po.getInstallSeq());
+                item.put("parallelGroup", po.getParallelGroup());
+                item.put("groupNo", po.getGroupNo());
+                item.put("forceUpgrade", po.getForceUpgrade());
+                if (po.getSoftwareBuildVersionId() != null) {
+                    SoftwareBuildVersionPo softwareBuildVersion = softwareBuildVersionAppService.getSoftwareBuildVersionById(po.getSoftwareBuildVersionId());
+                    item.put("deviceCode", softwareBuildVersion.getDeviceCode());
+                    item.put("softwarePn", softwareBuildVersion.getSoftwarePn());
+                    PartResponse part = mdmPartService.getByCode(softwareBuildVersion.getSoftwarePn());
+                    if (ObjUtil.isNotNull(part)) {
+                        item.put("softwarePartName", part.getName());
+                    }
+                    item.put("softwareBuildVer", softwareBuildVersion.getSoftwareBuildVer());
+                    item.put("softwareSource", softwareBuildVersion.getSoftwareSource());
                 }
-                mpt.setSoftwareBuildVer(softwareBuildVersion.getSoftwareBuildVer());
-                mpt.setSoftwareSource(softwareBuildVersion.getSoftwareSource());
-                mptList.add(mpt);
+                resultList.add(item);
             }
         }
         Map<String, Object> map = new HashMap<>();
         map.put("group", group);
         map.put("groups", groupSet);
-        map.put("list", mptList);
+        map.put("list", resultList);
         return ApiResponse.ok(map);
     }
 
@@ -234,25 +242,29 @@ public class MptActivityController extends BaseController {
         log.info("管理后台用户[{}]新增升级活动[{}]", SecurityUtils.getUsername(), activity.getName());
         ActivityPo activityPo = ActivityMptAssembler.INSTANCE.toPo(activity);
         activityPo.setCreateBy(SecurityUtils.getUserId().toString());
-        List<ActivitySoftwareBuildVersionPo> activitySoftwareBuildVersionPoList = null;
-        List<ActivityTargetVersionPo> activityTargetVersionPoList = null;
+        List<ActivityUpgradeTargetPo> activityUpgradeTargetList = null;
         if (activityPo.getBaseline()) {
             baselineRepository.getByBaselineCode(activityPo.getBaselineCode())
                     .orElseThrow(() -> new BaselineNotExistException(activityPo.getBaselineCode()));
             List<BaselineItem> baselineItems = baselineItemRepository.listByBaselineCode(activityPo.getBaselineCode());
-            activityTargetVersionPoList = baselineItems.stream()
-                    .map(item -> ActivityTargetVersionPo.builder()
-                            .baselineCode(activityPo.getBaselineCode())
-                            .vehicleNodeCode(item.getVehicleNodeCode())
-                            .partCode(item.getPartCode())
-                            .build())
-                    .collect(Collectors.toList());
+            activityUpgradeTargetList = new ArrayList<>();
+            int seq = 1;
+            for (BaselineItem item : baselineItems) {
+                activityUpgradeTargetList.add(ActivityUpgradeTargetPo.builder()
+                        .sourceType(1)
+                        .baselineCode(activityPo.getBaselineCode())
+                        .vehicleNodeCode(item.getVehicleNodeCode())
+                        .partCode(item.getPartCode())
+                        .installSeq(seq++)
+                        .groupNo(0)
+                        .build());
+            }
         }
-        return ApiResponse.ok(activityAppService.createActivity(activityPo, activitySoftwareBuildVersionPoList, activityTargetVersionPoList));
+        return ApiResponse.ok(activityAppService.createActivity(activityPo, activityUpgradeTargetList));
     }
 
     /**
-     * 新增关联的软件内部版本
+     * 新增关联的升级对象
      *
      * @param activityId              升级活动ID
      * @param softwareBuildVersionIds 软件内部版本ID数组
@@ -260,10 +272,10 @@ public class MptActivityController extends BaseController {
      */
     @Log(title = "升级活动管理", businessType = BusinessType.UPDATE)
     @RequiresPermissions("ota:fota:activity:edit")
-    @PostMapping(value = "/{activityId}/action/addSoftwareBuildVersion/{softwareBuildVersionIds}")
-    public ApiResponse<Integer> addSoftwareBuildVersion(@PathVariable Long activityId, @PathVariable Long[] softwareBuildVersionIds) {
-        log.info("管理后台用户[{}]新增升级活动[{}]关联的软件内部版本[{}]", SecurityUtils.getUsername(), activityId, softwareBuildVersionIds);
-        return ApiResponse.ok(activityAppService.createSoftwareBuildVersion(activityId, softwareBuildVersionIds));
+    @PostMapping(value = "/{activityId}/action/addUpgradeTarget/{softwareBuildVersionIds}")
+    public ApiResponse<Integer> addUpgradeTarget(@PathVariable Long activityId, @PathVariable Long[] softwareBuildVersionIds) {
+        log.info("管理后台用户[{}]新增升级活动[{}]关联的升级对象[{}]", SecurityUtils.getUsername(), activityId, softwareBuildVersionIds);
+        return ApiResponse.ok(activityAppService.createUpgradeTarget(activityId, softwareBuildVersionIds));
     }
 
     /**
@@ -313,21 +325,18 @@ public class MptActivityController extends BaseController {
     }
 
     /**
-     * 修改关联的软件内部版本
+     * 修改关联的升级对象
      *
-     * @param activityId              升级活动ID
-     * @param softwareBuildVersionIds 软件内部版本ID数组
-     * @param sorts                   排序数组
-     * @param groups                  组数组
+     * @param activityId 升级活动ID
+     * @param list       升级活动升级对象列表
      * @return 结果
      */
     @Log(title = "升级活动管理", businessType = BusinessType.UPDATE)
     @RequiresPermissions("ota:fota:activity:edit")
-    @PostMapping(value = "/{activityId}/action/editSoftwareBuildVersion/{softwareBuildVersionIds}")
-    public ApiResponse<Integer> editSoftwareBuildVersion(@PathVariable Long activityId, @PathVariable Long[] softwareBuildVersionIds,
-                                                         @RequestParam Integer[] sorts, @RequestParam Integer[] groups) {
-        log.info("管理后台用户[{}]修改升级活动[{}]关联的软件内部版本[{}]", SecurityUtils.getUsername(), activityId, softwareBuildVersionIds);
-        return ApiResponse.ok(activityAppService.modifyActivitySoftwareBuildVersion(activityId, softwareBuildVersionIds, sorts, groups));
+    @PostMapping(value = "/{activityId}/action/editUpgradeTarget")
+    public ApiResponse<Integer> editUpgradeTarget(@PathVariable Long activityId, @Validated @RequestBody List<ActivityUpgradeTargetPo> list) {
+        log.info("管理后台用户[{}]修改升级活动[{}]关联的升级对象", SecurityUtils.getUsername(), activityId);
+        return ApiResponse.ok(activityAppService.modifyUpgradeTarget(activityId, list));
     }
 
     /**
@@ -423,7 +432,7 @@ public class MptActivityController extends BaseController {
     }
 
     /**
-     * 删除关联的软件内部版本
+     * 删除关联的升级对象
      *
      * @param activityId              升级活动ID
      * @param softwareBuildVersionIds 软件内部版本关联ID数组
@@ -431,10 +440,10 @@ public class MptActivityController extends BaseController {
      */
     @Log(title = "升级活动管理", businessType = BusinessType.UPDATE)
     @RequiresPermissions("ota:fota:activity:edit")
-    @PostMapping(value = "/{activityId}/action/removeSoftwareBuildVersion/{softwareBuildVersionIds}")
-    public ApiResponse<Integer> removeSoftwareBuildVersion(@PathVariable Long activityId, @PathVariable Long[] softwareBuildVersionIds) {
-        log.info("管理后台用户[{}]删除升级活动[{}]关联的软件内部版本[{}]", SecurityUtils.getUsername(), activityId, softwareBuildVersionIds);
-        return ApiResponse.ok(activityAppService.deleteSoftwareBuildVersion(activityId, softwareBuildVersionIds));
+    @PostMapping(value = "/{activityId}/action/removeUpgradeTarget/{softwareBuildVersionIds}")
+    public ApiResponse<Integer> removeUpgradeTarget(@PathVariable Long activityId, @PathVariable Long[] softwareBuildVersionIds) {
+        log.info("管理后台用户[{}]删除升级活动[{}]关联的升级对象[{}]", SecurityUtils.getUsername(), activityId, softwareBuildVersionIds);
+        return ApiResponse.ok(activityAppService.deleteUpgradeTarget(activityId, softwareBuildVersionIds));
     }
 
     /**
@@ -468,33 +477,33 @@ public class MptActivityController extends BaseController {
     }
 
     /**
-     * 调整关联的软件内部版本组
+     * 调整关联的升级对象组
      *
      * @param activityId 升级活动ID
-     * @param list       升级活动软件内部版本列表
+     * @param list       升级活动升级对象列表
      * @return 结果
      */
     @Log(title = "升级活动管理", businessType = BusinessType.UPDATE)
     @RequiresPermissions("ota:fota:activity:edit")
-    @PostMapping(value = "/{activityId}/action/regroupSoftwareBuildVersion")
-    public ApiResponse<Integer> regroupSoftwareBuildVersion(@PathVariable Long activityId, @Validated @RequestBody List<ActivitySoftwareBuildVersionMpt> list) {
-        log.info("管理后台用户[{}]调整基线[{}]关联的软件内部版本组", SecurityUtils.getUsername(), activityId);
-        return ApiResponse.ok(activityAppService.regroupActivitySoftwareBuildVersion(activityId, list));
+    @PostMapping(value = "/{activityId}/action/regroupUpgradeTarget")
+    public ApiResponse<Integer> regroupUpgradeTarget(@PathVariable Long activityId, @Validated @RequestBody List<ActivityUpgradeTargetPo> list) {
+        log.info("管理后台用户[{}]调整基线[{}]关联的升级对象组", SecurityUtils.getUsername(), activityId);
+        return ApiResponse.ok(activityAppService.regroupUpgradeTarget(activityId, list));
     }
 
     /**
-     * 重排序关联的软件内部版本
+     * 重排序关联的升级对象
      *
      * @param activityId 升级活动ID
-     * @param list       升级活动软件内部版本列表
+     * @param list       升级活动升级对象列表
      * @return 结果
      */
     @Log(title = "升级活动管理", businessType = BusinessType.UPDATE)
     @RequiresPermissions("ota:fota:activity:edit")
-    @PostMapping(value = "/{activityId}/action/resortSoftwareBuildVersion")
-    public ApiResponse<Integer> resortSoftwareBuildVersion(@PathVariable Long activityId, @Validated @RequestBody List<ActivitySoftwareBuildVersionMpt> list) {
-        log.info("管理后台用户[{}]重排序基线[{}]关联的软件内部版本", SecurityUtils.getUsername(), activityId);
-        return ApiResponse.ok(activityAppService.resortActivitySoftwareBuildVersion(activityId, list));
+    @PostMapping(value = "/{activityId}/action/resortUpgradeTarget")
+    public ApiResponse<Integer> resortUpgradeTarget(@PathVariable Long activityId, @Validated @RequestBody List<ActivityUpgradeTargetPo> list) {
+        log.info("管理后台用户[{}]重排序基线[{}]关联的升级对象", SecurityUtils.getUsername(), activityId);
+        return ApiResponse.ok(activityAppService.resortUpgradeTarget(activityId, list));
     }
 
     /**
@@ -550,83 +559,30 @@ public class MptActivityController extends BaseController {
 
     // ==================== A1. 目标版本组合 ====================
 
+    // ==================== C2. 组策略 ====================
+
     @RequiresPermissions("ota:fota:activity:list")
-    @GetMapping(value = "/{activityId}/listTargetVersion")
-    public ApiResponse<List<ActivityTargetVersionMpt>> listTargetVersion(@PathVariable Long activityId) {
-        log.info("管理后台用户[{}]查询升级活动[{}]目标版本组合", SecurityUtils.getUsername(), activityId);
-        return ApiResponse.ok(ActivityTargetVersionMptAssembler.INSTANCE.fromPoList(activityAppService.listTargetVersion(activityId)));
+    @GetMapping(value = "/{activityId}/listGroupPolicy")
+    public ApiResponse<List<ActivityGroupPolicyPo>> listGroupPolicy(@PathVariable Long activityId) {
+        log.info("管理后台用户[{}]查询升级活动[{}]组策略", SecurityUtils.getUsername(), activityId);
+        return ApiResponse.ok(activityAppService.listGroupPolicy(activityId));
     }
 
     @Log(title = "升级活动管理", businessType = BusinessType.UPDATE)
     @RequiresPermissions("ota:fota:activity:edit")
-    @PostMapping(value = "/{activityId}/action/saveTargetVersion")
-    public ApiResponse<Integer> saveTargetVersion(@PathVariable Long activityId, @Validated @RequestBody ActivityTargetVersionMpt mpt) {
-        log.info("管理后台用户[{}]保存升级活动[{}]目标版本组合", SecurityUtils.getUsername(), activityId);
-        ActivityTargetVersionPo po = ActivityTargetVersionMptAssembler.INSTANCE.toPo(mpt);
+    @PostMapping(value = "/{activityId}/action/saveGroupPolicy")
+    public ApiResponse<Integer> saveGroupPolicy(@PathVariable Long activityId, @Validated @RequestBody ActivityGroupPolicyPo po) {
+        log.info("管理后台用户[{}]保存升级活动[{}]组策略", SecurityUtils.getUsername(), activityId);
         po.setActivityId(activityId);
-        return ApiResponse.ok(activityAppService.saveTargetVersion(po));
+        return ApiResponse.ok(activityAppService.saveGroupPolicy(po));
     }
 
     @Log(title = "升级活动管理", businessType = BusinessType.DELETE)
     @RequiresPermissions("ota:fota:activity:edit")
-    @DeleteMapping(value = "/{activityId}/action/deleteTargetVersion/{id}")
-    public ApiResponse<Integer> deleteTargetVersion(@PathVariable Long activityId, @PathVariable Long id) {
-        log.info("管理后台用户[{}]删除升级活动[{}]目标版本[{}]", SecurityUtils.getUsername(), activityId, id);
-        return ApiResponse.ok(activityAppService.deleteTargetVersion(id));
-    }
-
-    // ==================== C1. 安装顺序 ====================
-
-    @RequiresPermissions("ota:fota:activity:list")
-    @GetMapping(value = "/{activityId}/listInstallOrder")
-    public ApiResponse<List<ActivityInstallOrderMpt>> listInstallOrder(@PathVariable Long activityId) {
-        log.info("管理后台用户[{}]查询升级活动[{}]安装顺序", SecurityUtils.getUsername(), activityId);
-        return ApiResponse.ok(ActivityInstallOrderMptAssembler.INSTANCE.fromPoList(activityAppService.listInstallOrder(activityId)));
-    }
-
-    @Log(title = "升级活动管理", businessType = BusinessType.UPDATE)
-    @RequiresPermissions("ota:fota:activity:edit")
-    @PostMapping(value = "/{activityId}/action/saveInstallOrder")
-    public ApiResponse<Integer> saveInstallOrder(@PathVariable Long activityId, @Validated @RequestBody ActivityInstallOrderMpt mpt) {
-        log.info("管理后台用户[{}]保存升级活动[{}]安装顺序", SecurityUtils.getUsername(), activityId);
-        ActivityInstallOrderPo po = ActivityInstallOrderMptAssembler.INSTANCE.toPo(mpt);
-        po.setActivityId(activityId);
-        return ApiResponse.ok(activityAppService.saveInstallOrder(po));
-    }
-
-    @Log(title = "升级活动管理", businessType = BusinessType.DELETE)
-    @RequiresPermissions("ota:fota:activity:edit")
-    @DeleteMapping(value = "/{activityId}/action/deleteInstallOrder/{id}")
-    public ApiResponse<Integer> deleteInstallOrder(@PathVariable Long activityId, @PathVariable Long id) {
-        log.info("管理后台用户[{}]删除升级活动[{}]安装顺序[{}]", SecurityUtils.getUsername(), activityId, id);
-        return ApiResponse.ok(activityAppService.deleteInstallOrder(id));
-    }
-
-    // ==================== C2. 同升同降依赖组 ====================
-
-    @RequiresPermissions("ota:fota:activity:list")
-    @GetMapping(value = "/{activityId}/listDependencyGroup")
-    public ApiResponse<List<ActivityDependencyGroupMpt>> listDependencyGroup(@PathVariable Long activityId) {
-        log.info("管理后台用户[{}]查询升级活动[{}]同升同降依赖组", SecurityUtils.getUsername(), activityId);
-        return ApiResponse.ok(ActivityDependencyGroupMptAssembler.INSTANCE.fromPoList(activityAppService.listDependencyGroup(activityId)));
-    }
-
-    @Log(title = "升级活动管理", businessType = BusinessType.UPDATE)
-    @RequiresPermissions("ota:fota:activity:edit")
-    @PostMapping(value = "/{activityId}/action/saveDependencyGroup")
-    public ApiResponse<Integer> saveDependencyGroup(@PathVariable Long activityId, @Validated @RequestBody ActivityDependencyGroupMpt mpt) {
-        log.info("管理后台用户[{}]保存升级活动[{}]同升同降依赖组", SecurityUtils.getUsername(), activityId);
-        ActivityDependencyGroupPo po = ActivityDependencyGroupMptAssembler.INSTANCE.toPo(mpt);
-        po.setActivityId(activityId);
-        return ApiResponse.ok(activityAppService.saveDependencyGroup(po));
-    }
-
-    @Log(title = "升级活动管理", businessType = BusinessType.DELETE)
-    @RequiresPermissions("ota:fota:activity:edit")
-    @DeleteMapping(value = "/{activityId}/action/deleteDependencyGroup/{id}")
-    public ApiResponse<Integer> deleteDependencyGroup(@PathVariable Long activityId, @PathVariable Long id) {
-        log.info("管理后台用户[{}]删除升级活动[{}]同升同降依赖组[{}]", SecurityUtils.getUsername(), activityId, id);
-        return ApiResponse.ok(activityAppService.deleteDependencyGroup(id));
+    @DeleteMapping(value = "/{activityId}/action/deleteGroupPolicy/{id}")
+    public ApiResponse<Integer> deleteGroupPolicy(@PathVariable Long activityId, @PathVariable Long id) {
+        log.info("管理后台用户[{}]删除升级活动[{}]组策略[{}]", SecurityUtils.getUsername(), activityId, id);
+        return ApiResponse.ok(activityAppService.deleteGroupPolicy(id));
     }
 
     // ==================== D1. 型批版本组合快照（只读） ====================

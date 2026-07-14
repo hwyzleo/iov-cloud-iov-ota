@@ -138,9 +138,9 @@ public class ActivityMpt extends BaseRequest {
     private String rxswin;
 
     /**
-     * 软件内部版本数量
+     * 升级对象数量
      */
-    private Integer softwareBuildVersionCount;
+    private Integer upgradeTargetCount;
 
     /**
      * 创建时间

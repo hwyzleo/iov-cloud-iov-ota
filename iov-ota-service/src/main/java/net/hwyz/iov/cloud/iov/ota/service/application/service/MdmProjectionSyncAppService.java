@@ -133,6 +133,7 @@ public class MdmProjectionSyncAppService {
         wrapper.eq(BaselinePo::getBaselineCode, baselineCode);
         BaselinePo existing = baselineMapper.selectOne(wrapper);
 
+        Date now = Date.from(Instant.now());
         BaselinePo po = existing != null ? existing : new BaselinePo();
         po.setBaselineCode(baselineCode);
         po.setName(payload.path("name").asText(null));
@@ -141,11 +142,13 @@ public class MdmProjectionSyncAppService {
         po.setBaselineVersion(payload.path("baselineVersion").asText(null));
         po.setBaselineStatus(payload.path("baselineStatus").asText(""));
         po.setSource("MDM");
-        po.setSyncTime(Date.from(Instant.now()));
+        po.setSyncTime(now);
 
         if (existing != null) {
             baselineMapper.updateById(po);
         } else {
+            po.setCreateTime(now);
+            po.setModifyTime(now);
             baselineMapper.insert(po);
         }
 
@@ -161,12 +164,15 @@ public class MdmProjectionSyncAppService {
         deleteWrapper.eq(BaselineItemPo::getBaselineCode, baselineCode);
         baselineItemMapper.delete(deleteWrapper);
 
+        Date now = Date.from(Instant.now());
         for (JsonNode item : itemsNode) {
             BaselineItemPo itemPo = new BaselineItemPo();
             itemPo.setBaselineCode(baselineCode);
             itemPo.setPartCode(item.path("partCode").asText(""));
             itemPo.setVehicleNodeCode(item.path("vehicleNodeCode").asText(null));
             itemPo.setRemark(item.path("remark").asText(null));
+            itemPo.setCreateTime(now);
+            itemPo.setModifyTime(now);
             baselineItemMapper.insert(itemPo);
         }
     }
@@ -189,6 +195,7 @@ public class MdmProjectionSyncAppService {
         wrapper.eq(SwinDefinitionPo::getSwinCode, swinCode);
         SwinDefinitionPo existing = swinDefinitionMapper.selectOne(wrapper);
 
+        Date now = Date.from(Instant.now());
         SwinDefinitionPo po = existing != null ? existing : new SwinDefinitionPo();
         po.setSwinCode(swinCode);
         po.setSchemeCode(payload.path("schemeCode").asText(""));
@@ -196,11 +203,13 @@ public class MdmProjectionSyncAppService {
         po.setTypeRefCode(payload.path("typeRefCode").asText(null));
         po.setName(payload.path("name").asText(null));
         po.setStatus(payload.path("status").asText(""));
-        po.setSyncTime(Date.from(Instant.now()));
+        po.setSyncTime(now);
 
         if (existing != null) {
             swinDefinitionMapper.updateById(po);
         } else {
+            po.setCreateTime(now);
+            po.setModifyTime(now);
             swinDefinitionMapper.insert(po);
         }
 
@@ -215,12 +224,15 @@ public class MdmProjectionSyncAppService {
         deleteWrapper.eq(SwinManagedSystemPo::getSwinCode, swinCode);
         swinManagedSystemMapper.delete(deleteWrapper);
 
+        Date now = Date.from(Instant.now());
         for (JsonNode ms : managedSystemsNode) {
             SwinManagedSystemPo msPo = new SwinManagedSystemPo();
             msPo.setSwinCode(swinCode);
             msPo.setVehicleNodeCode(ms.path("vehicleNodeCode").asText(""));
             msPo.setIsTypeApprovalRelevant(ms.path("isTypeApprovalRelevant").asBoolean(false));
             msPo.setApprovedSoftwareBaseline(ms.path("approvedSoftwareBaseline").asText(null));
+            msPo.setCreateTime(now);
+            msPo.setModifyTime(now);
             swinManagedSystemMapper.insert(msPo);
         }
     }
