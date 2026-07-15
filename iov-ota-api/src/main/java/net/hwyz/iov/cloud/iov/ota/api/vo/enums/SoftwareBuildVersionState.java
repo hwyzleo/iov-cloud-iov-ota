@@ -28,6 +28,9 @@ public enum SoftwareBuildVersionState {
     public final int value;
 
     public static SoftwareBuildVersionState valOf(Integer val) {
+        if (val == null) {
+            return null;
+        }
         return Arrays.stream(SoftwareBuildVersionState.values())
                 .filter(state -> state.value == val)
                 .findFirst()

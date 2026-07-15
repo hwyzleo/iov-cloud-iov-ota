@@ -25,6 +25,9 @@ public enum DataType {
     public final int value;
 
     public static DataType valOf(Integer val) {
+        if (val == null) {
+            return null;
+        }
         return Arrays.stream(DataType.values())
                 .filter(dataType -> dataType.value == val)
                 .findFirst()

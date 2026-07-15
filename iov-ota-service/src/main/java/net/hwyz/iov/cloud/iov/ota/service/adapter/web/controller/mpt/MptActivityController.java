@@ -14,8 +14,8 @@ import net.hwyz.iov.cloud.framework.security.annotation.RequiresPermissions;
 import net.hwyz.iov.cloud.framework.security.util.SecurityUtils;
 import net.hwyz.iov.cloud.framework.web.controller.BaseController;
 import net.hwyz.iov.cloud.framework.web.util.PageUtil;
-import net.hwyz.iov.cloud.iov.ota.api.vo.enums.ActivityState;
 import net.hwyz.iov.cloud.iov.ota.api.vo.*;
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.ActivityState;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.ActivityFixedConfigWordMptAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.ActivityMptAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityUpgradeTargetPo;
@@ -25,6 +25,7 @@ import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.RegulatoryFiling
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.SoftwareBuildVersionExServiceAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.ActivityAppService;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.SoftwareBuildVersionAppService;
+import java.util.Date;
 import net.hwyz.iov.cloud.iov.ota.service.common.exception.ActivityNotExistException;
 import net.hwyz.iov.cloud.iov.ota.service.common.exception.BaselineNotExistException;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.ActivityDo;
@@ -316,24 +317,6 @@ public class MptActivityController extends BaseController {
     }
 
     /**
-     * 审核升级活动
-     *
-     * @param activityId    升级活动ID
-     * @param activityAudit 升级活动审核
-     * @return 结果
-     */
-    @Log(title = "升级活动管理", businessType = BusinessType.UPDATE)
-    @RequiresPermissions("ota:fota:activity:audit")
-    @PostMapping("/{activityId}/action/audit")
-    public ApiResponse<Integer> audit(@PathVariable Long activityId, @Validated @RequestBody ActivityAuditMpt activityAudit) {
-        log.info("管理后台用户[{}]审核升级活动[{}]", SecurityUtils.getUsername(), activityId);
-        ActivityDo activityDo = activityRepository.getById(activityId).orElseThrow(() -> new ActivityNotExistException(activityId));
-        int result = activityDo.audit(activityAudit.getAudit(), activityAudit.getReason());
-        activityRepository.save(activityDo);
-        return ApiResponse.ok(result);
-    }
-
-    /**
      * 发布升级活动
      *
      * @param activityId 升级活动ID
@@ -574,6 +557,8 @@ public class MptActivityController extends BaseController {
         RegulatoryFilingPo po = RegulatoryFilingMptAssembler.INSTANCE.toPo(mpt);
         po.setActivityId(activityId);
         if (po.getId() == null) {
+            po.setCreateTime(new Date());
+            po.setModifyTime(new Date());
             return ApiResponse.ok(activityAppService.createRegulatoryFiling(po));
         }
         return ApiResponse.ok(activityAppService.updateRegulatoryFiling(po));

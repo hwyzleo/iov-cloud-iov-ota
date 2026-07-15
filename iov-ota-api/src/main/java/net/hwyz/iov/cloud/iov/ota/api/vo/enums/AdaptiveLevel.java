@@ -26,6 +26,9 @@ public enum AdaptiveLevel {
     public final int value;
 
     public static AdaptiveLevel valOf(Integer val) {
+        if (val == null) {
+            return null;
+        }
         return Arrays.stream(AdaptiveLevel.values())
                 .filter(adaptiveLevel -> adaptiveLevel.value == val)
                 .findFirst()

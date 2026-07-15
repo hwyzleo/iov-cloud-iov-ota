@@ -21,6 +21,9 @@ public enum TaskType {
     private final String label;
 
     public static TaskType valOf(Integer val) {
+        if (val == null) {
+            return null;
+        }
         return Arrays.stream(TaskType.values())
                 .filter(taskType -> taskType.value == val)
                 .findFirst()

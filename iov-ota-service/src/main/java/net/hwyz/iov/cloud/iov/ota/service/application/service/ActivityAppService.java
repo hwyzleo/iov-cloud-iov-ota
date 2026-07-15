@@ -2,10 +2,15 @@ package net.hwyz.iov.cloud.iov.ota.service.application.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.hwyz.iov.cloud.edd.mdm.api.service.MdmRxswinRegistryService;
+import net.hwyz.iov.cloud.edd.mdm.api.vo.request.RxswinRegisterRequest;
+import net.hwyz.iov.cloud.edd.mdm.api.vo.response.RxswinRegistryResponse;
 import net.hwyz.iov.cloud.framework.common.util.ParamHelper;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.ActivityState;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.ApprovalLevel;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TypeApprovalAssessmentState;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TypeApprovalBaseline;
+import net.hwyz.iov.cloud.iov.ota.service.domain.repository.TypeApprovalBaselineRepository;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityApprovalMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityFixedConfigWordMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityMapper;
@@ -14,6 +19,9 @@ import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.Acti
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ApprovedSwManifestItemMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ApprovedSwManifestMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.RegulatoryFilingMapper;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.SoftwareBuildVersionPackageMapper;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.SoftwarePackageMapper;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.SwinManagedSystemMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityApprovalPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityFixedConfigWordPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityGroupPolicyPo;
@@ -22,6 +30,11 @@ import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.Activity
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ApprovedSwManifestItemPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ApprovedSwManifestPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.RegulatoryFilingPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwareBuildVersionPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwareBuildVersionPackagePo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwarePackagePo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SwinManagedSystemPo;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -47,6 +60,11 @@ public class ActivityAppService {
     private final ApprovedSwManifestItemMapper approvedSwManifestItemDao;
     private final RegulatoryFilingMapper regulatoryFilingDao;
     private final SoftwareBuildVersionAppService softwareBuildVersionAppService;
+    private final SoftwareBuildVersionPackageMapper softwareBuildVersionPackageDao;
+    private final SoftwarePackageMapper softwarePackageDao;
+    private final TypeApprovalBaselineRepository typeApprovalBaselineRepository;
+    private final MdmRxswinRegistryService mdmRxswinRegistryService;
+    private final SwinManagedSystemMapper swinManagedSystemMapper;
 
     /**
      * 查询升级活动
@@ -383,23 +401,58 @@ public class ActivityAppService {
                 .result(result)
                 .comment(comment)
                 .approveTime(new Date())
+                .createTime(new Date())
                 .build();
         activityApprovalDao.insert(approval);
 
+        ActivityPo activity = activityDao.selectPoById(activityId);
+        if (activity == null) {
+            throw new IllegalArgumentException("活动不存在: " + activityId);
+        }
+
         if ("REJECT".equals(result)) {
-            ActivityPo activity = activityDao.selectPoById(activityId);
+            // 任一级驳回，回到编辑态
             activity.setState(ActivityState.REJECTED.value);
             activityDao.updatePo(activity);
+            log.info("活动[{}]在[{}]阶段被驳回", activityId, approvalStage);
+        } else if ("PASS".equals(result)) {
+            // 检查是否所有三级审批都已通过
+            if (isAllApprovalStagesPassed(activityId)) {
+                // 所有三级审批通过，自动跃迁到 APPROVED
+                activity.setState(ActivityState.APPROVED.value);
+                activityDao.updatePo(activity);
+                log.info("活动[{}]所有三级审批通过，状态自动跃迁到APPROVED", activityId);
+            } else {
+                log.info("活动[{}]在[{}]阶段通过，等待后续审批", activityId, approvalStage);
+            }
         }
 
         return approval;
     }
 
     /**
+     * 检查活动是否所有三级审批（QUALITY、PRODUCT、SECURITY）都已通过
+     *
+     * @param activityId 升级活动ID
+     * @return true: 所有阶段都已通过，false: 还有未通过的阶段
+     */
+    private boolean isAllApprovalStagesPassed(Long activityId) {
+        List<ActivityApprovalPo> approvals = activityApprovalDao.selectByActivityId(activityId);
+        Set<String> passedStages = approvals.stream()
+                .filter(a -> "PASS".equals(a.getResult()))
+                .map(ActivityApprovalPo::getApprovalStage)
+                .collect(Collectors.toSet());
+        
+        // 检查三个阶段是否都已通过
+        return passedStages.contains(ApprovalLevel.QUALITY.value)
+                && passedStages.contains(ApprovalLevel.PRODUCT.value)
+                && passedStages.contains(ApprovalLevel.SECURITY.value);
+    }
+
+    /**
      * 型式批准影响评估
-     * 基于本地 SWIN 投影判定受影响受管 ECU 的 is_type_approval_relevant
+     * 基于TA基线投影（tb_type_approval_baseline*）判定「上一批准基准」
      * 评估结果写入 type_approval_assessment_state
-     * RXSWIN 生成与回写 MDM(EEAD) 暂留 TODO
      *
      * @param activityId 升级活动ID
      * @return 评估状态
@@ -415,14 +468,171 @@ public class ActivityAppService {
             return TypeApprovalAssessmentState.PASSED;
         }
 
-        // TODO: 冻结 tb_approved_sw_manifest 版本组合快照
-        // TODO: 以 manifest_code 请求 MDM(EEAD) 幂等生成并同步返回 RXSWIN
-        // TODO: 回填 rxswin_value 到 manifest，活动本体 rxswin 仅 1:1 时只读投影
+        try {
+            // 1. 获取活动关联的SWIN代码（从SWIN受管系统清单中查询）
+            LambdaQueryWrapper<SwinManagedSystemPo> swinQuery = new LambdaQueryWrapper<>();
+            swinQuery.eq(SwinManagedSystemPo::getIsTypeApprovalRelevant, true)
+                     .last("LIMIT 1");
+            SwinManagedSystemPo swinManagedSystem = swinManagedSystemMapper.selectOne(swinQuery);
 
-        // 当前阶段：标记为 PASSED 以不阻断发布，待 MDM RXSWIN API 就绪后补全
-        activity.setTypeApprovalAssessmentState(TypeApprovalAssessmentState.PASSED.value);
-        activityDao.updatePo(activity);
-        return TypeApprovalAssessmentState.PASSED;
+            String swinCode = swinManagedSystem != null ? swinManagedSystem.getSwinCode() : null;
+            if (swinCode == null || swinCode.isEmpty()) {
+                log.warn("活动[{}]未关联SWIN代码，无法进行型批评估", activityId);
+                activity.setTypeApprovalAssessmentState(TypeApprovalAssessmentState.BLOCKED.value);
+                activityDao.updatePo(activity);
+                return TypeApprovalAssessmentState.BLOCKED;
+            }
+
+            // 2. 读取TA基线投影作为「上一批准基准」
+            List<TypeApprovalBaseline> taBaselines = typeApprovalBaselineRepository.listBySwinCode(swinCode);
+            if (taBaselines == null || taBaselines.isEmpty()) {
+                log.warn("活动[{}]关联的SWIN[{}]无TA基线投影，fail-safe阻断发布", activityId, swinCode);
+                activity.setTypeApprovalAssessmentState(TypeApprovalAssessmentState.BLOCKED.value);
+                activityDao.updatePo(activity);
+                return TypeApprovalAssessmentState.BLOCKED;
+            }
+
+            // 3. 计算活动目标版本组合的digest
+            String activityDigest = calculateActivityTargetDigest(activityId);
+
+            // 4. 比对digest与TA基线的projection_digest
+            boolean digestMatch = false;
+            for (TypeApprovalBaseline taBaseline : taBaselines) {
+                if (activityDigest != null && activityDigest.equals(taBaseline.getProjectionDigest())) {
+                    digestMatch = true;
+                    log.info("活动[{}]目标组合digest与TA基线[{}]一致，未越型批边界", activityId, taBaseline.getTaBaselineCode());
+                    break;
+                }
+            }
+
+            if (digestMatch) {
+                // digest一致，未越型批边界，可跳过manifest冻结与RXSWIN迭代
+                activity.setTypeApprovalAssessmentState(TypeApprovalAssessmentState.PASSED.value);
+                activityDao.updatePo(activity);
+                return TypeApprovalAssessmentState.PASSED;
+            }
+
+            // 5. digest不一致，需要冻结manifest并请求MDM生成RXSWIN
+            log.info("活动[{}]目标组合digest与TA基线不一致，需冻结manifest并生成RXSWIN", activityId);
+
+            // 冻结 tb_approved_sw_manifest 版本组合快照
+            ApprovedSwManifestPo manifest = freezeManifest(activityId, swinCode, activityDigest);
+
+            // 以 manifest_code 请求 MDM(EEAD) 幂等生成并同步返回 RXSWIN
+            RxswinRegisterRequest registerRequest = RxswinRegisterRequest.builder()
+                    .manifestCode(manifest.getManifestCode())
+                    .swinCode(swinCode)
+                    .manifestDigest(activityDigest)
+                    .approvedAt(new Date())
+                    .build();
+
+            RxswinRegistryResponse registryResponse = mdmRxswinRegistryService.register(registerRequest);
+            if (registryResponse != null && registryResponse.getRxswinValue() != null) {
+                // 回填 rxswin_value 到 manifest
+                manifest.setRxswinValue(registryResponse.getRxswinValue());
+                approvedSwManifestDao.updateById(manifest);
+
+                // 回填到活动
+                activity.setRxswin(registryResponse.getRxswinValue());
+                activity.setTypeApprovalAssessmentState(TypeApprovalAssessmentState.PASSED.value);
+                activityDao.updatePo(activity);
+                return TypeApprovalAssessmentState.PASSED;
+            } else {
+                log.error("活动[{}]请求MDM生成RXSWIN失败", activityId);
+                activity.setTypeApprovalAssessmentState(TypeApprovalAssessmentState.BLOCKED.value);
+                activityDao.updatePo(activity);
+                return TypeApprovalAssessmentState.BLOCKED;
+            }
+        } catch (Exception e) {
+            log.error("活动[{}]型式批准评估异常: {}", activityId, e.getMessage(), e);
+            activity.setTypeApprovalAssessmentState(TypeApprovalAssessmentState.BLOCKED.value);
+            activityDao.updatePo(activity);
+            return TypeApprovalAssessmentState.BLOCKED;
+        }
+    }
+
+    /**
+     * 计算活动目标版本组合的digest
+     * 按与MDM一致的规范化口径 sha256(sortedItems) 计算
+     */
+    private String calculateActivityTargetDigest(Long activityId) {
+        List<ActivityUpgradeTargetPo> targets = activityUpgradeTargetDao.selectPoByActivityId(activityId);
+        if (targets == null || targets.isEmpty()) {
+            return null;
+        }
+
+        // 按 vehicle_node_code + part_code 排序
+        targets.sort((a, b) -> {
+            int cmp = String.valueOf(a.getVehicleNodeCode()).compareTo(String.valueOf(b.getVehicleNodeCode()));
+            if (cmp != 0) return cmp;
+            return String.valueOf(a.getPartCode()).compareTo(String.valueOf(b.getPartCode()));
+        });
+
+        // 构建规范化字符串
+        StringBuilder sb = new StringBuilder();
+        for (ActivityUpgradeTargetPo target : targets) {
+            sb.append(target.getVehicleNodeCode()).append(":").append(target.getPartCode()).append(":");
+            if (target.getSoftwareBuildVersionId() != null) {
+                sb.append(target.getSoftwareBuildVersionId());
+            }
+            sb.append(";");
+        }
+
+        // 计算SHA-256
+        try {
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            return bytesToHex(hash);
+        } catch (Exception e) {
+            log.error("计算digest失败: {}", e.getMessage(), e);
+            return null;
+        }
+    }
+
+    private String bytesToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
+    }
+
+    /**
+     * 冻结版本组合快照到 tb_approved_sw_manifest
+     */
+    private ApprovedSwManifestPo freezeManifest(Long activityId, String swinCode, String digest) {
+        String manifestCode = "MFS-" + activityId + "-" + System.currentTimeMillis();
+
+        ApprovedSwManifestPo manifest = new ApprovedSwManifestPo();
+        manifest.setManifestCode(manifestCode);
+        manifest.setActivityId(activityId);
+        manifest.setSwinCode(swinCode);
+        manifest.setManifestStatus("FROZEN");
+        manifest.setApproveTime(new Date());
+        manifest.setCreateTime(new Date());
+        manifest.setModifyTime(new Date());
+        approvedSwManifestDao.insert(manifest);
+
+        // 保存明细
+        List<ActivityUpgradeTargetPo> targets = activityUpgradeTargetDao.selectPoByActivityId(activityId);
+        if (targets != null) {
+            for (ActivityUpgradeTargetPo target : targets) {
+                ApprovedSwManifestItemPo item = new ApprovedSwManifestItemPo();
+                item.setManifestId(manifest.getId());
+                item.setVehicleNodeCode(target.getVehicleNodeCode());
+                item.setPartCode(target.getPartCode());
+                // 获取软件版本号
+                if (target.getSoftwareBuildVersionId() != null) {
+                    SoftwareBuildVersionPo sbv = softwareBuildVersionAppService.getSoftwareBuildVersionById(target.getSoftwareBuildVersionId());
+                    item.setApprovedVersion(sbv != null ? sbv.getSoftwareBuildVer() : "TBD");
+                }
+                item.setCreateTime(new Date());
+                item.setModifyTime(new Date());
+                approvedSwManifestItemDao.insert(item);
+            }
+        }
+
+        return manifest;
     }
 
     /**
@@ -433,8 +643,20 @@ public class ActivityAppService {
     public void refreshTotalFileSize(Long activityId) {
         List<ActivityUpgradeTargetPo> targetList = activityUpgradeTargetDao.selectPoByActivityId(activityId);
         long totalSize = 0L;
+        Set<Long> countedPackageIds = new HashSet<>();
         for (ActivityUpgradeTargetPo target : targetList) {
-            // TODO: 汇总关联软件包大小
+            if (target.getSoftwareBuildVersionId() == null) {
+                continue;
+            }
+            List<SoftwareBuildVersionPackagePo> versionPackages = softwareBuildVersionPackageDao.selectPoBySoftwareBuildVersionId(target.getSoftwareBuildVersionId());
+            for (SoftwareBuildVersionPackagePo vp : versionPackages) {
+                if (countedPackageIds.add(vp.getSoftwarePackageId())) {
+                    SoftwarePackagePo pkg = softwarePackageDao.selectPoById(vp.getSoftwarePackageId());
+                    if (pkg != null && pkg.getPackageSize() != null) {
+                        totalSize += pkg.getPackageSize();
+                    }
+                }
+            }
         }
         ActivityPo update = new ActivityPo();
         update.setId(activityId);

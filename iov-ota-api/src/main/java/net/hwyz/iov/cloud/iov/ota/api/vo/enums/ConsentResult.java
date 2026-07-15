@@ -17,6 +17,9 @@ public enum ConsentResult {
     public final int value;
 
     public static ConsentResult valOf(Integer val) {
+        if (val == null) {
+            return null;
+        }
         for (ConsentResult result : values()) {
             if (result.value == val) {
                 return result;

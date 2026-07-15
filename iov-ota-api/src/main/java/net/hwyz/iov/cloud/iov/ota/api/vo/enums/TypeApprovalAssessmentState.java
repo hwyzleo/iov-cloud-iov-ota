@@ -26,6 +26,9 @@ public enum TypeApprovalAssessmentState {
     public final int value;
 
     public static TypeApprovalAssessmentState valOf(Integer val) {
+        if (val == null) {
+            return null;
+        }
         return Arrays.stream(TypeApprovalAssessmentState.values())
                 .filter(state -> state.value == val)
                 .findFirst()

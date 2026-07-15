@@ -22,6 +22,9 @@ public enum TaskPhase {
     private final String label;
 
     public static TaskPhase valOf(Integer val) {
+        if (val == null) {
+            return null;
+        }
         return Arrays.stream(TaskPhase.values())
                 .filter(taskPhase -> taskPhase.value == val)
                 .findFirst()

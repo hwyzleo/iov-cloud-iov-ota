@@ -242,27 +242,6 @@ public class ActivityDo extends BaseDo<Long> implements DomainObj<ActivityDo> {
     }
 
     /**
-     * 审核活动（多级审批的一环，外部编排串行调用）
-     *
-     * @param audit  审核结果
-     * @param reason 拒绝原因
-     * @return 1: 成功，0: 失败
-     */
-    public int audit(Boolean audit, String reason) {
-        if (this.activityState == ActivityState.SUBMITTED) {
-            if (audit) {
-                this.activityState = ActivityState.APPROVED;
-            } else {
-                this.activityState = ActivityState.REJECTED;
-                this.description = reason;
-            }
-            stateChange();
-            return 1;
-        }
-        return 0;
-    }
-
-    /**
      * 发布活动
      * 型批相关且评估状态非 PASSED 时阻断发布
      *

@@ -31,6 +31,9 @@ public enum TaskState {
     public final int value;
 
     public static TaskState valOf(Integer val) {
+        if (val == null) {
+            return null;
+        }
         return Arrays.stream(TaskState.values())
                 .filter(taskState -> taskState.value == val)
                 .findFirst()

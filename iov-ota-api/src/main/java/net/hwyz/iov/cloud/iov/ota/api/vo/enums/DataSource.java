@@ -24,6 +24,9 @@ public enum DataSource {
     public final int value;
 
     public static DataSource valOf(Integer val) {
+        if (val == null) {
+            return null;
+        }
         return Arrays.stream(DataSource.values())
                 .filter(dataSource -> dataSource.value == val)
                 .findFirst()

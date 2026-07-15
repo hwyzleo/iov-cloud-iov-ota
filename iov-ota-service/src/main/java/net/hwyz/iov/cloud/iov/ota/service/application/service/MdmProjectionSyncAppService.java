@@ -16,11 +16,16 @@ import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.Base
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.BaselineMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.SwinDefinitionMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.SwinManagedSystemMapper;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TypeApprovalBaselineMapper;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TypeApprovalBaselineItemMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.BaselineItemPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.BaselinePo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SwinDefinitionPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SwinManagedSystemPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TypeApprovalBaselinePo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TypeApprovalBaselineItemPo;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,6 +50,8 @@ public class MdmProjectionSyncAppService {
     private final BaselineItemMapper baselineItemMapper;
     private final SwinDefinitionMapper swinDefinitionMapper;
     private final SwinManagedSystemMapper swinManagedSystemMapper;
+    private final TypeApprovalBaselineMapper typeApprovalBaselineMapper;
+    private final TypeApprovalBaselineItemMapper typeApprovalBaselineItemMapper;
     private final ObjectMapper objectMapper;
 
     /**
@@ -61,8 +68,10 @@ public class MdmProjectionSyncAppService {
             String eventType = root.path("eventType").asText("");
             JsonNode payload = root.path("payload");
 
-            String baselineCode = payload.path("code").asText("");
-            String baselineStatus = payload.path("baselineStatus").asText("");
+            JsonNode dataNode = (payload.isMissingNode() || payload.isNull()) ? root : payload;
+
+            String baselineCode = dataNode.path("code").asText("");
+            String baselineStatus = dataNode.path("baselineStatus").asText("");
 
             log.info("处理SoftwareBaseline事件: eventType={}, code={}, status={}", eventType, baselineCode, baselineStatus);
 
@@ -77,7 +86,7 @@ public class MdmProjectionSyncAppService {
                 return;
             }
 
-            upsertBaselineProjection(payload);
+            upsertBaselineProjection(dataNode);
         } catch (Exception e) {
             log.error("处理SoftwareBaseline事件失败: {}", e.getMessage(), e);
         }
@@ -149,7 +158,12 @@ public class MdmProjectionSyncAppService {
         } else {
             po.setCreateTime(now);
             po.setModifyTime(now);
-            baselineMapper.insert(po);
+            try {
+                baselineMapper.insert(po);
+            } catch (DuplicateKeyException e) {
+                log.warn("并发插入基线投影冲突，回退恢复更新: code={}", baselineCode);
+                baselineMapper.restoreAndUpdate(po);
+            }
         }
 
         upsertBaselineItems(baselineCode, payload.path("items"));
@@ -210,7 +224,12 @@ public class MdmProjectionSyncAppService {
         } else {
             po.setCreateTime(now);
             po.setModifyTime(now);
-            swinDefinitionMapper.insert(po);
+            try {
+                swinDefinitionMapper.insert(po);
+            } catch (DuplicateKeyException e) {
+                log.warn("并发插入SWIN投影冲突，回退恢复更新: swinCode={}", swinCode);
+                swinDefinitionMapper.restoreAndUpdate(po);
+            }
         }
 
         JsonNode managedSystems = payload.path("managedSystems");
@@ -246,5 +265,120 @@ public class MdmProjectionSyncAppService {
         wrapper.eq(SwinDefinitionPo::getSwinCode, swinCode);
         swinDefinitionMapper.delete(wrapper);
         log.info("已删除SWIN投影: swinCode={}", swinCode);
+    }
+
+    /**
+     * 处理TypeApprovalBaseline事件
+     * <p>
+     * 仅消费 status=RELEASED/FROZEN；其他状态时删除投影。
+     * 按 ta_baseline_code + up_version 幂等。
+     * </p>
+     */
+    @Transactional
+    public void handleTypeApprovalBaselineEvent(String messageJson) {
+        try {
+            JsonNode root = objectMapper.readTree(messageJson);
+            String eventType = root.path("eventType").asText("");
+            JsonNode payload = root.path("payload");
+
+            JsonNode dataNode = (payload.isMissingNode() || payload.isNull()) ? root : payload;
+
+            String taBaselineCode = dataNode.path("code").asText("");
+            String status = dataNode.path("status").asText("");
+
+            log.info("处理TypeApprovalBaseline事件: eventType={}, code={}, status={}", eventType, taBaselineCode, status);
+
+            if ("TypeApprovalBaselineDeleted".equals(eventType)) {
+                deleteTypeApprovalBaselineProjection(taBaselineCode);
+                return;
+            }
+
+            if (!"RELEASED".equals(status) && !"FROZEN".equals(status)) {
+                log.info("跳过非RELEASED/FROZEN TA基线: code={}, status={}", taBaselineCode, status);
+                deleteTypeApprovalBaselineProjection(taBaselineCode);
+                return;
+            }
+
+            upsertTypeApprovalBaselineProjection(dataNode);
+        } catch (Exception e) {
+            log.error("处理TypeApprovalBaseline事件失败: {}", e.getMessage(), e);
+        }
+    }
+
+    private void upsertTypeApprovalBaselineProjection(JsonNode payload) {
+        String taBaselineCode = payload.path("code").asText("");
+        Long upVersion = payload.path("version").asLong(0);
+
+        // 幂等检查：如果已存在且上游版本号更大，则跳过
+        LambdaQueryWrapper<TypeApprovalBaselinePo> existWrapper = new LambdaQueryWrapper<>();
+        existWrapper.eq(TypeApprovalBaselinePo::getTaBaselineCode, taBaselineCode);
+        TypeApprovalBaselinePo existing = typeApprovalBaselineMapper.selectOne(existWrapper);
+        if (existing != null && existing.getUpVersion() != null && existing.getUpVersion() >= upVersion) {
+            log.info("跳过旧版本TA基线: code={}, existingVersion={}, incomingVersion={}", taBaselineCode, existing.getUpVersion(), upVersion);
+            return;
+        }
+
+        Date now = Date.from(Instant.now());
+        TypeApprovalBaselinePo po = existing != null ? existing : new TypeApprovalBaselinePo();
+        po.setTaBaselineCode(taBaselineCode);
+        po.setSwinCode(payload.path("swinCode").asText(""));
+        po.setAnchorType(payload.path("anchorType").asText(""));
+        po.setAnchorCode(payload.path("anchorCode").asText(""));
+        po.setStatus(payload.path("status").asText(""));
+        po.setProjectionDigest(payload.path("projectionDigest").asText(null));
+        po.setEffectiveFrom(payload.path("effectiveFrom").asText(null) != null ?
+                new Date(payload.path("effectiveFrom").asLong(0)) : null);
+        po.setSourceBaselineScope(payload.path("sourceBaselineScope").asText(null));
+        po.setUpVersion(upVersion);
+        po.setSyncTime(now);
+
+        if (existing != null) {
+            typeApprovalBaselineMapper.updateById(po);
+        } else {
+            po.setCreateTime(now);
+            po.setModifyTime(now);
+            try {
+                typeApprovalBaselineMapper.insert(po);
+            } catch (DuplicateKeyException e) {
+                log.warn("并发插入TA基线投影冲突，回退恢复更新: taBaselineCode={}", taBaselineCode);
+                typeApprovalBaselineMapper.restoreAndUpdate(po);
+            }
+        }
+
+        upsertTypeApprovalBaselineItems(taBaselineCode, payload.path("items"));
+    }
+
+    private void upsertTypeApprovalBaselineItems(String taBaselineCode, JsonNode itemsNode) {
+        if (itemsNode.isMissingNode() || !itemsNode.isArray()) {
+            return;
+        }
+
+        LambdaQueryWrapper<TypeApprovalBaselineItemPo> deleteWrapper = new LambdaQueryWrapper<>();
+        deleteWrapper.eq(TypeApprovalBaselineItemPo::getTaBaselineCode, taBaselineCode);
+        typeApprovalBaselineItemMapper.delete(deleteWrapper);
+
+        Date now = Date.from(Instant.now());
+        for (JsonNode item : itemsNode) {
+            TypeApprovalBaselineItemPo itemPo = new TypeApprovalBaselineItemPo();
+            itemPo.setTaBaselineCode(taBaselineCode);
+            itemPo.setVehicleNodeCode(item.path("vehicleNodeCode").asText(""));
+            itemPo.setPartCode(item.path("partCode").asText(""));
+            itemPo.setApprovedVersion(item.path("approvedVersion").asText(null));
+            itemPo.setSourceBaselineCode(item.path("sourceBaselineCode").asText(null));
+            itemPo.setCreateTime(now);
+            itemPo.setModifyTime(now);
+            typeApprovalBaselineItemMapper.insert(itemPo);
+        }
+    }
+
+    private void deleteTypeApprovalBaselineProjection(String taBaselineCode) {
+        LambdaQueryWrapper<TypeApprovalBaselineItemPo> itemWrapper = new LambdaQueryWrapper<>();
+        itemWrapper.eq(TypeApprovalBaselineItemPo::getTaBaselineCode, taBaselineCode);
+        typeApprovalBaselineItemMapper.delete(itemWrapper);
+
+        LambdaQueryWrapper<TypeApprovalBaselinePo> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(TypeApprovalBaselinePo::getTaBaselineCode, taBaselineCode);
+        typeApprovalBaselineMapper.delete(wrapper);
+        log.info("已删除TA基线投影: taBaselineCode={}", taBaselineCode);
     }
 }

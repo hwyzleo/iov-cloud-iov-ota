@@ -27,6 +27,9 @@ public enum SoftwarePackageState {
     public final int value;
 
     public static SoftwarePackageState valOf(Integer val) {
+        if (val == null) {
+            return null;
+        }
         return Arrays.stream(SoftwarePackageState.values())
                 .filter(state -> state.value == val)
                 .findFirst()

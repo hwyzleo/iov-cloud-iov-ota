@@ -24,6 +24,9 @@ public enum UpgradeMode {
     private final String label;
 
     public static UpgradeMode valOf(Integer val) {
+        if (val == null) {
+            return null;
+        }
         return Arrays.stream(UpgradeMode.values())
                 .filter(upgradeMode -> upgradeMode.value == val)
                 .findFirst()

@@ -30,6 +30,9 @@ public enum ActivityState {
     public final int value;
 
     public static ActivityState valOf(Integer val) {
+        if (val == null) {
+            return null;
+        }
         return Arrays.stream(ActivityState.values())
                 .filter(activityState -> activityState.value == val)
                 .findFirst()

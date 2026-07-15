@@ -28,6 +28,9 @@ public enum UpgradePurpose {
     public final int value;
 
     public static UpgradePurpose valOf(Integer val) {
+        if (val == null) {
+            return null;
+        }
         return Arrays.stream(UpgradePurpose.values())
                 .filter(upgradePurpose -> upgradePurpose.value == val)
                 .findFirst()

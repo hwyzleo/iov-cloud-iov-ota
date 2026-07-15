@@ -27,6 +27,9 @@ public enum AdaptiveSubject {
     public final int value;
 
     public static AdaptiveSubject valOf(Integer val) {
+        if (val == null) {
+            return null;
+        }
         return Arrays.stream(AdaptiveSubject.values())
                 .filter(adaptiveSubjectType -> adaptiveSubjectType.value == val)
                 .findFirst()

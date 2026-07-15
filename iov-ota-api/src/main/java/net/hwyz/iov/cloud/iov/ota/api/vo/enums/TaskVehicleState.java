@@ -43,6 +43,9 @@ public enum TaskVehicleState {
     public final int value;
 
     public static TaskVehicleState valOf(Integer val) {
+        if (val == null) {
+            return null;
+        }
         return Arrays.stream(TaskVehicleState.values())
                 .filter(taskVehicleState -> taskVehicleState.value == val)
                 .findFirst()
