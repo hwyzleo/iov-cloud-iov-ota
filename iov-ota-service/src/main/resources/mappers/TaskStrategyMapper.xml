@@ -153,4 +153,9 @@
         AND t.row_valid = 1
     </select>
 
+    <delete id="deleteByTaskId" parameterType="Long">
+        DELETE FROM tb_task_strategy
+        WHERE task_id = #{taskId}
+    </delete>
+
 </mapper>

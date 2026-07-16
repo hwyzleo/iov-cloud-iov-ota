@@ -31,6 +31,12 @@ public class TaskResult {
     
     private String description;
     
+    private String noticeType;
+    
+    private String upgradeMode;
+    
+    private String upgradeModeArg;
+    
     private List<TaskRestrictionResult> restrictions;
     
     private List<TaskStrategyResult> strategies;

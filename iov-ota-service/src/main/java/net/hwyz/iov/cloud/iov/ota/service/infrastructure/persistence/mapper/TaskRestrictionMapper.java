@@ -25,4 +25,6 @@ public interface TaskRestrictionMapper extends BaseDao<TaskRestrictionPo, Long> 
      */
     List<TaskRestrictionPo> selectPoByTaskId(Long taskId);
 
+    void deleteByTaskId(Long taskId);
+
 }

@@ -7,6 +7,7 @@ import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskType;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.cmd.*;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.*;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.aggregate.Task;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskInstallCondition;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskRestriction;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskStrategy;
 import org.springframework.stereotype.Component;
@@ -31,6 +32,9 @@ public class TaskAssembler {
             .endTime(task.getEndTime())
             .releaseTime(task.getReleaseTime())
             .description(task.getDescription())
+            .noticeType(task.getNoticeType())
+            .upgradeMode(task.getUpgradeMode() != null ? task.getUpgradeMode().name() : null)
+            .upgradeModeArg(task.getUpgradeModeArg() != null ? task.getUpgradeModeArg().toJson() : null)
             .build();
         
         if (task.getRestrictions() != null) {
@@ -52,8 +56,8 @@ public class TaskAssembler {
         if (cmd.getName() != null) {
             task.setName(cmd.getName());
         }
-        if (cmd.getType() != null) {
-            task.setType(TaskType.valueOf(cmd.getType()));
+        if (cmd.getType() != null && !cmd.getType().isEmpty()) {
+            task.setType(TaskType.valOf(Integer.parseInt(cmd.getType())));
         }
         if (cmd.getStartTime() != null) {
             task.setStartTime(cmd.getStartTime());
@@ -63,6 +67,12 @@ public class TaskAssembler {
         }
         if (cmd.getNoticeType() != null) {
             task.setNoticeType(cmd.getNoticeType());
+        }
+        if (cmd.getUpgradeMode() != null && !cmd.getUpgradeMode().isEmpty()) {
+            task.setUpgradeMode(net.hwyz.iov.cloud.iov.ota.api.vo.enums.UpgradeMode.valOf(Integer.parseInt(cmd.getUpgradeMode())));
+        }
+        if (cmd.getUpgradeModeArg() != null && !cmd.getUpgradeModeArg().isEmpty()) {
+            task.setUpgradeModeArg(net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.UpgradeModeArg.fromJson(cmd.getUpgradeModeArg()));
         }
     }
     
@@ -88,6 +98,22 @@ public class TaskAssembler {
                 .id(cmd.getId())
                 .type(TaskStrategyType.valueOf(cmd.getType()))
                 .strategy(cmd.getStrategy())
+                .build())
+            .collect(Collectors.toList());
+    }
+
+    public List<TaskInstallCondition> toInstallConditions(List<TaskInstallConditionCmd> cmdList) {
+        if (cmdList == null) {
+            return List.of();
+        }
+        return cmdList.stream()
+            .map(cmd -> TaskInstallCondition.builder()
+                .id(cmd.getId())
+                .conditionType(cmd.getConditionType())
+                .operator(cmd.getOperator())
+                .threshold(cmd.getThreshold())
+                .severity(cmd.getSeverity())
+                .description(cmd.getDescription())
                 .build())
             .collect(Collectors.toList());
     }

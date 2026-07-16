@@ -161,6 +161,12 @@
         ORDER BY t.id DESC
     </select>
 
+    <!-- 根据任务ID物理删除 -->
+    <delete id="deleteByTaskId" parameterType="Long">
+        DELETE FROM tb_task_restriction
+        WHERE task_id = #{taskId}
+    </delete>
+
     <!-- 根据Map对象统计记录数 -->
     <select id="countPoByMap" parameterType="java.util.Map" resultType="int">
         SELECT COUNT(*)

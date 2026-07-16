@@ -145,4 +145,13 @@
         WHERE t.row_valid = 1
         <!-- 添加自定义条件 -->
     </select>
+
+    <!-- 根据车辆ID列表物理删除 -->
+    <delete id="deleteByVehicleIds" parameterType="java.util.List">
+        DELETE FROM tb_task_vehicle_detail
+        WHERE id IN
+        <foreach collection="list" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
 </mapper>

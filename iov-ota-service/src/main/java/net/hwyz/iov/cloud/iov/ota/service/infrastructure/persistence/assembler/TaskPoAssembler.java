@@ -34,10 +34,13 @@ public class TaskPoAssembler {
         task.setStartTime(toInstant(taskPo.getStartTime()));
         task.setEndTime(toInstant(taskPo.getEndTime()));
         task.setReleaseTime(toInstant(taskPo.getReleaseTime()));
+        task.setActualReleaseTime(toInstant(taskPo.getActualReleaseTime()));
+        task.setLastScheduleError(taskPo.getLastScheduleError());
         task.setNoticeType(taskPo.getNoticeType());
         task.setUpgradeMode(UpgradeMode.valOf(taskPo.getUpgradeMode()));
         task.setUpgradeModeArg(net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.UpgradeModeArg.fromJson(taskPo.getUpgradeModeArg()));
         task.setState(TaskState.valOf(taskPo.getState()));
+        task.setStateBeforePause(TaskState.valOf(taskPo.getStateBeforePause()));
         task.setDescription(taskPo.getDescription());
 
         List<TaskRestriction> restrictions = restrictionPoList.stream()
@@ -64,10 +67,13 @@ public class TaskPoAssembler {
         po.setStartTime(toDate(task.getStartTime()));
         po.setEndTime(toDate(task.getEndTime()));
         po.setReleaseTime(toDate(task.getReleaseTime()));
+        po.setActualReleaseTime(toDate(task.getActualReleaseTime()));
+        po.setLastScheduleError(task.getLastScheduleError());
         po.setNoticeType(task.getNoticeType());
         po.setUpgradeMode(task.getUpgradeMode().getValue());
         po.setUpgradeModeArg(task.getUpgradeModeArg() != null ? task.getUpgradeModeArg().toJson() : null);
         po.setState(task.getState().value);
+        po.setStateBeforePause(task.getStateBeforePause() != null ? task.getStateBeforePause().value : null);
         po.setDescription(task.getDescription());
         return po;
     }

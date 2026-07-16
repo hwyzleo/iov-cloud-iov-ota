@@ -23,4 +23,12 @@ public interface VehStatusMapper extends BaseDao<VehStatusPo, Long> {
      */
     VehStatusPo selectByVin(String vin);
 
+    /**
+     * 根据条件查询车辆列表
+     *
+     * @param queryWrapper 查询条件
+     * @return 车辆列表
+     */
+    java.util.List<VehStatusPo> selectList(com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<VehStatusPo> queryWrapper);
+
 }

@@ -4,6 +4,7 @@ import lombok.*;
 import net.hwyz.iov.cloud.framework.common.bean.BaseRequest;
 
 import java.util.Date;
+import java.util.List;
 
 /**
  * 管理后台升级任务
@@ -28,8 +29,9 @@ public class TaskMpt extends BaseRequest {
     private String name;
 
     /**
-     * 任务类型：1=普通任务，2=快速任务
+     * @deprecated 废弃于 US-061，车辆录入方式已并入 target.mode (LIST/IMPORT/CONDITION)
      */
+    @Deprecated
     private Integer type;
 
     /**
@@ -43,7 +45,10 @@ public class TaskMpt extends BaseRequest {
     private Long activityId;
 
     /**
-     * 升级对象，普通任务时为文件代码，快速任务时为VIN
+     * 目标定义（结构化JSON），支持三种模式：
+     * - LIST: 手动选择车辆列表，格式 {"mode":"LIST","vins":["VIN001","VIN002"]}
+     * - IMPORT: 文件导入车辆，格式 {"mode":"IMPORT","vins":[...]} 或 {"mode":"IMPORT","fileId":"xxx"}
+     * - CONDITION: 条件规则自动匹配，格式 {"mode":"CONDITION","logic":"AND","conditions":[{"field":"baselineCode","operator":"=","value":"BL001"}]}
      */
     private String target;
 
@@ -63,41 +68,6 @@ public class TaskMpt extends BaseRequest {
     private Date releaseTime;
 
     /**
-     * 保持驻车(P档)
-     */
-    private Boolean keepInPark;
-
-    /**
-     * 不在充电
-     */
-    private Boolean notCharging;
-
-    /**
-     * 不对外供电
-     */
-    private Boolean noExternalPower;
-
-    /**
-     * 车窗、天窗、车门及尾门关闭
-     */
-    private Boolean allClosed;
-
-    /**
-     * 高压电量
-     */
-    private Integer hvSoc;
-
-    /**
-     * 低压电量
-     */
-    private Integer lvSoc;
-
-    /**
-     * 是否影响车辆操作
-     */
-    private Boolean impactVehicleOperation;
-
-    /**
      * 通知类型（多选）：1 手机
      */
     private String noticeType;
@@ -113,37 +83,22 @@ public class TaskMpt extends BaseRequest {
     private String upgradeModeArg;
 
     /**
-     * 适配主体
+     * 匹配条件列表（动态）
      */
-    private Integer adaptiveSubject;
+    private List<TaskRestrictionMpt> restrictions;
 
     /**
-     * 比较基准是否兼容
+     * 安装条件列表（动态）
      */
-    private Boolean comparisonCriteria;
+    private List<TaskInstallConditionMpt> installConditions;
 
     /**
-     * 排除基线
+     * 策略列表（动态）
      */
-    private String excludedBaseline;
+    private List<TaskStrategyMpt> strategies;
 
     /**
-     * 基线拉齐
-     */
-    private Boolean baselineUnification;
-
-    /**
-     * 刷写次数
-     */
-    private Integer flashCount;
-
-    /**
-     * 是否回滚
-     */
-    private Boolean rollback;
-
-    /**
-     * 任务状态：1=待提交，2=待审核，3=已审核，4=未通过，5=已发布，6=已暂停，7=已结束，8=已取消
+     * 任务状态：1=草稿，2=待审批，3=已审批，4=已驳回，5=已排程，6=已发布，7=已暂停，8=已完成，9=已取消，10=已取代
      */
     private Integer state;
 

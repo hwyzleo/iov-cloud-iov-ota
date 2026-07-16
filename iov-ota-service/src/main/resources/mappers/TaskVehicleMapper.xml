@@ -185,4 +185,17 @@
         WHERE t.row_valid = 1
         <!-- 添加自定义条件 -->
     </select>
+
+    <!-- 根据任务ID查询车辆ID列表 -->
+    <select id="selectIdsByTaskId" parameterType="Long" resultType="Long">
+        SELECT t.id
+        FROM tb_task_vehicle t
+        WHERE t.task_id = #{taskId}
+    </select>
+
+    <!-- 根据任务ID物理删除 -->
+    <delete id="deleteByTaskId" parameterType="Long">
+        DELETE FROM tb_task_vehicle
+        WHERE task_id = #{taskId}
+    </delete>
 </mapper>

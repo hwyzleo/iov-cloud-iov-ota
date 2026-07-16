@@ -15,8 +15,11 @@ public class TaskAuditCmd {
     @NotNull(message = "任务ID不能为空")
     private Long taskId;
     
-    @NotNull(message = "审核结果不能为空")
-    private Boolean approved;
+    @NotNull(message = "审批级别不能为空")
+    private String approvalLevel;
     
-    private String reason;
+    @NotNull(message = "审批结果不能为空")
+    private String result;
+    
+    private String comment;
 }

@@ -33,6 +33,10 @@ public class TaskSubmitCmd {
     private String upgradeModeArg;
     
     private String modifyBy;
-    
+
     private List<TaskRestrictionCmd> restrictions;
+
+    private List<TaskInstallConditionCmd> installConditions;
+
+    private List<TaskStrategyCmd> strategies;
 }

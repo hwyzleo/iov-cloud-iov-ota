@@ -1,10 +1,15 @@
 package net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler;
 
 import lombok.extern.slf4j.Slf4j;
+import net.hwyz.iov.cloud.iov.ota.api.vo.TaskInstallConditionMpt;
 import net.hwyz.iov.cloud.iov.ota.api.vo.TaskMpt;
+import net.hwyz.iov.cloud.iov.ota.api.vo.TaskRestrictionMpt;
+import net.hwyz.iov.cloud.iov.ota.api.vo.TaskStrategyMpt;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.*;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.cmd.*;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.*;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.InstallConditionType;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskInstallCondition;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskRestrictionPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskStrategyPo;
@@ -25,14 +30,17 @@ public class TaskMptAssembler {
         if (vo == null) return null;
         return TaskCreateCmd.builder()
             .name(vo.getName())
-            .type(String.valueOf(vo.getType()))
+            .type(vo.getType() != null ? String.valueOf(vo.getType()) : null)
             .activityId(vo.getActivityId())
             .target(vo.getTarget())
             .startTime(toInstant(vo.getStartTime()))
             .endTime(toInstant(vo.getEndTime()))
             .noticeType(vo.getNoticeType())
-            .upgradeMode(String.valueOf(vo.getUpgradeMode()))
+            .upgradeMode(vo.getUpgradeMode() != null ? String.valueOf(vo.getUpgradeMode()) : null)
             .upgradeModeArg(vo.getUpgradeModeArg())
+            .restrictions(toRestrictionCmdList(vo.getRestrictions()))
+            .installConditions(toInstallConditionCmdList(vo.getInstallConditions()))
+            .strategies(toStrategyCmdList(vo.getStrategies()))
             .build();
     }
 
@@ -41,12 +49,15 @@ public class TaskMptAssembler {
         return TaskSubmitCmd.builder()
             .taskId(vo.getId())
             .name(vo.getName())
-            .type(String.valueOf(vo.getType()))
+            .type(vo.getType() != null ? String.valueOf(vo.getType()) : null)
             .startTime(toInstant(vo.getStartTime()))
             .endTime(toInstant(vo.getEndTime()))
             .noticeType(vo.getNoticeType())
-            .upgradeMode(String.valueOf(vo.getUpgradeMode()))
+            .upgradeMode(vo.getUpgradeMode() != null ? String.valueOf(vo.getUpgradeMode()) : null)
             .upgradeModeArg(vo.getUpgradeModeArg())
+            .restrictions(toRestrictionCmdList(vo.getRestrictions()))
+            .installConditions(toInstallConditionCmdList(vo.getInstallConditions()))
+            .strategies(toStrategyCmdList(vo.getStrategies()))
             .build();
     }
 
@@ -54,8 +65,9 @@ public class TaskMptAssembler {
         if (vo == null) return null;
         return TaskAuditCmd.builder()
             .taskId(vo.getId())
-            .approved(vo.getAudit())
-            .reason(vo.getReason())
+            .approvalLevel(vo.getApprovalLevel())
+            .result(vo.getResult())
+            .comment(vo.getComment())
             .build();
     }
 
@@ -72,6 +84,9 @@ public class TaskMptAssembler {
         vo.setStartTime(toDate(result.getStartTime()));
         vo.setEndTime(toDate(result.getEndTime()));
         vo.setReleaseTime(toDate(result.getReleaseTime()));
+        vo.setNoticeType(result.getNoticeType());
+        vo.setUpgradeMode(result.getUpgradeMode() != null ? UpgradeMode.valueOf(result.getUpgradeMode()).getValue() : null);
+        vo.setUpgradeModeArg(result.getUpgradeModeArg());
         return vo;
     }
 
@@ -81,9 +96,10 @@ public class TaskMptAssembler {
             .collect(Collectors.toList());
     }
 
-    public TaskMpt fromPo(TaskPo taskPo, List<TaskRestrictionPo> restrictions, List<TaskStrategyPo> strategies) {
+    public TaskMpt fromPo(TaskPo taskPo, List<TaskRestrictionPo> restrictions, List<TaskStrategyPo> strategies,
+                          List<TaskInstallCondition> installConditions, Map<String, InstallConditionType> conditionTypeMap) {
         if (taskPo == null) return null;
-        
+
         TaskMpt taskMpt = new TaskMpt();
         taskMpt.setId(taskPo.getId());
         taskMpt.setName(taskPo.getName());
@@ -99,64 +115,51 @@ public class TaskMptAssembler {
         taskMpt.setUpgradeModeArg(taskPo.getUpgradeModeArg());
         taskMpt.setState(taskPo.getState());
         taskMpt.setCreateTime(taskPo.getCreateTime());
-        
+
         if (restrictions != null) {
-            Map<String, String> restrictionMap = restrictions.stream()
-                .collect(Collectors.toMap(TaskRestrictionPo::getRestrictionType, TaskRestrictionPo::getRestrictionExpression));
-            
-            if (restrictionMap.containsKey(TaskRestrictionType.ADAPTATION_SUBJECT.name())) {
-                taskMpt.setAdaptiveSubject(Integer.parseInt(restrictionMap.get(TaskRestrictionType.ADAPTATION_SUBJECT.name())));
-            }
-            if (restrictionMap.containsKey(TaskRestrictionType.BASELINE_EXCLUDE.name())) {
-                taskMpt.setExcludedBaseline(restrictionMap.get(TaskRestrictionType.BASELINE_EXCLUDE.name()));
-            }
-            if (restrictionMap.containsKey(TaskRestrictionType.BASELINE_UNIFICATION.name())) {
-                taskMpt.setBaselineUnification(Boolean.parseBoolean(restrictionMap.get(TaskRestrictionType.BASELINE_UNIFICATION.name())));
-            }
-            if (restrictionMap.containsKey(TaskRestrictionType.COMPARISON_CRITERIA.name())) {
-                taskMpt.setComparisonCriteria(Boolean.parseBoolean(restrictionMap.get(TaskRestrictionType.COMPARISON_CRITERIA.name())));
-            }
+            taskMpt.setRestrictions(restrictions.stream()
+                .map(po -> TaskRestrictionMpt.builder()
+                    .id(po.getId())
+                    .type(po.getRestrictionType())
+                    .expression(po.getRestrictionExpression())
+                    .build())
+                .collect(Collectors.toList()));
         }
-        
+
+        if (installConditions != null) {
+            taskMpt.setInstallConditions(installConditions.stream()
+                .map(ic -> {
+                    InstallConditionType typeInfo = conditionTypeMap != null ? conditionTypeMap.get(ic.getConditionType()) : null;
+                    return TaskInstallConditionMpt.builder()
+                        .id(ic.getId())
+                        .conditionType(ic.getConditionType())
+                        .conditionName(typeInfo != null ? typeInfo.getName() : null)
+                        .operator(ic.getOperator())
+                        .threshold(ic.getThreshold())
+                        .unit(typeInfo != null ? typeInfo.getUnit() : null)
+                        .severity(ic.getSeverity())
+                        .description(ic.getDescription())
+                        .build();
+                })
+                .collect(Collectors.toList()));
+        }
+
         if (strategies != null) {
-            Map<String, String> strategyMap = strategies.stream()
-                .collect(Collectors.toMap(TaskStrategyPo::getStrategyType, TaskStrategyPo::getStrategyExpression));
-            
-            if (strategyMap.containsKey(TaskStrategyType.ROLLBACK.name())) {
-                taskMpt.setRollback(Boolean.parseBoolean(strategyMap.get(TaskStrategyType.ROLLBACK.name())));
-            }
-            if (strategyMap.containsKey(TaskStrategyType.FLASH_COUNT.name())) {
-                taskMpt.setFlashCount(Integer.parseInt(strategyMap.get(TaskStrategyType.FLASH_COUNT.name())));
-            }
-            if (strategyMap.containsKey(TaskStrategyType.IMPACT_VEHICLE_OPERATION.name())) {
-                taskMpt.setImpactVehicleOperation(Boolean.parseBoolean(strategyMap.get(TaskStrategyType.IMPACT_VEHICLE_OPERATION.name())));
-            }
-            if (strategyMap.containsKey(TaskStrategyType.KEEP_IN_PARK.name())) {
-                taskMpt.setKeepInPark(Boolean.parseBoolean(strategyMap.get(TaskStrategyType.KEEP_IN_PARK.name())));
-            }
-            if (strategyMap.containsKey(TaskStrategyType.NOT_CHARGING.name())) {
-                taskMpt.setNotCharging(Boolean.parseBoolean(strategyMap.get(TaskStrategyType.NOT_CHARGING.name())));
-            }
-            if (strategyMap.containsKey(TaskStrategyType.NO_EXTERNAL_POWER.name())) {
-                taskMpt.setNoExternalPower(Boolean.parseBoolean(strategyMap.get(TaskStrategyType.NO_EXTERNAL_POWER.name())));
-            }
-            if (strategyMap.containsKey(TaskStrategyType.ALL_CLOSED.name())) {
-                taskMpt.setAllClosed(Boolean.parseBoolean(strategyMap.get(TaskStrategyType.ALL_CLOSED.name())));
-            }
-            if (strategyMap.containsKey(TaskStrategyType.HV_SOC.name())) {
-                taskMpt.setHvSoc(Integer.parseInt(strategyMap.get(TaskStrategyType.HV_SOC.name())));
-            }
-            if (strategyMap.containsKey(TaskStrategyType.LV_SOC.name())) {
-                taskMpt.setLvSoc(Integer.parseInt(strategyMap.get(TaskStrategyType.LV_SOC.name())));
-            }
+            taskMpt.setStrategies(strategies.stream()
+                .map(po -> TaskStrategyMpt.builder()
+                    .id(po.getId())
+                    .type(po.getStrategyType())
+                    .strategy(po.getStrategyExpression())
+                    .build())
+                .collect(Collectors.toList()));
         }
-        
+
         return taskMpt;
     }
 
     public TaskPo toPo(TaskMpt taskMpt) {
         if (taskMpt == null) return null;
-        
+
         TaskPo taskPo = new TaskPo();
         taskPo.setId(taskMpt.getId());
         taskPo.setName(taskMpt.getName());
@@ -171,122 +174,94 @@ public class TaskMptAssembler {
         taskPo.setUpgradeMode(taskMpt.getUpgradeMode());
         taskPo.setUpgradeModeArg(taskMpt.getUpgradeModeArg());
         taskPo.setState(taskMpt.getState());
-        
+
         return taskPo;
     }
 
-    public List<TaskRestrictionPo> toRestrictionPoList(TaskMpt taskMpt) {
-        if (taskMpt == null) return List.of();
-        
-        List<TaskRestrictionPo> list = new java.util.ArrayList<>();
-        
-        if (taskMpt.getAdaptiveSubject() != null) {
-            list.add(TaskRestrictionPo.builder()
-                .taskId(taskMpt.getId())
-                .restrictionType(TaskRestrictionType.ADAPTATION_SUBJECT.name())
-                .restrictionExpression(String.valueOf(taskMpt.getAdaptiveSubject()))
-                .build());
-        }
-        if (taskMpt.getExcludedBaseline() != null && !taskMpt.getExcludedBaseline().isBlank()) {
-            list.add(TaskRestrictionPo.builder()
-                .taskId(taskMpt.getId())
-                .restrictionType(TaskRestrictionType.BASELINE_EXCLUDE.name())
-                .restrictionExpression(taskMpt.getExcludedBaseline())
-                .build());
-        }
-        if (taskMpt.getBaselineUnification() != null) {
-            list.add(TaskRestrictionPo.builder()
-                .taskId(taskMpt.getId())
-                .restrictionType(TaskRestrictionType.BASELINE_UNIFICATION.name())
-                .restrictionExpression(String.valueOf(taskMpt.getBaselineUnification()))
-                .build());
-        }
-        if (taskMpt.getComparisonCriteria() != null) {
-            list.add(TaskRestrictionPo.builder()
-                .taskId(taskMpt.getId())
-                .restrictionType(TaskRestrictionType.COMPARISON_CRITERIA.name())
-                .restrictionExpression(String.valueOf(taskMpt.getComparisonCriteria()))
-                .build());
-        }
-        
-        return list;
+    public List<TaskRestrictionPo> toRestrictionPoList(Long taskId, List<TaskRestrictionMpt> restrictions) {
+        if (restrictions == null) return List.of();
+
+        return restrictions.stream()
+            .map(r -> TaskRestrictionPo.builder()
+                .id(r.getId())
+                .taskId(taskId)
+                .restrictionType(r.getType())
+                .restrictionExpression(r.getExpression())
+                .build())
+            .collect(Collectors.toList());
     }
 
-    public List<TaskStrategyPo> toStrategyPoList(TaskMpt taskMpt) {
-        if (taskMpt == null) return List.of();
-        
-        List<TaskStrategyPo> list = new java.util.ArrayList<>();
-        
-        if (taskMpt.getRollback() != null) {
-            list.add(TaskStrategyPo.builder()
-                .taskId(taskMpt.getId())
-                .strategyType(TaskStrategyType.ROLLBACK.name())
-                .strategyExpression(String.valueOf(taskMpt.getRollback()))
-                .build());
-        }
-        if (taskMpt.getFlashCount() != null) {
-            list.add(TaskStrategyPo.builder()
-                .taskId(taskMpt.getId())
-                .strategyType(TaskStrategyType.FLASH_COUNT.name())
-                .strategyExpression(String.valueOf(taskMpt.getFlashCount()))
-                .build());
-        }
-        if (taskMpt.getImpactVehicleOperation() != null) {
-            list.add(TaskStrategyPo.builder()
-                .taskId(taskMpt.getId())
-                .strategyType(TaskStrategyType.IMPACT_VEHICLE_OPERATION.name())
-                .strategyExpression(String.valueOf(taskMpt.getImpactVehicleOperation()))
-                .build());
-        }
-        if (taskMpt.getKeepInPark() != null) {
-            list.add(TaskStrategyPo.builder()
-                .taskId(taskMpt.getId())
-                .strategyType(TaskStrategyType.KEEP_IN_PARK.name())
-                .strategyExpression(String.valueOf(taskMpt.getKeepInPark()))
-                .build());
-        }
-        if (taskMpt.getNotCharging() != null) {
-            list.add(TaskStrategyPo.builder()
-                .taskId(taskMpt.getId())
-                .strategyType(TaskStrategyType.NOT_CHARGING.name())
-                .strategyExpression(String.valueOf(taskMpt.getNotCharging()))
-                .build());
-        }
-        if (taskMpt.getNoExternalPower() != null) {
-            list.add(TaskStrategyPo.builder()
-                .taskId(taskMpt.getId())
-                .strategyType(TaskStrategyType.NO_EXTERNAL_POWER.name())
-                .strategyExpression(String.valueOf(taskMpt.getNoExternalPower()))
-                .build());
-        }
-        if (taskMpt.getAllClosed() != null) {
-            list.add(TaskStrategyPo.builder()
-                .taskId(taskMpt.getId())
-                .strategyType(TaskStrategyType.ALL_CLOSED.name())
-                .strategyExpression(String.valueOf(taskMpt.getAllClosed()))
-                .build());
-        }
-        if (taskMpt.getHvSoc() != null) {
-            list.add(TaskStrategyPo.builder()
-                .taskId(taskMpt.getId())
-                .strategyType(TaskStrategyType.HV_SOC.name())
-                .strategyExpression(String.valueOf(taskMpt.getHvSoc()))
-                .build());
-        }
-        if (taskMpt.getLvSoc() != null) {
-            list.add(TaskStrategyPo.builder()
-                .taskId(taskMpt.getId())
-                .strategyType(TaskStrategyType.LV_SOC.name())
-                .strategyExpression(String.valueOf(taskMpt.getLvSoc()))
-                .build());
-        }
-        
-        return list;
+    public List<TaskInstallCondition> toInstallConditionList(Long taskId, List<TaskInstallConditionMpt> conditions) {
+        if (conditions == null) return List.of();
+
+        return conditions.stream()
+            .map(c -> TaskInstallCondition.builder()
+                .id(c.getId())
+                .taskId(taskId)
+                .conditionType(c.getConditionType())
+                .operator(c.getOperator())
+                .threshold(c.getThreshold())
+                .severity(c.getSeverity())
+                .description(c.getDescription())
+                .build())
+            .collect(Collectors.toList());
+    }
+
+    public List<TaskStrategyPo> toStrategyPoList(Long taskId, List<TaskStrategyMpt> strategies) {
+        if (strategies == null) return List.of();
+
+        return strategies.stream()
+            .map(s -> TaskStrategyPo.builder()
+                .id(s.getId())
+                .taskId(taskId)
+                .strategyType(s.getType())
+                .strategyExpression(s.getStrategy())
+                .build())
+            .collect(Collectors.toList());
     }
 
     public List<TaskMpt> fromPoList(List<TaskPo> taskPoList) {
         return taskPoList.stream()
-            .map(po -> fromPo(po, null, null))
+            .map(po -> fromPo(po, null, null, null, null))
+            .collect(Collectors.toList());
+    }
+
+    private List<TaskRestrictionCmd> toRestrictionCmdList(List<TaskRestrictionMpt> restrictions) {
+        if (restrictions == null) return null;
+
+        return restrictions.stream()
+            .map(r -> TaskRestrictionCmd.builder()
+                .id(r.getId())
+                .type(r.getType())
+                .expression(r.getExpression())
+                .build())
+            .collect(Collectors.toList());
+    }
+
+    private List<TaskInstallConditionCmd> toInstallConditionCmdList(List<TaskInstallConditionMpt> conditions) {
+        if (conditions == null) return null;
+
+        return conditions.stream()
+            .map(c -> TaskInstallConditionCmd.builder()
+                .id(c.getId())
+                .conditionType(c.getConditionType())
+                .operator(c.getOperator())
+                .threshold(c.getThreshold())
+                .severity(c.getSeverity())
+                .description(c.getDescription())
+                .build())
+            .collect(Collectors.toList());
+    }
+
+    private List<TaskStrategyCmd> toStrategyCmdList(List<TaskStrategyMpt> strategies) {
+        if (strategies == null) return null;
+
+        return strategies.stream()
+            .map(s -> TaskStrategyCmd.builder()
+                .id(s.getId())
+                .type(s.getType())
+                .strategy(s.getStrategy())
+                .build())
             .collect(Collectors.toList());
     }
 

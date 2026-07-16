@@ -17,4 +17,6 @@ public interface TaskStrategyMapper extends BaseDao<TaskStrategyPo, Long> {
 
     List<TaskStrategyPo> selectPoByTaskId(Long taskId);
 
+    void deleteByTaskId(Long taskId);
+
 }

@@ -40,6 +40,21 @@ public class TaskStrategyVo {
     private String strategyExpression;
 
     /**
+     * 下载重试最大次数
+     */
+    private Integer downloadRetryMax;
+
+    /**
+     * 重试退避策略：FIXED/EXP
+     */
+    private String retryBackoff;
+
+    /**
+     * 断电后是否续传
+     */
+    private Boolean resumeOnPoweroff;
+
+    /**
      * 创建时间
      */
     private Date createTime;

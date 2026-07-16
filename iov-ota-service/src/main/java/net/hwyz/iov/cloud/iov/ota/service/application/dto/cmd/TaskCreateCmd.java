@@ -19,13 +19,17 @@ public class TaskCreateCmd {
     @NotBlank(message = "任务名称不能为空")
     private String name;
     
-    @NotNull(message = "任务类型不能为空")
-    private String type;
+    /**
+     * @deprecated 废弃于 US-061，车辆录入方式已并入 target.mode
+     */
+    @Deprecated
+    @Builder.Default
+    private String type = "NORMAL";
     
     @NotNull(message = "活动ID不能为空")
     private Long activityId;
     
-    @NotBlank(message = "升级对象不能为空")
+    @NotBlank(message = "目标定义不能为空")
     private String target;
     
     @NotNull(message = "开始时间不能为空")
@@ -46,6 +50,8 @@ public class TaskCreateCmd {
     private String createBy;
     
     private List<TaskRestrictionCmd> restrictions;
-    
+
+    private List<TaskInstallConditionCmd> installConditions;
+
     private List<TaskStrategyCmd> strategies;
 }

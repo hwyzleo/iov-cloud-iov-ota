@@ -40,6 +40,16 @@ public class TaskRestrictionVo {
     private String restrictionExpression;
 
     /**
+     * 限制级别：ERROR/WARNING/INFO
+     */
+    private String restrictionLevel;
+
+    /**
+     * 错误信息模板
+     */
+    private String errorMessage;
+
+    /**
      * 创建时间
      */
     private Date createTime;

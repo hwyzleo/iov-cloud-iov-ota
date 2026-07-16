@@ -77,10 +77,22 @@ public class TaskPo extends BasePo {
     private Date endTime;
 
     /**
-     * 任务发布时间
+     * 任务发布时间（计划发布时间）
      */
     @TableField("release_time")
     private Date releaseTime;
+
+    /**
+     * 实际发布时间（发布事务成功时间）
+     */
+    @TableField("actual_release_time")
+    private Date actualReleaseTime;
+
+    /**
+     * 最近一次到点发布失败摘要
+     */
+    @TableField("last_schedule_error")
+    private String lastScheduleError;
 
     /**
      * 通知类型（多选）：1 手机
@@ -105,4 +117,10 @@ public class TaskPo extends BasePo {
      */
     @TableField("state")
     private Integer state;
+
+    /**
+     * 暂停前的状态
+     */
+    @TableField("state_before_pause")
+    private Integer stateBeforePause;
 }

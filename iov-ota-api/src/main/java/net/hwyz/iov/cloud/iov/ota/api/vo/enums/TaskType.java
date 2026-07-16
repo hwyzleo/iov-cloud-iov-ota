@@ -15,6 +15,11 @@ import java.util.Arrays;
 public enum TaskType {
 
     NORMAL(1, "普通任务"),
+    
+    /**
+     * @deprecated 废弃于 US-061，车辆录入方式已并入 Task.target.mode (LIST/IMPORT/CONDITION)
+     */
+    @Deprecated
     LIGHT(2, "快速任务");
 
     private final int value;

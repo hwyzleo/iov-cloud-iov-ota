@@ -4,6 +4,8 @@ import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskVehi
 import net.hwyz.iov.cloud.framework.mysql.dao.BaseDao;
 import org.apache.ibatis.annotations.Mapper;
 
+import java.util.List;
+
 /**
  * <p>
  * 升级任务车辆表 DAO
@@ -23,5 +25,9 @@ public interface TaskVehicleMapper extends BaseDao<TaskVehiclePo, Long> {
      * @return 升级任务车辆
      */
     TaskVehiclePo selectByTaskIdAndVin(Long taskId, String vin);
+
+    List<Long> selectIdsByTaskId(Long taskId);
+
+    void deleteByTaskId(Long taskId);
 
 }

@@ -21,6 +21,8 @@ public interface TaskRepository {
     
     List<Task> findReleasedTasks();
     
+    List<Task> findScheduledTasks();
+    
     void save(Task task);
     
     void delete(TaskId id);

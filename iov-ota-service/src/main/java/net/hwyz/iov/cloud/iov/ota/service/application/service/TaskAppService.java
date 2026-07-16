@@ -12,16 +12,25 @@ import net.hwyz.iov.cloud.iov.ota.service.domain.model.aggregate.Task;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.ActivityId;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.TaskId;
 import net.hwyz.iov.cloud.iov.ota.service.domain.repository.TaskRepository;
+import net.hwyz.iov.cloud.iov.ota.service.domain.repository.TaskInstallConditionRepository;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.event.publisher.DomainEventPublisher;
 import net.hwyz.iov.cloud.iov.ota.service.common.exception.TaskNotExistException;
+import net.hwyz.iov.cloud.iov.ota.service.domain.service.TargetResolutionDomainService;
+import net.hwyz.iov.cloud.iov.ota.service.domain.service.ApprovalDomainService;
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.ApprovalLevel;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskApproval;
+import net.hwyz.iov.cloud.framework.security.util.SecurityUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.Set;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.Vin;
 
 @Slf4j
 @Service
@@ -29,9 +38,12 @@ import java.util.stream.Collectors;
 public class TaskAppService {
 
     private final TaskRepository taskRepository;
+    private final TaskInstallConditionRepository taskInstallConditionRepository;
     private final TaskAssembler taskAssembler;
     private final DomainEventPublisher eventPublisher;
     private final ActivityAppService activityAppService;
+    private final ApprovalDomainService approvalDomainService;
+    private final TargetResolutionDomainService targetResolutionDomainService;
 
     public List<TaskResult> search(String name, Date beginTime, Date endTime) {
         Map<String, Object> map = new HashMap<>();
@@ -61,18 +73,22 @@ public class TaskAppService {
 
         validateTaskWindowWithinActivity(cmd.getActivityId(), cmd.getStartTime(), cmd.getEndTime());
 
+        // US-061: 废弃 TaskType.LIGHT，type 默认为 NORMAL
+        TaskType taskType = (cmd.getType() != null && !cmd.getType().isEmpty()) 
+            ? TaskType.valOf(Integer.parseInt(cmd.getType())) : TaskType.NORMAL;
+        
         Task task = Task.create(
             TaskId.of(generateId()),
             cmd.getName(),
-            TaskType.valueOf(cmd.getType()),
+            taskType,
             ActivityId.of(cmd.getActivityId())
         );
         task.setTarget(cmd.getTarget());
         task.setStartTime(cmd.getStartTime());
         task.setEndTime(cmd.getEndTime());
         task.setNoticeType(cmd.getNoticeType());
-        task.setUpgradeMode(cmd.getUpgradeMode() != null ? 
-            net.hwyz.iov.cloud.iov.ota.api.vo.enums.UpgradeMode.valueOf(cmd.getUpgradeMode()) : null);
+        task.setUpgradeMode(cmd.getUpgradeMode() != null && !cmd.getUpgradeMode().isEmpty() 
+            ? net.hwyz.iov.cloud.iov.ota.api.vo.enums.UpgradeMode.valOf(Integer.parseInt(cmd.getUpgradeMode())) : null);
         task.setDescription(cmd.getDescription());
         
         if (cmd.getRestrictions() != null) {
@@ -81,8 +97,20 @@ public class TaskAppService {
                 taskAssembler.toStrategies(cmd.getStrategies())
             );
         }
-        
+
         taskRepository.save(task);
+
+        // 保存安装条件
+        if (cmd.getInstallConditions() != null && !cmd.getInstallConditions().isEmpty()) {
+            List<net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskInstallCondition> installConditions =
+                taskAssembler.toInstallConditions(cmd.getInstallConditions());
+            for (net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskInstallCondition condition : installConditions) {
+                condition.setId(null);
+                condition.setTaskId(task.getId().getValue());
+                taskInstallConditionRepository.save(condition);
+            }
+        }
+
         eventPublisher.publishAll(task.getPendingEvents());
         task.clearPendingEvents();
         
@@ -92,28 +120,79 @@ public class TaskAppService {
     @Transactional
     public TaskResult submitTask(TaskSubmitCmd cmd) {
         log.info("提交任务: {}", cmd.getTaskId());
-        
+
         Task task = taskRepository.getById(TaskId.of(cmd.getTaskId()))
             .orElseThrow(() -> new TaskNotExistException(cmd.getTaskId()));
-        
+
         taskAssembler.updateFromCmd(task, cmd);
         task.submit();
-        
+
+        // 检查阶段是否需要审批，如果不需要则直接通过
+        if (approvalDomainService.checkApprovalRequirements(
+            cmd.getTaskId(), task.getPhase(), task.getActivityId().getValue())) {
+            task.approve(true, null);
+            log.info("任务[{}]阶段[{}]不需要审批，直接通过", cmd.getTaskId(), task.getPhase());
+        }
+
         taskRepository.save(task);
+
+        // 更新安装条件
+        if (cmd.getInstallConditions() != null && !cmd.getInstallConditions().isEmpty()) {
+            // 删除原有安装条件
+            taskInstallConditionRepository.deleteByTaskId(cmd.getTaskId());
+            // 保存新的安装条件
+            List<net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskInstallCondition> installConditions =
+                taskAssembler.toInstallConditions(cmd.getInstallConditions());
+            for (net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskInstallCondition condition : installConditions) {
+                condition.setId(null);
+                condition.setTaskId(cmd.getTaskId());
+                taskInstallConditionRepository.save(condition);
+            }
+        }
+
         eventPublisher.publishAll(task.getPendingEvents());
         task.clearPendingEvents();
-        
+
         return taskAssembler.toResult(task);
     }
 
     @Transactional
     public TaskResult auditTask(TaskAuditCmd cmd) {
-        log.info("审核任务: {}, 结果: {}", cmd.getTaskId(), cmd.getApproved());
+        log.info("审批任务: {}, 级别: {}, 结果: {}", cmd.getTaskId(), cmd.getApprovalLevel(), cmd.getResult());
         
         Task task = taskRepository.getById(TaskId.of(cmd.getTaskId()))
             .orElseThrow(() -> new TaskNotExistException(cmd.getTaskId()));
         
-        task.audit(cmd.getApproved(), cmd.getReason());
+        // 提交审批记录
+        ApprovalLevel level = ApprovalLevel.valueOf(cmd.getApprovalLevel());
+        TaskApproval approval = approvalDomainService.submitApproval(
+            cmd.getTaskId(), 
+            level, 
+            SecurityUtils.getUserId().toString(), 
+            cmd.getResult(), 
+            cmd.getComment()
+        );
+        
+        // 根据审批结果更新任务状态
+        if ("REJECTED".equals(cmd.getResult())) {
+            // 任一级别拒绝，任务状态变为REJECTED
+            task.approve(false, cmd.getComment());
+        } else if ("APPROVED".equals(cmd.getResult())) {
+            // 检查是否所有级别都已审批通过
+            boolean allApproved = approvalDomainService.checkApprovalRequirements(
+                cmd.getTaskId(), 
+                task.getPhase(), 
+                task.getActivityId().getValue()
+            );
+            
+            if (allApproved) {
+                // 所有级别都已通过，任务状态变为APPROVED
+                task.approve(true, null);
+            } else {
+                // 还有其他级别需要审批，任务状态保持PENDING_APPROVAL
+                log.info("任务[{}]在[{}]级别审批通过，等待后续审批", cmd.getTaskId(), cmd.getApprovalLevel());
+            }
+        }
         
         taskRepository.save(task);
         eventPublisher.publishAll(task.getPendingEvents());
@@ -122,14 +201,50 @@ public class TaskAppService {
         return taskAssembler.toResult(task);
     }
 
+    /**
+     * 统一发布任务（立即发布）
+     * 状态CAS、车辆快照、条件快照、状态日志和Outbox在同一数据库事务内提交
+     */
     @Transactional
     public TaskResult releaseTask(Long taskId) {
-        log.info("发布任务: {}", taskId);
+        log.info("立即发布任务: {}", taskId);
         
         Task task = taskRepository.getById(TaskId.of(taskId))
             .orElseThrow(() -> new TaskNotExistException(taskId));
         
-        task.release();
+        // US-060: 审批与阶段结合 - 发布前检查审批要求
+        if (!approvalDomainService.checkApprovalRequirements(taskId, task.getPhase(), task.getActivityId().getValue())) {
+            throw new IllegalStateException("任务[" + taskId + "]未满足阶段[" + task.getPhase() + "]的审批要求");
+        }
+        
+        // 解析目标定义，获取车辆集合
+        Set<Vin> vehicles = targetResolutionDomainService.resolveTarget(task.getTarget());
+        
+        // 统一发布事务：IMMEDIATE触发方式
+        task.release(vehicles, "IMMEDIATE");
+        
+        taskRepository.save(task);
+        eventPublisher.publishAll(task.getPendingEvents());
+        task.clearPendingEvents();
+        
+        return taskAssembler.toResult(task);
+    }
+    
+    /**
+     * 统一发布任务（到点发布，由调度器触发）
+     */
+    @Transactional
+    public TaskResult releaseTaskByScheduler(Long taskId) {
+        log.info("到点发布任务: {}", taskId);
+        
+        Task task = taskRepository.getById(TaskId.of(taskId))
+            .orElseThrow(() -> new TaskNotExistException(taskId));
+        
+        // 解析目标定义，获取车辆集合
+        Set<Vin> vehicles = targetResolutionDomainService.resolveTarget(task.getTarget());
+        
+        // 统一发布事务：SCHEDULER触发方式
+        task.release(vehicles, "SCHEDULER");
         
         taskRepository.save(task);
         eventPublisher.publishAll(task.getPendingEvents());
@@ -178,6 +293,131 @@ public class TaskAppService {
             .orElseThrow(() -> new TaskNotExistException(taskId));
         
         task.cancel();
+        
+        taskRepository.save(task);
+        eventPublisher.publishAll(task.getPendingEvents());
+        task.clearPendingEvents();
+        
+        return taskAssembler.toResult(task);
+    }
+
+    /**
+     * 排程任务（定时发布）
+     * @param taskId 任务ID
+     * @param releaseTime 计划发布时间
+     */
+    @Transactional
+    public TaskResult scheduleTask(Long taskId, Instant releaseTime) {
+        log.info("排程任务: {}, 计划发布时间: {}", taskId, releaseTime);
+        
+        Task task = taskRepository.getById(TaskId.of(taskId))
+            .orElseThrow(() -> new TaskNotExistException(taskId));
+        
+        task.schedule(releaseTime);
+        
+        taskRepository.save(task);
+        eventPublisher.publishAll(task.getPendingEvents());
+        task.clearPendingEvents();
+        
+        return taskAssembler.toResult(task);
+    }
+    
+    /**
+     * 取消排程
+     * @param taskId 任务ID
+     */
+    @Transactional
+    public TaskResult unscheduleTask(Long taskId) {
+        log.info("取消排程任务: {}", taskId);
+        
+        Task task = taskRepository.getById(TaskId.of(taskId))
+            .orElseThrow(() -> new TaskNotExistException(taskId));
+        
+        task.unschedule();
+        
+        taskRepository.save(task);
+        eventPublisher.publishAll(task.getPendingEvents());
+        task.clearPendingEvents();
+        
+        return taskAssembler.toResult(task);
+    }
+    
+    /**
+     * 激活放量（首批放量或首车领取）
+     * @param taskId 任务ID
+     */
+    @Transactional
+    public TaskResult activateRollout(Long taskId) {
+        log.info("激活放量任务: {}", taskId);
+        
+        Task task = taskRepository.getById(TaskId.of(taskId))
+            .orElseThrow(() -> new TaskNotExistException(taskId));
+        
+        task.activateRollout();
+        
+        taskRepository.save(task);
+        eventPublisher.publishAll(task.getPendingEvents());
+        task.clearPendingEvents();
+        
+        return taskAssembler.toResult(task);
+    }
+
+    @Transactional
+    public TaskResult pauseTaskWithReason(Long taskId, String pauseReason, String pausedBy) {
+        log.info("暂停任务: {}, 原因: {}, 发起方: {}", taskId, pauseReason, pausedBy);
+        
+        Task task = taskRepository.getById(TaskId.of(taskId))
+            .orElseThrow(() -> new TaskNotExistException(taskId));
+        
+        task.pause(pauseReason, pausedBy);
+        
+        taskRepository.save(task);
+        eventPublisher.publishAll(task.getPendingEvents());
+        task.clearPendingEvents();
+        
+        return taskAssembler.toResult(task);
+    }
+
+    @Transactional
+    public TaskResult cancelTaskWithReason(Long taskId, String cancelReason) {
+        log.info("取消任务: {}, 原因: {}", taskId, cancelReason);
+        
+        Task task = taskRepository.getById(TaskId.of(taskId))
+            .orElseThrow(() -> new TaskNotExistException(taskId));
+        
+        task.cancel(cancelReason);
+        
+        taskRepository.save(task);
+        eventPublisher.publishAll(task.getPendingEvents());
+        task.clearPendingEvents();
+        
+        return taskAssembler.toResult(task);
+    }
+
+    @Transactional
+    public TaskResult supersedeTask(Long taskId) {
+        log.info("取代任务: {}", taskId);
+        
+        Task task = taskRepository.getById(TaskId.of(taskId))
+            .orElseThrow(() -> new TaskNotExistException(taskId));
+        
+        task.supersede();
+        
+        taskRepository.save(task);
+        eventPublisher.publishAll(task.getPendingEvents());
+        task.clearPendingEvents();
+        
+        return taskAssembler.toResult(task);
+    }
+
+    @Transactional
+    public TaskResult finishTask(Long taskId) {
+        log.info("结束任务: {}", taskId);
+        
+        Task task = taskRepository.getById(TaskId.of(taskId))
+            .orElseThrow(() -> new TaskNotExistException(taskId));
+        
+        task.finish();
         
         taskRepository.save(task);
         eventPublisher.publishAll(task.getPendingEvents());

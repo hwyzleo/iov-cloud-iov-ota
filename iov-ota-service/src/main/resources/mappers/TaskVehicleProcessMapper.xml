@@ -215,4 +215,10 @@
         WHERE t.row_valid = 1
         <!-- 添加自定义条件 -->
     </select>
+
+    <!-- 根据任务ID物理删除 -->
+    <delete id="deleteByTaskId" parameterType="Long">
+        DELETE FROM tb_task_vehicle_process
+        WHERE task_id = #{taskId}
+    </delete>
 </mapper>

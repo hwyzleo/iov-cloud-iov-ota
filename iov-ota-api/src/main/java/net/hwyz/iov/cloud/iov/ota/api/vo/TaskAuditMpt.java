@@ -4,7 +4,7 @@ import lombok.*;
 import net.hwyz.iov.cloud.framework.common.bean.BaseRequest;
 
 /**
- * 管理后台升级任务审核
+ * 管理后台升级任务审核（支持多级审批）
  *
  * @author hwyz_leo
  */
@@ -21,13 +21,18 @@ public class TaskAuditMpt extends BaseRequest {
     private Long id;
 
     /**
-     * 审核是否通过：true=通过，false=未通过
+     * 审批级别：QUALITY/PRODUCT/SECURITY
      */
-    private Boolean audit;
+    private String approvalLevel;
 
     /**
-     * 未通过的原因
+     * 审批结果：APPROVED/REJECTED
      */
-    private String reason;
+    private String result;
+
+    /**
+     * 审批意见
+     */
+    private String comment;
 
 }
