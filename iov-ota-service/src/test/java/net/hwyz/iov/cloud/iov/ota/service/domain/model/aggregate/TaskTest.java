@@ -6,6 +6,11 @@ import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskType;
 import net.hwyz.iov.cloud.iov.ota.service.domain.exception.TaskStateException;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.ActivityId;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.TaskId;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.Vin;
+
+import java.time.Instant;
+import java.util.Set;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Disabled;
@@ -72,8 +77,8 @@ class TaskTest {
     void release_shouldTransitionFromApprovedToReleased() {
         task.submit();
         task.audit(true, null);
-        task.setTarget("VIN001,VIN002");
-        task.release();
+        Set<Vin> vins = Set.of(Vin.of("VIN001"), Vin.of("VIN002"));
+        task.release(vins, "IMMEDIATE");
         assertEquals(TaskState.RELEASED, task.getState());
         assertNotNull(task.getVehicles());
         assertEquals(2, task.getVehicles().size());
@@ -83,37 +88,36 @@ class TaskTest {
     void release_shouldTransitionFromScheduledToReleased() {
         task.submit();
         task.audit(true, null);
-        task.schedule();
+        task.schedule(Instant.now().plusSeconds(3600));
         assertEquals(TaskState.SCHEDULED, task.getState());
-        task.setTarget("VIN001");
-        task.release();
+        Set<Vin> vins = Set.of(Vin.of("VIN001"));
+        task.release(vins, "IMMEDIATE");
         assertEquals(TaskState.RELEASED, task.getState());
     }
     
     @Test
     void release_shouldThrowWhenNotInApprovedOrScheduledState() {
-        assertThrows(TaskStateException.class, () -> task.release());
+        assertThrows(TaskStateException.class, () -> task.release(Set.of(Vin.of("VIN001")), "IMMEDIATE"));
     }
     
     @Test
     void schedule_shouldTransitionFromApprovedToScheduled() {
         task.submit();
         task.audit(true, null);
-        task.schedule();
+        task.schedule(Instant.now().plusSeconds(3600));
         assertEquals(TaskState.SCHEDULED, task.getState());
     }
     
     @Test
     void schedule_shouldThrowWhenNotInApprovedState() {
-        assertThrows(TaskStateException.class, () -> task.schedule());
+        assertThrows(TaskStateException.class, () -> task.schedule(Instant.now().plusSeconds(3600)));
     }
     
     @Test
     void pause_shouldTransitionFromReleasedToPaused() {
         task.submit();
         task.audit(true, null);
-        task.setTarget("VIN001");
-        task.release();
+        task.release(Set.of(Vin.of("VIN001")), "IMMEDIATE");
         task.pause();
         assertEquals(TaskState.PAUSED, task.getState());
     }
@@ -122,8 +126,7 @@ class TaskTest {
     void pauseWithReason_shouldSetPauseReasonAndPausedBy() {
         task.submit();
         task.audit(true, null);
-        task.setTarget("VIN001");
-        task.release();
+        task.release(Set.of(Vin.of("VIN001")), "IMMEDIATE");
         task.pause("MANUAL", "HUMAN");
         assertEquals(TaskState.PAUSED, task.getState());
         assertEquals("MANUAL", task.getPauseReason());
@@ -134,8 +137,7 @@ class TaskTest {
     void resume_shouldTransitionFromPausedToReleased() {
         task.submit();
         task.audit(true, null);
-        task.setTarget("VIN001");
-        task.release();
+        task.release(Set.of(Vin.of("VIN001")), "IMMEDIATE");
         task.pause();
         task.resume();
         assertEquals(TaskState.RELEASED, task.getState());
@@ -145,8 +147,7 @@ class TaskTest {
     void resume_shouldTransitionFromPausedToInProgress() {
         task.submit();
         task.audit(true, null);
-        task.setTarget("VIN001");
-        task.release();
+        task.release(Set.of(Vin.of("VIN001")), "IMMEDIATE");
         task.activateRollout();
         assertEquals(TaskState.IN_PROGRESS, task.getState());
         task.pause();
@@ -159,8 +160,7 @@ class TaskTest {
     void cancel_shouldTransitionFromReleasedToCanceled() {
         task.submit();
         task.audit(true, null);
-        task.setTarget("VIN001");
-        task.release();
+        task.release(Set.of(Vin.of("VIN001")), "IMMEDIATE");
         task.cancel();
         assertEquals(TaskState.CANCELED, task.getState());
     }
@@ -169,8 +169,7 @@ class TaskTest {
     void cancelWithReason_shouldSetCancelReason() {
         task.submit();
         task.audit(true, null);
-        task.setTarget("VIN001");
-        task.release();
+        task.release(Set.of(Vin.of("VIN001")), "IMMEDIATE");
         task.cancel("DISCARD");
         assertEquals(TaskState.CANCELED, task.getState());
         assertEquals("DISCARD", task.getCancelReason());
@@ -180,8 +179,8 @@ class TaskTest {
     void finish_shouldTransitionFromReleasedToCompleted() {
         task.submit();
         task.audit(true, null);
-        task.setTarget("VIN001");
-        task.release();
+        task.release(Set.of(Vin.of("VIN001")), "IMMEDIATE");
+        task.activateRollout();
         task.finish();
         assertEquals(TaskState.COMPLETED, task.getState());
     }
@@ -190,8 +189,7 @@ class TaskTest {
     void supersede_shouldTransitionFromReleasedToSuperseded() {
         task.submit();
         task.audit(true, null);
-        task.setTarget("VIN001");
-        task.release();
+        task.release(Set.of(Vin.of("VIN001")), "IMMEDIATE");
         task.supersede();
         assertEquals(TaskState.SUPERSEDED, task.getState());
     }
