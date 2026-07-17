@@ -28,44 +28,64 @@ public class VehicleMpt extends BaseRequest {
     private String vin;
 
     /**
-     * 最后上报时间
+     * 车辆生产业务事实时间
      */
-    private Date reportTime;
+    private Date productionTime;
 
     /**
-     * 最后基线代码
+     * 生产工厂编码
      */
-    private String baselineCode;
+    private String plantCode;
 
     /**
-     * 最后基线是否对齐
+     * 品牌编码
      */
-    private Boolean baselineAlignment;
+    private String brandCode;
 
     /**
-     * 最后设备信息
+     * 平台编码
      */
-    private String deviceInfo;
+    private String platformCode;
 
     /**
-     * 最后升级活动ID
+     * 车系编码
      */
-    private Long activityId;
+    private String carLineCode;
 
     /**
-     * 最后升级任务ID
+     * 车型编码
      */
-    private Long taskId;
+    private String modelCode;
 
     /**
-     * 最后升级配置字
+     * 版本编码
      */
-    private String configWord;
+    private String variantCode;
 
     /**
-     * 最后OTA Master版本
+     * 配置编码，OTA基线和圈车核心锚点
      */
-    private String masterVersion;
+    private String configurationCode;
+
+    /**
+     * 最近一次生效的上游事件ID
+     */
+    private String sourceEventId;
+
+    /**
+     * MDM/VMD车辆主档版本
+     */
+    private Long sourceVersion;
+
+    /**
+     * 上游事件发生时间
+     */
+    private Date sourceEventTime;
+
+    /**
+     * 投影最后同步时间
+     */
+    private Date lastSyncTime;
 
     /**
      * 创建时间

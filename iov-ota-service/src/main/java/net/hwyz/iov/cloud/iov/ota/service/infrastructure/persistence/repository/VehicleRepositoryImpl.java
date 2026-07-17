@@ -11,13 +11,18 @@ import net.hwyz.iov.cloud.iov.ota.service.domain.repository.VehicleRepository;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.cache.CacheService;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.converter.VehStatusPoAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.VehStatusMapper;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.VehicleProjectionMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.VehStatusPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.VehicleProjectionPo;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
 /**
  * 车辆仓库接口实现类
+ * <p>
+ * CR-011: 优先从 tb_vehicle_projection 读取车辆信息
+ * </p>
  *
  * @author hwyz_leo
  */
@@ -28,22 +33,34 @@ public class VehicleRepositoryImpl extends AbstractRepository<String, VehicleDo>
 
     private final CacheService cacheService;
     private final VehStatusMapper vehStatusDao;
+    private final VehicleProjectionMapper vehicleProjectionDao;
     private final VehicleFactory vehicleFactory;
     private final VmdVehicleService exVehicleService;
 
     @Override
     public Optional<VehicleDo> getById(String vin) {
         return Optional.ofNullable(cacheService.getVehicle(vin).orElseGet(() -> {
-            VehStatusPo vehicleStatus = vehStatusDao.selectByVin(vin);
+            // CR-011: 优先从车辆投影表读取
+            VehicleProjectionPo vehicleProjection = vehicleProjectionDao.selectByVin(vin);
             VehicleDo tmpVehicle;
-            if (vehicleStatus == null) {
-                VehicleExResponse vehicle = exVehicleService.getByVin(vin);
-                if (vehicle == null) {
-                    return null;
-                }
-                tmpVehicle = vehicleFactory.buildVehicle(vehicle);
+            if (vehicleProjection != null) {
+                tmpVehicle = vehicleFactory.buildVehicleFromProjection(vehicleProjection);
+                log.debug("从车辆投影表获取车辆信息: vin={}", vin);
             } else {
-                tmpVehicle = vehicleFactory.buildVehicle(vehicleStatus);
+                // 降级到车辆状态表
+                VehStatusPo vehicleStatus = vehStatusDao.selectByVin(vin);
+                if (vehicleStatus != null) {
+                    tmpVehicle = vehicleFactory.buildVehicle(vehicleStatus);
+                    log.debug("从车辆状态表获取车辆信息: vin={}", vin);
+                } else {
+                    // 最后尝试从VMD回源
+                    VehicleExResponse vehicle = exVehicleService.getByVin(vin);
+                    if (vehicle == null) {
+                        return null;
+                    }
+                    tmpVehicle = vehicleFactory.buildVehicle(vehicle);
+                    log.debug("从VMD回源获取车辆信息: vin={}", vin);
+                }
             }
             cacheService.setVehicle(tmpVehicle);
             return tmpVehicle;
@@ -70,8 +87,8 @@ public class VehicleRepositoryImpl extends AbstractRepository<String, VehicleDo>
 
     @Override
     public java.util.List<VehicleDo> findByCondition(String field, String operator, String value) {
-        // 使用MyBatis-Plus QueryWrapper构建条件查询
-        com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<VehStatusPo> queryWrapper = new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
+        // CR-011: 使用车辆投影表进行条件查询
+        com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<VehicleProjectionPo> queryWrapper = new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
         
         // 映射字段名到数据库列名
         String columnName = mapFieldToColumn(field);
@@ -98,12 +115,12 @@ public class VehicleRepositoryImpl extends AbstractRepository<String, VehicleDo>
         }
         
         // 执行查询
-        java.util.List<VehStatusPo> poList = vehStatusDao.selectList(queryWrapper);
+        java.util.List<VehicleProjectionPo> poList = vehicleProjectionDao.selectList(queryWrapper);
         
         // 转换为领域对象
         java.util.List<VehicleDo> result = new java.util.ArrayList<>();
-        for (VehStatusPo po : poList) {
-            VehicleDo vehicle = vehicleFactory.buildVehicle(po);
+        for (VehicleProjectionPo po : poList) {
+            VehicleDo vehicle = vehicleFactory.buildVehicleFromProjection(po);
             result.add(vehicle);
         }
         
@@ -119,6 +136,12 @@ public class VehicleRepositoryImpl extends AbstractRepository<String, VehicleDo>
             case "vin" -> "vin";
             case "baselineCode" -> "baseline_code";
             case "isBaselineAlignment" -> "is_baseline_alignment";
+            case "configurationCode" -> "configuration_code";
+            case "plantCode" -> "plant_code";
+            case "brandCode" -> "brand_code";
+            case "platformCode" -> "platform_code";
+            case "modelCode" -> "model_code";
+            case "variantCode" -> "variant_code";
             default -> null;
         };
     }
@@ -129,17 +152,17 @@ public class VehicleRepositoryImpl extends AbstractRepository<String, VehicleDo>
             return new java.util.ArrayList<>();
         }
         
-        // 使用MyBatis-Plus QueryWrapper批量查询
-        com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<VehStatusPo> queryWrapper = 
+        // CR-011: 使用车辆投影表批量查询
+        com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<VehicleProjectionPo> queryWrapper = 
             new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
         queryWrapper.in("vin", vins);
         
-        java.util.List<VehStatusPo> poList = vehStatusDao.selectList(queryWrapper);
+        java.util.List<VehicleProjectionPo> poList = vehicleProjectionDao.selectList(queryWrapper);
         
         // 转换为领域对象
         java.util.List<VehicleDo> result = new java.util.ArrayList<>();
-        for (VehStatusPo po : poList) {
-            VehicleDo vehicle = vehicleFactory.buildVehicle(po);
+        for (VehicleProjectionPo po : poList) {
+            VehicleDo vehicle = vehicleFactory.buildVehicleFromProjection(po);
             result.add(vehicle);
         }
         
@@ -149,13 +172,13 @@ public class VehicleRepositoryImpl extends AbstractRepository<String, VehicleDo>
 
     @Override
     public java.util.List<VehicleDo> findAll() {
-        // 查询所有车辆
-        java.util.List<VehStatusPo> poList = vehStatusDao.selectList(null);
+        // CR-011: 查询所有车辆投影
+        java.util.List<VehicleProjectionPo> poList = vehicleProjectionDao.selectList(null);
         
         // 转换为领域对象
         java.util.List<VehicleDo> result = new java.util.ArrayList<>();
-        for (VehStatusPo po : poList) {
-            VehicleDo vehicle = vehicleFactory.buildVehicle(po);
+        for (VehicleProjectionPo po : poList) {
+            VehicleDo vehicle = vehicleFactory.buildVehicleFromProjection(po);
             result.add(vehicle);
         }
         

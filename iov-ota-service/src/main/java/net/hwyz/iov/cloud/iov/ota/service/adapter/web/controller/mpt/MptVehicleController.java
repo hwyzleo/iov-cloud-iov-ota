@@ -12,9 +12,9 @@ import net.hwyz.iov.cloud.framework.security.util.SecurityUtils;
 import net.hwyz.iov.cloud.framework.web.controller.BaseController;
 import net.hwyz.iov.cloud.framework.web.util.PageUtil;
 import net.hwyz.iov.cloud.iov.ota.api.vo.VehicleMpt;
-import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.VehicleMptAssembler;
+import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.VehicleProjectionMptAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.VehicleAppService;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.VehStatusPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.VehicleProjectionPo;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -43,8 +43,8 @@ public class MptVehicleController extends BaseController {
     public ApiResponse<PageResult<VehicleMpt>> list(VehicleMpt vehicle) {
         log.info("管理后台用户[{}]分页查询车辆信息", SecurityUtils.getUsername());
         startPage();
-        List<VehStatusPo> vehiclePoList = vehicleAppService.search(vehicle.getVin(), getBeginTime(vehicle), getEndTime(vehicle));
-        return ApiResponse.ok(getPageResult(PageUtil.convert(vehiclePoList, VehicleMptAssembler.INSTANCE::fromPo)));
+        List<VehicleProjectionPo> vehiclePoList = vehicleAppService.search(vehicle.getVin(), getBeginTime(vehicle), getEndTime(vehicle));
+        return ApiResponse.ok(getPageResult(PageUtil.convert(vehiclePoList, VehicleProjectionMptAssembler.INSTANCE::fromPo)));
     }
 
     /**
@@ -70,7 +70,7 @@ public class MptVehicleController extends BaseController {
     @GetMapping(value = "/{vin}")
     public ApiResponse<VehicleMpt> getInfo(@PathVariable String vin) {
         log.info("管理后台用户[{}]根据车架号[{}]获取车辆信息", SecurityUtils.getUsername(), vin);
-        return ApiResponse.ok(VehicleMptAssembler.INSTANCE.fromPo(vehicleAppService.getVehicleByVin(vin)));
+        return ApiResponse.ok(VehicleProjectionMptAssembler.INSTANCE.fromPo(vehicleAppService.getVehicleByVin(vin)));
     }
 
 }
