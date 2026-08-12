@@ -54,7 +54,7 @@ class OtaKafkaMessageProducerTest {
     @BeforeEach
     void setUp() {
         properties = new OtaKafkaProperties();
-        properties.getOutbound().setTopic("ota.cloud.command");
+        properties.getOutbound().setTopic("iov.vagw.down.fota");
         properties.getOutbound().setMaxRetry(3);
         properties.getOutbound().setBackoffBaseSeconds(1);
         properties.getOutbound().setBatchSize(10);
@@ -76,7 +76,7 @@ class OtaKafkaMessageProducerTest {
         when(outboxRepository.findPendingReady(anyInt())).thenReturn(List.of(outboxPo));
         when(outboxRepository.claim(1L)).thenReturn(true);
         when(senderResult.recordMetadata()).thenReturn(
-                new RecordMetadata(new TopicPartition("ota.cloud.command", 0), 0L, 0L, 0L, 0L, 0, 0));
+                new RecordMetadata(new TopicPartition("iov.vagw.down.fota", 0), 0L, 0L, 0L, 0L, 0, 0));
     }
 
     @Test
@@ -87,7 +87,7 @@ class OtaKafkaMessageProducerTest {
 
         producer.publishPending();
 
-        verify(producerTemplate).send(eq("ota.cloud.command"), eq("VIN001"), anyString());
+        verify(producerTemplate).send(eq("iov.vagw.down.fota"), eq("VIN001"), anyString());
         verify(outboxRepository).markPublished(1L);
         verify(outboxRepository, never()).markFailed(any(), any(), anyLong());
         verify(outboxRepository, never()).markDead(any(), any());

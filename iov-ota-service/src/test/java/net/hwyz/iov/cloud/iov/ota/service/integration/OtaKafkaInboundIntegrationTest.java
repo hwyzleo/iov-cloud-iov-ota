@@ -283,7 +283,7 @@ class OtaKafkaInboundIntegrationTest {
                 .payloadDigest("sha256:" + messageType + "-" + idemKey)
                 .payload(payload)
                 .build();
-        return new ConsumerRecord<>("ota.cloud.event", 0, System.nanoTime(), "VIN001",
+        return new ConsumerRecord<>("iov.vagw.up.fota", 0, System.nanoTime(), "VIN001",
                 objectMapper.writeValueAsString(envelope));
     }
 

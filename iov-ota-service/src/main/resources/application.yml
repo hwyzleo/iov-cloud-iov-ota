@@ -6,21 +6,23 @@ mybatis-plus:
 
 # ============================================================
 # CR-013: OTA Kafka 消息化（车外 MQTT、云内 Kafka）
-# 物理 Topic/分区/保留期由车云接入契约治理；IOV-OTA 仅维护 Envelope 与 payload 业务语义。
+# 物理 Topic/分区/保留期由车云接入契约治理（VAGW 为车云接入契约 owner，见 FotaRouteConfig）；
+# 上行 iov.vagw.up.fota / 下行 iov.vagw.down.fota / 上行死信 iov.vagw.up.fota.dlq，
+# IOV-OTA 仅维护 Envelope 与 payload 业务语义。
 # ============================================================
 ota:
   kafka:
     inbound:
       enabled: true
-      topics: ${OTA_KAFKA_INBOUND_TOPICS:ota.cloud.event}
+      topics: ${OTA_KAFKA_INBOUND_TOPICS:iov.vagw.up.fota}
       group-id: ${OTA_KAFKA_GROUP_ID:iov-cloud-iov-ota}
       concurrency: ${OTA_KAFKA_INBOUND_CONCURRENCY:3}
     outbound:
       enabled: true
-      topic: ${OTA_KAFKA_OUTBOUND_TOPIC:ota.cloud.command}
+      topic: ${OTA_KAFKA_OUTBOUND_TOPIC:iov.vagw.down.fota}
       max-retry: ${OTA_KAFKA_OUTBOUND_MAX_RETRY:5}
       backoff-base-seconds: ${OTA_KAFKA_OUTBOUND_BACKOFF_BASE:1}
       batch-size: ${OTA_KAFKA_OUTBOUND_BATCH_SIZE:100}
       poll-interval-ms: ${OTA_KAFKA_OUTBOUND_POLL_INTERVAL:2000}
     dlq:
-      topic: ${OTA_KAFKA_DLQ_TOPIC:ota.cloud.dlq}
+      topic: ${OTA_KAFKA_DLQ_TOPIC:iov.vagw.up.fota.dlq}

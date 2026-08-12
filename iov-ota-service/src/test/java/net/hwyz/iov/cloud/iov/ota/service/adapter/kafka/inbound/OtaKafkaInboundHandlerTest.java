@@ -77,7 +77,7 @@ class OtaKafkaInboundHandlerTest {
                 .payloadDigest("sha256:digest-1")
                 .payload(payload)
                 .build();
-        record = new ConsumerRecord<>("ota.cloud.event", 0, 1L, "VIN001",
+        record = new ConsumerRecord<>("iov.vagw.up.fota", 0, 1L, "VIN001",
                 objectMapper.writeValueAsString(envelope));
     }
 
@@ -150,7 +150,7 @@ class OtaKafkaInboundHandlerTest {
     void missingVin_nonRecoverable() throws Exception {
         OtaKafkaEnvelope envelope = objectMapper.readValue(record.value(), OtaKafkaEnvelope.class);
         envelope.setVin(null);
-        ConsumerRecord<String, String> bad = new ConsumerRecord<>("ota.cloud.event", 0, 2L, "k",
+        ConsumerRecord<String, String> bad = new ConsumerRecord<>("iov.vagw.up.fota", 0, 2L, "k",
                 objectMapper.writeValueAsString(envelope));
         OtaKafkaMessagingException e = assertThrows(OtaKafkaMessagingException.class,
                 () -> inboundHandler.processMessage(bad));

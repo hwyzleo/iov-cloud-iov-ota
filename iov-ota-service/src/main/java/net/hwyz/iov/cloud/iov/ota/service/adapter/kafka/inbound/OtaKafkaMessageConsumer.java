@@ -31,7 +31,7 @@ public class OtaKafkaMessageConsumer {
     private final KafkaMessagingMetricsService metrics;
 
     @KafkaListener(
-            topics = "${ota.kafka.inbound.topics:ota.cloud.event}",
+            topics = "${ota.kafka.inbound.topics:iov.vagw.up.fota}",
             groupId = "${ota.kafka.inbound.group-id:iov-cloud-iov-ota}",
             containerFactory = "otaKafkaListenerContainerFactory",
             concurrency = "${ota.kafka.inbound.concurrency:3}"
