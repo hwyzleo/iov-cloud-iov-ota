@@ -193,6 +193,44 @@ class TaskTest {
         task.supersede();
         assertEquals(TaskState.SUPERSEDED, task.getState());
     }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("isProtocolCompatible 协议版本兼容判定（CR-012 §9.4）")
+    void isProtocolCompatible_protocolVersionCheck() {
+        task.submit();
+        task.approve(true, null);
+        task.release(Set.of(Vin.of("VIN001")), "IMMEDIATE");
+
+        // 未设置 minimumProtocolVersion 时兼容
+        assertTrue(task.isProtocolCompatible("1.0"));
+
+        // 要求 v2.0，v1 车辆不兼容
+        task.setMinimumProtocolVersion("2.0");
+        assertFalse(task.isProtocolCompatible("1.0"));
+        assertTrue(task.isProtocolCompatible("2.0"));
+        assertTrue(task.isProtocolCompatible("3.0"));
+
+        // 车辆协议缺失时不兼容
+        assertFalse(task.isProtocolCompatible(null));
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("isReleasedOrInProgress 与 isVisibleForDetection（CR-012 §2.1 v2 语义）")
+    void v2VisibilityMethods() {
+        task.submit();
+        task.approve(true, null);
+        task.setStartTime(Instant.now().minusSeconds(60));
+        task.setEndTime(Instant.now().plusSeconds(3600));
+        task.setReleaseTime(Instant.now().minusSeconds(60));
+        task.release(Set.of(Vin.of("VIN001")), "IMMEDIATE");
+
+        assertTrue(task.isReleasedOrInProgress());
+        assertTrue(task.isVisibleForDetection(Instant.now()));
+        // 当前在执行窗口内（startTime 已过）
+        assertTrue(task.isExecutableWindow(Instant.now()));
+        // 窗口开始前
+        assertFalse(task.isExecutableWindow(Instant.now().minusSeconds(120)));
+    }
     
     @Test
     @Disabled("valOf方法行为需要进一步调试")

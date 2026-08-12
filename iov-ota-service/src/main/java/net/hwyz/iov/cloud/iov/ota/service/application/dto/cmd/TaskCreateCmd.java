@@ -42,7 +42,12 @@ public class TaskCreateCmd {
     
     @NotNull(message = "升级模式不能为空")
     private String upgradeMode;
-    
+
+    /**
+     * 最小协议版本（CR-012 §9.4，默认 2.0）
+     */
+    private String minimumProtocolVersion;
+
     private String upgradeModeArg;
     
     private String description;

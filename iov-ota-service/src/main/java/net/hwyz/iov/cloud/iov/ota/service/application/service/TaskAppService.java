@@ -90,6 +90,8 @@ public class TaskAppService {
         task.setUpgradeMode(cmd.getUpgradeMode() != null && !cmd.getUpgradeMode().isEmpty() 
             ? net.hwyz.iov.cloud.iov.ota.api.vo.enums.UpgradeMode.valOf(Integer.parseInt(cmd.getUpgradeMode())) : null);
         task.setDescription(cmd.getDescription());
+        task.setMinimumProtocolVersion(cmd.getMinimumProtocolVersion() != null
+                ? cmd.getMinimumProtocolVersion() : "2.0");
         
         if (cmd.getRestrictions() != null) {
             task.loadRestrictionsAndStrategies(

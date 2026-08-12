@@ -9,6 +9,7 @@ import net.hwyz.iov.cloud.iov.ota.api.contract.TaskVehicleStateCcp;
 import net.hwyz.iov.cloud.iov.ota.api.vo.CloudFotaInfoCcp;
 import net.hwyz.iov.cloud.iov.ota.api.vo.VehicleFotaInfoCcp;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.DeviceInfoCcpAssembler;
+import net.hwyz.iov.cloud.iov.ota.service.application.service.CompatibilityEventService;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.CompatiblePnAppService;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.TaskVehicleAppService;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.aggregate.Task;
@@ -39,10 +40,11 @@ public class CcpFotaController extends BaseController {
     private final TaskVehicleRepository taskVehicleRepository;
     private final TaskVehicleAppService taskVehicleAppService;
     private final CompatiblePnAppService compatiblePnAppService;
+    private final CompatibilityEventService compatibilityEventService;
 
     @PostMapping("/check")
     public ApiResponse<CloudFotaInfoCcp> check(@RequestHeader String vin, @Validated @RequestBody VehicleFotaInfoCcp vehicleFotaInfo) {
-        log.info("车辆[{}]检查车辆升级信息", vin);
+        log.info("车辆[{}]检查车辆升级信息（v1 兼容层）", vin);
         VehicleDo vehicle = vehicleRepository.getById(vin).orElseThrow(() -> new VehicleNotExistException(vin));
         List<DeviceInfoVo> deviceInfoList = DeviceInfoCcpAssembler.INSTANCE.toVoList(vehicleFotaInfo.getDeviceInfoList());
         if (vehicle.checkBaseline(vehicleFotaInfo.getBaseline()) || vehicle.checkDevices(deviceInfoList)) {
@@ -50,6 +52,11 @@ public class CcpFotaController extends BaseController {
         }
         final CloudFotaInfoCcp[] cloudFotaInfoCcp = {null};
         taskService.getVehicleTask(vehicle).ifPresent(task -> {
+            // CR-012 §9.4：v1 车辆按协议能力筛选，任务要求 v2 则不返回（不静默降级安全能力）
+            if (!task.isProtocolCompatible("1.0")) {
+                log.info("任务[{}]要求协议版本[{}]，v1 车辆不兼容，跳过", task.getId().getValue(), task.getMinimumProtocolVersion());
+                return;
+            }
             if (!task.checkPreconditions(vehicle)) {
                 return;
             }
@@ -73,13 +80,19 @@ public class CcpFotaController extends BaseController {
 
     @PostMapping("/reportTaskProcess")
     public ApiResponse<Void> reportTaskProcess(@RequestHeader String vin, @Validated @RequestBody TaskVehicleProcessCcp taskVehicleProcess) {
-        log.info("车辆[{}]上报车辆升级任务过程", vin);
+        log.info("车辆[{}]上报车辆升级任务过程（v1 兼容层）", vin);
         VehicleDo vehicle = vehicleRepository.getById(vin).orElseThrow(() -> new VehicleNotExistException(vin));
         taskService.getVehicleTask(vehicle).ifPresent(task -> {
             if (task.getId().getValue() != taskVehicleProcess.getTaskId()) {
                 log.warn("车辆[{}]上报车辆升级任务状态任务ID不一致", vin);
                 return;
             }
+            // CR-012 §9.3：v1 过程上报转换为服务端生成 eventId/sequenceNo 的兼容事件
+            CompatibilityEventService.CompatibleEvent event = compatibilityEventService.composeEvent(
+                    task.getId().getValue(), vin, "PROCESS",
+                    String.valueOf(taskVehicleProcess.getOperation()));
+            log.info("v1过程上报转兼容事件：task[{}] eventId[{}] seq[{}]",
+                    event.taskId(), event.eventId(), event.sequenceNo());
             taskVehicleRepository.getByTaskIdAndVin(task.getId().getValue(), vin).ifPresent(taskVehicle -> {
                 taskVehicleAppService.addTaskVehicleProcess(TaskVehicleProcessCcpAssembler.INSTANCE.toPo(taskVehicleProcess));
             });
@@ -89,13 +102,19 @@ public class CcpFotaController extends BaseController {
 
     @PostMapping("/reportTaskState")
     public ApiResponse<Void> reportTaskState(@RequestHeader String vin, @Validated @RequestBody TaskVehicleStateCcp taskVehicleState) {
-        log.info("车辆[{}]上报车辆升级任务状态", vin);
+        log.info("车辆[{}]上报车辆升级任务状态（v1 兼容层）", vin);
         VehicleDo vehicle = vehicleRepository.getById(vin).orElseThrow(() -> new VehicleNotExistException(vin));
         taskService.getVehicleTask(vehicle).ifPresent(task -> {
             if (task.getId().getValue() != taskVehicleState.getTaskId()) {
                 log.warn("车辆[{}]上报车辆升级任务状态任务ID不一致", vin);
                 return;
             }
+            // CR-012 §9.3：v1 状态上报转换为服务端生成 eventId/sequenceNo 的兼容事件
+            CompatibilityEventService.CompatibleEvent event = compatibilityEventService.composeEvent(
+                    task.getId().getValue(), vin, "STATE",
+                    String.valueOf(taskVehicleState.getTaskState()));
+            log.info("v1状态上报转兼容事件：task[{}] eventId[{}] seq[{}]",
+                    event.taskId(), event.eventId(), event.sequenceNo());
             taskVehicleRepository.getByTaskIdAndVin(task.getId().getValue(), vin).ifPresent(taskVehicle -> {
                 taskVehicle.updateState(taskVehicleState.getTaskState());
                 taskVehicleRepository.save(taskVehicle);

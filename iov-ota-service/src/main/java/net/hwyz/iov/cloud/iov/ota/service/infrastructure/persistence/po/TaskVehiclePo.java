@@ -129,4 +129,96 @@ public class TaskVehiclePo extends BasePo {
      */
     @TableField("attempt_no")
     private Integer attemptNo;
+
+    // ==================== CR-012 VehicleTask 字段 ====================
+
+    /**
+     * 车辆任务状态（CR-012）
+     */
+    @TableField("vehicle_task_status")
+    private String vehicleTaskStatus;
+
+    /**
+     * 任务版本号（CR-012）
+     */
+    @TableField("task_revision")
+    private Long taskRevision;
+
+    /**
+     * 快照摘要（CR-012）
+     */
+    @TableField("snapshot_digest")
+    private String snapshotDigest;
+
+    /**
+     * 可用性状态（CR-012）
+     */
+    @TableField("availability_status")
+    private String availabilityStatus;
+
+    /**
+     * 下载准备状态（CR-012）
+     */
+    @TableField("download_ready_state")
+    private String downloadReadyState;
+
+    /**
+     * 授权状态（CR-012）
+     */
+    @TableField("consent_state")
+    private String consentState;
+
+    /**
+     * 发布时间快照（CR-012）
+     */
+    @TableField("release_at")
+    private java.util.Date releaseAt;
+
+    /**
+     * 执行窗口开始时间快照（CR-012）
+     */
+    @TableField("vt_start_time")
+    private java.util.Date vtStartTime;
+
+    /**
+     * 执行窗口结束时间快照（CR-012）
+     */
+    @TableField("vt_end_time")
+    private java.util.Date vtEndTime;
+
+    /**
+     * 最近尝试序号（CR-012）
+     */
+    @TableField("last_attempt_no")
+    private Integer lastAttemptNo;
+
+    /**
+     * 活动执行ID（CR-012）
+     */
+    @TableField("active_execution_id")
+    private Long activeExecutionId;
+
+    /**
+     * 取代者车辆任务ID（CR-012）
+     */
+    @TableField("superseded_by")
+    private Long supersededBy;
+
+    /**
+     * 本地任务处置意图（CR-012）
+     */
+    @TableField("local_disposition")
+    private String localDisposition;
+
+    /**
+     * 包缓存处置意图（CR-012）
+     */
+    @TableField("package_cache_action")
+    private String packageCacheAction;
+
+    /**
+     * 暂停前状态（CR-012）
+     */
+    @TableField("vt_state_before_pause")
+    private String vtStateBeforePause;
 }

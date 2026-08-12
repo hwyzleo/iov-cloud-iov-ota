@@ -51,6 +51,7 @@ public class Task {
     @Setter private String cancelReason; // DISCARD/ABORT/ROLLBACK/COMPLIANCE/SUPERSEDED_BY
     @Setter private Instant actualReleaseTime;  // 实际发布时间（发布事务成功时间）
     @Setter private String lastScheduleError;   // 最近一次到点发布失败摘要
+    @Setter private String minimumProtocolVersion; // 最小协议版本（CR-012 §9.4，v2 任务准入）
     
     private Map<TaskRestrictionType, TaskRestriction> restrictions;
     private List<TaskStrategy> strategies;
@@ -364,8 +365,9 @@ public class Task {
     }
     
     /**
-     * 检查车端前置条件
-     * 车端check必须满足：state=IN_PROGRESS AND start_time<=now<end_time AND admit_state=PASS
+     * 检查车端前置条件（v1 兼容层，CR-012 §9）
+     * <p>v1 车端check必须满足：state=IN_PROGRESS AND start_time<=now<end_time AND admit_state=PASS。
+     * <p>v2 检测请使用 {@link net.hwyz.iov.cloud.iov.ota.service.domain.service.TaskAvailabilityService}。
      */
     public boolean checkPreconditions(VehicleDo vehicle) {
         if (!checkTaskStateForVehicle()) {
@@ -433,6 +435,67 @@ public class Task {
         }
         Instant now = Instant.now();
         return this.startTime == null || !now.isBefore(this.startTime);
+    }
+
+    /**
+     * 任务是否处于发布后可检测状态（CR-012 §2.1 v2 语义）。
+     * RELEASED 或 IN_PROGRESS 均可被车辆检测；不再以 startTime 阻断任务可见和预下载。
+     */
+    public boolean isReleasedOrInProgress() {
+        return this.state == TaskState.RELEASED || this.state == TaskState.IN_PROGRESS;
+    }
+
+    /**
+     * 任务是否对车辆可见（CR-012 §5.2 v2 语义）。
+     * 可见 = 任务处于发布后状态 && releaseAt <= now。
+     */
+    public boolean isVisibleForDetection(Instant now) {
+        if (!isReleasedOrInProgress()) {
+            return false;
+        }
+        return this.releaseTime == null || !now.isBefore(this.releaseTime);
+    }
+
+    /**
+     * 当前时间是否在安装执行窗口内（CR-012 §5.2）。
+     * startTime <= now < endTime。
+     */
+    public boolean isExecutableWindow(Instant now) {
+        if (this.startTime != null && now.isBefore(this.startTime)) {
+            return false;
+        }
+        return this.endTime == null || now.isBefore(this.endTime);
+    }
+
+    /**
+     * 任务是否与车辆协议版本兼容（CR-012 §9.4）。
+     * <p>新任务按 minimumProtocolVersion 和车辆能力筛选；协议不兼容返回明确原因，不静默降级安全能力。
+     *
+     * @param vehicleProtocolVersion 车辆支持的协议版本（如 "1.0" / "2.0"）
+     * @return 兼容返回 true
+     */
+    public boolean isProtocolCompatible(String vehicleProtocolVersion) {
+        if (this.minimumProtocolVersion == null || this.minimumProtocolVersion.isBlank()) {
+            return true;
+        }
+        if (vehicleProtocolVersion == null || vehicleProtocolVersion.isBlank()) {
+            return false;
+        }
+        return compareProtocolVersion(vehicleProtocolVersion, this.minimumProtocolVersion);
+    }
+
+    /**
+     * 简单协议版本比较：vehVersion >= minVersion 返回 true（仅比较主版本号）。
+     */
+    private boolean compareProtocolVersion(String vehVersion, String minVersion) {
+        try {
+            int vehMajor = Integer.parseInt(vehVersion.split("\\.")[0]);
+            int minMajor = Integer.parseInt(minVersion.split("\\.")[0]);
+            return vehMajor >= minMajor;
+        } catch (Exception e) {
+            // 解析失败则按字符串比较兜底
+            return vehVersion.compareTo(minVersion) >= 0;
+        }
     }
     
     private boolean checkRestrictions(VehicleDo vehicle) {
