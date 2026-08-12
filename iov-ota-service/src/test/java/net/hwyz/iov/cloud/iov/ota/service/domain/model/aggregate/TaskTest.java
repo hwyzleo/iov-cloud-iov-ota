@@ -195,26 +195,6 @@ class TaskTest {
     }
 
     @Test
-    @org.junit.jupiter.api.DisplayName("isProtocolCompatible 协议版本兼容判定（CR-012 §9.4）")
-    void isProtocolCompatible_protocolVersionCheck() {
-        task.submit();
-        task.approve(true, null);
-        task.release(Set.of(Vin.of("VIN001")), "IMMEDIATE");
-
-        // 未设置 minimumProtocolVersion 时兼容
-        assertTrue(task.isProtocolCompatible("1.0"));
-
-        // 要求 v2.0，v1 车辆不兼容
-        task.setMinimumProtocolVersion("2.0");
-        assertFalse(task.isProtocolCompatible("1.0"));
-        assertTrue(task.isProtocolCompatible("2.0"));
-        assertTrue(task.isProtocolCompatible("3.0"));
-
-        // 车辆协议缺失时不兼容
-        assertFalse(task.isProtocolCompatible(null));
-    }
-
-    @Test
     @org.junit.jupiter.api.DisplayName("isReleasedOrInProgress 与 isVisibleForDetection（CR-012 §2.1 v2 语义）")
     void v2VisibilityMethods() {
         task.submit();

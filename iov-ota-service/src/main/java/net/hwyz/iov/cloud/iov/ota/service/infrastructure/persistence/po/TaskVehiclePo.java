@@ -53,12 +53,6 @@ public class TaskVehiclePo extends BasePo {
     private String vin;
 
     /**
-     * 车辆任务状态
-     */
-    @TableField("state")
-    private Integer state;
-
-    /**
      * 结果代码
      */
     @TableField("result_code")

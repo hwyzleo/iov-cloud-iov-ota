@@ -2,7 +2,6 @@ package net.hwyz.iov.cloud.iov.ota.service.infrastructure.cache.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskVehicleState;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.aggregate.Task;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.ActivityDo;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.VehicleDo;
@@ -89,7 +88,7 @@ public class CacheServiceImpl implements CacheService {
         Map<String, Object> taskVehicleStateMap = new HashMap<>();
         if (task.getVehicles() != null) {
             for (Vin vin : task.getVehicles()) {
-                taskVehicleStateMap.put(vin.getValue(), String.valueOf(TaskVehicleState.WAITING_DOWNLOAD.value));
+                taskVehicleStateMap.put(vin.getValue(), "1");
             }
         }
         redisTemplate.opsForHash().putAll(REDIS_KEY_PREFIX_TASK + task.getId().getValue(), taskVehicleStateMap);
@@ -118,7 +117,7 @@ public class CacheServiceImpl implements CacheService {
         for (Long activityId : getReleaseActivity()) {
             for (Long taskId : getActivityReleaseTask(activityId)) {
                 Object taskVehicleState = redisTemplate.opsForHash().get(REDIS_KEY_PREFIX_TASK + taskId, vin);
-                if (taskVehicleState != null && Integer.parseInt(taskVehicleState.toString()) != TaskVehicleState.UPGRADE_SUCCESS.value) {
+                if (taskVehicleState != null) {
                     Double time = redisTemplate.opsForZSet().score(REDIS_KEY_PREFIX_ACTIVITY + activityId, taskId.toString());
                     if (time != null && (taskStartTime == 0 || time < taskStartTime)) {
                         task = taskId;

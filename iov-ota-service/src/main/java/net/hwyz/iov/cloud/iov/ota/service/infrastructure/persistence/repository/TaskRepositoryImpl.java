@@ -3,7 +3,6 @@ package net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.repository
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskState;
-import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskVehicleState;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.aggregate.Task;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.ActivityId;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.TaskId;
@@ -23,7 +22,6 @@ import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.Upgr
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskStateLogMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskApprovalMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskVehicleDetailMapper;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskVehicleProcessMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskVehicleRetryLogMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskRestrictionPo;
@@ -53,7 +51,6 @@ public class TaskRepositoryImpl implements TaskRepository {
     private final TaskStateLogMapper taskStateLogMapper;
     private final TaskApprovalMapper taskApprovalMapper;
     private final TaskVehicleDetailMapper taskVehicleDetailMapper;
-    private final TaskVehicleProcessMapper taskVehicleProcessMapper;
     private final TaskVehicleRetryLogMapper taskVehicleRetryLogMapper;
     private final TaskPoAssembler taskPoAssembler;
     private final CacheService cacheService;
@@ -129,7 +126,6 @@ public class TaskRepositoryImpl implements TaskRepository {
                         .activityId(taskPo.getActivityId())
                         .taskId(taskPo.getId())
                         .vin(vin.getValue())
-                        .state(TaskVehicleState.WAITING_DOWNLOAD.value)
                         .build());
                 }
             });
@@ -171,7 +167,6 @@ public class TaskRepositoryImpl implements TaskRepository {
                 taskVehicleDetailMapper.deleteByVehicleIds(vehicleIds);
             }
 
-            taskVehicleProcessMapper.deleteByTaskId(taskId);
             taskVehicleRetryLogMapper.delete(
                 new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskVehicleRetryLogPo>()
                     .eq(net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskVehicleRetryLogPo::getTaskId, taskId));

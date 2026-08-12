@@ -48,11 +48,6 @@ public class TaskVehicleMpt extends BaseRequest {
     private String vin;
 
     /**
-     * 车辆任务状态
-     */
-    private Integer state;
-
-    /**
      * 结果代码
      */
     private String resultCode;

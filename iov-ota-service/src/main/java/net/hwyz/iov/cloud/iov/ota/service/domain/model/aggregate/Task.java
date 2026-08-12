@@ -51,7 +51,6 @@ public class Task {
     @Setter private String cancelReason; // DISCARD/ABORT/ROLLBACK/COMPLIANCE/SUPERSEDED_BY
     @Setter private Instant actualReleaseTime;  // 实际发布时间（发布事务成功时间）
     @Setter private String lastScheduleError;   // 最近一次到点发布失败摘要
-    @Setter private String minimumProtocolVersion; // 最小协议版本（CR-012 §9.4，v2 任务准入）
     
     private Map<TaskRestrictionType, TaskRestriction> restrictions;
     private List<TaskStrategy> strategies;
@@ -468,36 +467,8 @@ public class Task {
     }
 
     /**
-     * 任务是否与车辆协议版本兼容（CR-012 §9.4）。
-     * <p>新任务按 minimumProtocolVersion 和车辆能力筛选；协议不兼容返回明确原因，不静默降级安全能力。
-     *
-     * @param vehicleProtocolVersion 车辆支持的协议版本（如 "1.0" / "2.0"）
-     * @return 兼容返回 true
+     * 任务是否与车辆协议版本兼容（已随 CR-013 移除 minimumProtocolVersion 分支）。
      */
-    public boolean isProtocolCompatible(String vehicleProtocolVersion) {
-        if (this.minimumProtocolVersion == null || this.minimumProtocolVersion.isBlank()) {
-            return true;
-        }
-        if (vehicleProtocolVersion == null || vehicleProtocolVersion.isBlank()) {
-            return false;
-        }
-        return compareProtocolVersion(vehicleProtocolVersion, this.minimumProtocolVersion);
-    }
-
-    /**
-     * 简单协议版本比较：vehVersion >= minVersion 返回 true（仅比较主版本号）。
-     */
-    private boolean compareProtocolVersion(String vehVersion, String minVersion) {
-        try {
-            int vehMajor = Integer.parseInt(vehVersion.split("\\.")[0]);
-            int minMajor = Integer.parseInt(minVersion.split("\\.")[0]);
-            return vehMajor >= minMajor;
-        } catch (Exception e) {
-            // 解析失败则按字符串比较兜底
-            return vehVersion.compareTo(minVersion) >= 0;
-        }
-    }
-    
     private boolean checkRestrictions(VehicleDo vehicle) {
         if (this.restrictions == null) return true;
         for (TaskRestriction restriction : this.restrictions.values()) {

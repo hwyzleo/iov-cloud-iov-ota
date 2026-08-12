@@ -3,3 +3,24 @@ server:
 
 mybatis-plus:
   type-aliases-package: net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po
+
+# ============================================================
+# CR-013: OTA Kafka 消息化（车外 MQTT、云内 Kafka）
+# 物理 Topic/分区/保留期由车云接入契约治理；IOV-OTA 仅维护 Envelope 与 payload 业务语义。
+# ============================================================
+ota:
+  kafka:
+    inbound:
+      enabled: true
+      topics: ${OTA_KAFKA_INBOUND_TOPICS:ota.cloud.event}
+      group-id: ${OTA_KAFKA_GROUP_ID:iov-cloud-iov-ota}
+      concurrency: ${OTA_KAFKA_INBOUND_CONCURRENCY:3}
+    outbound:
+      enabled: true
+      topic: ${OTA_KAFKA_OUTBOUND_TOPIC:ota.cloud.command}
+      max-retry: ${OTA_KAFKA_OUTBOUND_MAX_RETRY:5}
+      backoff-base-seconds: ${OTA_KAFKA_OUTBOUND_BACKOFF_BASE:1}
+      batch-size: ${OTA_KAFKA_OUTBOUND_BATCH_SIZE:100}
+      poll-interval-ms: ${OTA_KAFKA_OUTBOUND_POLL_INTERVAL:2000}
+    dlq:
+      topic: ${OTA_KAFKA_DLQ_TOPIC:ota.cloud.dlq}

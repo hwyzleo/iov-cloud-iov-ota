@@ -41,7 +41,6 @@ public class TaskPoAssembler {
         task.setUpgradeModeArg(net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.UpgradeModeArg.fromJson(taskPo.getUpgradeModeArg()));
         task.setState(TaskState.valOf(taskPo.getState()));
         task.setStateBeforePause(TaskState.valOf(taskPo.getStateBeforePause()));
-        task.setMinimumProtocolVersion(taskPo.getMinimumProtocolVersion());
         task.setDescription(taskPo.getDescription());
 
         List<TaskRestriction> restrictions = restrictionPoList.stream()
@@ -75,7 +74,6 @@ public class TaskPoAssembler {
         po.setUpgradeModeArg(task.getUpgradeModeArg() != null ? task.getUpgradeModeArg().toJson() : null);
         po.setState(task.getState().value);
         po.setStateBeforePause(task.getStateBeforePause() != null ? task.getStateBeforePause().value : null);
-        po.setMinimumProtocolVersion(task.getMinimumProtocolVersion());
         po.setDescription(task.getDescription());
         return po;
     }

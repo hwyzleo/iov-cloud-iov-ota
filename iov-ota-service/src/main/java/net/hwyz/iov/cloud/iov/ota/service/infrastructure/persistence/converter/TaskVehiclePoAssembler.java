@@ -29,23 +29,6 @@ public interface TaskVehiclePoAssembler {
      */
     @Mappings({
             @Mapping(target = "state", ignore = true),
-            @Mapping(target = "baselineCode", ignore = true),
-            @Mapping(target = "activityVersion", ignore = true),
-            @Mapping(target = "activityReleaseTime", ignore = true),
-            @Mapping(target = "upgradePurpose", ignore = true),
-            @Mapping(target = "upgradeFunction", ignore = true),
-            @Mapping(target = "activityStatement", ignore = true),
-            @Mapping(target = "taskStartTime", ignore = true),
-            @Mapping(target = "taskEndTime", ignore = true),
-            @Mapping(target = "upgradeMode", ignore = true),
-            @Mapping(target = "upgradeModeArg", ignore = true),
-            @Mapping(target = "strategyMap", ignore = true),
-            @Mapping(target = "softwareBuildVersionList", ignore = true),
-            @Mapping(target = "compatiblePnMap", ignore = true),
-            @Mapping(target = "upgradeNoticeArticleId", ignore = true),
-            @Mapping(target = "activityTermArticleId", ignore = true),
-            @Mapping(target = "privacyAgreementArticleId", ignore = true),
-            @Mapping(target = "taskState", ignore = true),
             @Mapping(target = "nextRetryAt", expression = "java(toInstant(taskVehiclePo.getNextRetryAt()))")
     })
     TaskVehicleDo toDo(TaskVehiclePo taskVehiclePo);
@@ -57,7 +40,6 @@ public interface TaskVehiclePoAssembler {
      * @return 数据对象
      */
     @Mappings({
-            @Mapping(target = "state", ignore = true),
             @Mapping(target = "activityId", ignore = true),
             @Mapping(target = "taskId", ignore = true),
             @Mapping(target = "vin", ignore = true),

@@ -40,7 +40,4 @@ public class DetectionCmd {
 
     /** 本地任务版本（车端持有的 taskRevision） */
     private Long localTaskRevision;
-
-    /** 协议版本 */
-    private String protocolVersion;
 }

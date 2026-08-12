@@ -123,10 +123,4 @@ public class TaskPo extends BasePo {
      */
     @TableField("state_before_pause")
     private Integer stateBeforePause;
-
-    /**
-     * 最小协议版本（CR-012 §9.4，v2 任务准入）
-     */
-    @TableField("minimum_protocol_version")
-    private String minimumProtocolVersion;
 }

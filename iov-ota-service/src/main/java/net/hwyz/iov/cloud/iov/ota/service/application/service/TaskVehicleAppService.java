@@ -3,9 +3,7 @@ package net.hwyz.iov.cloud.iov.ota.service.application.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskVehicleMapper;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskVehicleProcessMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskVehiclePo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskVehicleProcessPo;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
@@ -24,7 +22,6 @@ import java.util.Map;
 public class TaskVehicleAppService {
 
     private final TaskVehicleMapper taskVehicleDao;
-    private final TaskVehicleProcessMapper taskVehicleProcessDao;
 
     /**
      * 查询升级任务
@@ -51,14 +48,4 @@ public class TaskVehicleAppService {
     public TaskVehiclePo getTaskVehicleById(Long id) {
         return taskVehicleDao.selectPoById(id);
     }
-
-    /**
-     * 新增升级任务车辆升级过程
-     *
-     * @param taskVehicleProcess 升级任务车辆升级过程
-     */
-    public void addTaskVehicleProcess(TaskVehicleProcessPo taskVehicleProcess) {
-        taskVehicleProcessDao.insertPo(taskVehicleProcess);
-    }
-
 }

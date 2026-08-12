@@ -15,24 +15,23 @@
         <result column="activity_id" property="activityId" />
         <result column="task_id" property="taskId" />
         <result column="vin" property="vin" />
-        <result column="state" property="state" />
         <result column="result_code" property="resultCode" />
     </resultMap>
 
     <!-- 通用查询结果列 -->
     <sql id="baseColumnList">
-        id, activity_id, task_id, vin, state, result_code, 
+        id, activity_id, task_id, vin, result_code, 
         description, create_time, create_by, modify_time, modify_by, row_version, row_valid
     </sql>
 
     <!-- 插入 -->
     <insert id="insertPo" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO tb_task_vehicle (
-            id, activity_id, task_id, vin, state, result_code, 
+            id, activity_id, task_id, vin, result_code, 
             description, create_time, create_by, modify_time, modify_by, row_version, row_valid
         )
         VALUES (
-            #{id}, #{activityId}, #{taskId}, #{vin}, #{state}, #{resultCode}, 
+            #{id}, #{activityId}, #{taskId}, #{vin}, #{resultCode}, 
             #{description}, now(), #{createBy}, now(), #{modifyBy}, 1, 1
         )
     </insert>
@@ -40,13 +39,13 @@
     <!-- 批量插入 -->
     <insert id="batchInsertPo" useGeneratedKeys="true" keyProperty="id" parameterType="java.util.List">
         INSERT INTO tb_task_vehicle (
-            id, activity_id, task_id, vin, state, result_code, 
+            id, activity_id, task_id, vin, result_code, 
             description, create_time, create_by, modify_time, modify_by, row_version, row_valid
         )
         VALUES
         <foreach collection="list" item="item" index="index" separator=",">
         (
-            #{item.id}, #{item.activityId}, #{item.taskId}, #{item.vin}, #{item.state}, #{item.resultCode}, 
+            #{item.id}, #{item.activityId}, #{item.taskId}, #{item.vin}, #{item.resultCode}, 
             #{item.description}, now(), #{item.createBy}, now(), #{item.modifyBy}, 1, 1
         )
         </foreach>
@@ -63,9 +62,6 @@
         </if>
         <if test="vin != null and vin != ''">
             t.vin = #{vin},
-        </if>
-        <if test="state != null">
-            t.state = #{state},
         </if>
         <if test="resultCode != null and resultCode != ''">
             t.result_code = #{resultCode},
@@ -138,9 +134,6 @@
         </if>
         <if test="vin != null and vin != ''">
             AND t.vin = #{vin}
-        </if>
-        <if test="state != null">
-            AND t.state = #{state}
         </if>
         <if test="resultCode != null and resultCode != ''">
             AND t.result_code = #{resultCode}
