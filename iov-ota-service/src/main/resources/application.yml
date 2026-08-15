@@ -24,5 +24,10 @@ ota:
       backoff-base-seconds: ${OTA_KAFKA_OUTBOUND_BACKOFF_BASE:1}
       batch-size: ${OTA_KAFKA_OUTBOUND_BATCH_SIZE:100}
       poll-interval-ms: ${OTA_KAFKA_OUTBOUND_POLL_INTERVAL:2000}
+    delivery:
+      enabled: true
+      topic: ${OTA_KAFKA_DELIVERY_TOPIC:iov.vagw.delivery.fota}
+      group-id: ${OTA_KAFKA_DELIVERY_GROUP_ID:iov-cloud-iov-ota-delivery}
+      concurrency: ${OTA_KAFKA_DELIVERY_CONCURRENCY:2}
     dlq:
       topic: ${OTA_KAFKA_DLQ_TOPIC:iov.vagw.up.fota.dlq}

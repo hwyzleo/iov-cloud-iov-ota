@@ -10,10 +10,10 @@ import java.util.Date;
 import java.util.List;
 
 /**
- * Kafka 下行消息 Outbox 仓库（CR-013 §5/§6）
+ * Kafka 下行消息 Outbox 仓库（CR-014 §6/§8）
  *
- * <p>业务事务内写入领域状态与 Outbox 同事务提交；独立发布器轮询待发布行并生产到 Kafka。
- * 指数退避重试由发布器在失败时写入 next_retry_at 实现。
+ * <p>业务事务内写入领域状态与 Outbox（冻结 Envelope bytes）同事务提交；
+ * 独立发布器轮询待发布行并生产已持久化 bytes。指数退避重试由发布器写入 next_retry_at。
  *
  * @author hwyz_leo
  */
@@ -26,8 +26,8 @@ public class KafkaOutboxRepository {
 
     /**
      * 在业务事务内追加一条下行消息（与领域状态同事务提交）。
+     * Envelope bytes 必须在调用前冻结。
      *
-     * @param po Outbox 行
      * @return 生成的 Outbox 消息 ID
      */
     public Long append(KafkaOutboxPo po) {
@@ -46,8 +46,6 @@ public class KafkaOutboxRepository {
 
     /**
      * 原子认领待发布消息（PENDING -> PUBLISHING），避免重复生产。
-     *
-     * @return true 认领成功
      */
     public boolean claim(Long messageId) {
         return kafkaOutboxMapper.claim(messageId) > 0;
@@ -62,8 +60,6 @@ public class KafkaOutboxRepository {
 
     /**
      * 标记发布失败（重试计数+1，写入下次重试时间）。
-     *
-     * @param backoffSeconds 退避秒数（随重试次数指数增长）
      */
     public void markFailed(Long messageId, String reason, long backoffSeconds) {
         kafkaOutboxMapper.markFailed(messageId, reason,
@@ -75,5 +71,22 @@ public class KafkaOutboxRepository {
      */
     public void markDead(Long messageId, String reason) {
         kafkaOutboxMapper.markDead(messageId, reason);
+    }
+
+    /**
+     * 按传输 message_id 查询原 Outbox 消息（供投递受控重试关联）。
+     */
+    public KafkaOutboxPo findByMessageId(String messageId) {
+        return kafkaOutboxMapper.selectByMessageId(messageId);
+    }
+
+    /**
+     * 受控重试：重新入队原消息并写入下次重试时间（retry_count 递增，受上限约束）。
+     *
+     * @param retryAfterMs 建议重试间隔（毫秒）
+     */
+    public void requeue(Long id, long retryAfterMs) {
+        kafkaOutboxMapper.requeue(id,
+                Date.from(Instant.now().plusMillis(retryAfterMs)), "delivery-retry");
     }
 }

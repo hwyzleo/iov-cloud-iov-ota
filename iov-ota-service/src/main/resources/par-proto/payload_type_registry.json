@@ -1,0 +1,168 @@
+{
+  "service": "vehicle.fota",
+  "protocol_major": 1,
+  "payloadTypes": [
+    {
+      "payloadType": "vehicle.fota.v1.TaskCheckRequest",
+      "direction": "INBOUND",
+      "messageKind": "REQUEST",
+      "family": "TASK_CHECK",
+      "responsePayloadType": "vehicle.fota.v1.TaskCheckResponse"
+    },
+    {
+      "payloadType": "vehicle.fota.v1.ConsentReport",
+      "direction": "INBOUND",
+      "messageKind": "REQUEST",
+      "family": "CONSENT",
+      "responsePayloadType": "vehicle.fota.v1.ConsentResponse"
+    },
+    {
+      "payloadType": "vehicle.fota.v1.DownloadGrantRequest",
+      "direction": "INBOUND",
+      "messageKind": "REQUEST",
+      "family": "DOWNLOAD_GRANT",
+      "responsePayloadType": "vehicle.fota.v1.DownloadGrantResponse"
+    },
+    {
+      "payloadType": "vehicle.fota.v1.StageResultReport",
+      "direction": "INBOUND",
+      "messageKind": "REQUEST",
+      "family": "STAGE_RESULT",
+      "responsePayloadType": "vehicle.fota.v1.StageResultResponse"
+    },
+    {
+      "payloadType": "vehicle.fota.v1.InstallPermitRequest",
+      "direction": "INBOUND",
+      "messageKind": "REQUEST",
+      "family": "INSTALL_PERMIT",
+      "responsePayloadType": "vehicle.fota.v1.InstallPermitResponse"
+    },
+    {
+      "payloadType": "vehicle.fota.v1.ExecutionEvent",
+      "direction": "INBOUND",
+      "messageKind": "EVENT",
+      "family": "EXECUTION_EVENT",
+      "responsePayloadType": "vehicle.fota.v1.EventResponse"
+    },
+    {
+      "payloadType": "vehicle.fota.v1.ControlAckReport",
+      "direction": "INBOUND",
+      "messageKind": "REQUEST",
+      "family": "CONTROL_ACK",
+      "responsePayloadType": "vehicle.fota.v1.ControlAckResponse"
+    },
+    {
+      "payloadType": "vehicle.fota.v1.FinalResultReport",
+      "direction": "INBOUND",
+      "messageKind": "REQUEST",
+      "family": "FINAL_RESULT",
+      "responsePayloadType": "vehicle.fota.v1.FinalResultResponse"
+    },
+    {
+      "payloadType": "vehicle.fota.v1.LogGrantRequest",
+      "direction": "INBOUND",
+      "messageKind": "REQUEST",
+      "family": "LOG_GRANT",
+      "responsePayloadType": "vehicle.fota.v1.LogGrantResponse"
+    },
+    {
+      "payloadType": "vehicle.fota.v1.LogUploadResult",
+      "direction": "INBOUND",
+      "messageKind": "REQUEST",
+      "family": "LOG_RESULT",
+      "responsePayloadType": "vehicle.fota.v1.LogResultResponse"
+    },
+    {
+      "payloadType": "vehicle.fota.v1.ReconcileRequest",
+      "direction": "INBOUND",
+      "messageKind": "REQUEST",
+      "family": "RECONCILE",
+      "responsePayloadType": "vehicle.fota.v1.ReconcileResponse"
+    },
+    {
+      "payloadType": "vehicle.fota.v1.PolicyRequest",
+      "direction": "INBOUND",
+      "messageKind": "REQUEST",
+      "family": "POLICY",
+      "responsePayloadType": "vehicle.fota.v1.PolicyResponse"
+    },
+    {
+      "payloadType": "vehicle.fota.v1.TaskCheckResponse",
+      "direction": "OUTBOUND",
+      "messageKind": "RESPONSE",
+      "family": "TASK_CHECK"
+    },
+    {
+      "payloadType": "vehicle.fota.v1.ConsentResponse",
+      "direction": "OUTBOUND",
+      "messageKind": "RESPONSE",
+      "family": "CONSENT"
+    },
+    {
+      "payloadType": "vehicle.fota.v1.DownloadGrantResponse",
+      "direction": "OUTBOUND",
+      "messageKind": "RESPONSE",
+      "family": "DOWNLOAD_GRANT"
+    },
+    {
+      "payloadType": "vehicle.fota.v1.StageResultResponse",
+      "direction": "OUTBOUND",
+      "messageKind": "RESPONSE",
+      "family": "STAGE_RESULT"
+    },
+    {
+      "payloadType": "vehicle.fota.v1.InstallPermitResponse",
+      "direction": "OUTBOUND",
+      "messageKind": "RESPONSE",
+      "family": "INSTALL_PERMIT"
+    },
+    {
+      "payloadType": "vehicle.fota.v1.EventResponse",
+      "direction": "OUTBOUND",
+      "messageKind": "RESPONSE",
+      "family": "EXECUTION_EVENT"
+    },
+    {
+      "payloadType": "vehicle.fota.v1.ControlAckResponse",
+      "direction": "OUTBOUND",
+      "messageKind": "RESPONSE",
+      "family": "CONTROL_ACK"
+    },
+    {
+      "payloadType": "vehicle.fota.v1.FinalResultResponse",
+      "direction": "OUTBOUND",
+      "messageKind": "RESPONSE",
+      "family": "FINAL_RESULT"
+    },
+    {
+      "payloadType": "vehicle.fota.v1.LogGrantResponse",
+      "direction": "OUTBOUND",
+      "messageKind": "RESPONSE",
+      "family": "LOG_GRANT"
+    },
+    {
+      "payloadType": "vehicle.fota.v1.LogResultResponse",
+      "direction": "OUTBOUND",
+      "messageKind": "RESPONSE",
+      "family": "LOG_RESULT"
+    },
+    {
+      "payloadType": "vehicle.fota.v1.ReconcileResponse",
+      "direction": "OUTBOUND",
+      "messageKind": "RESPONSE",
+      "family": "RECONCILE"
+    },
+    {
+      "payloadType": "vehicle.fota.v1.PolicyResponse",
+      "direction": "OUTBOUND",
+      "messageKind": "RESPONSE",
+      "family": "POLICY"
+    },
+    {
+      "payloadType": "vehicle.fota.v1.ControlCommand",
+      "direction": "OUTBOUND",
+      "messageKind": "EVENT",
+      "family": "CONTROL"
+    }
+  ]
+}

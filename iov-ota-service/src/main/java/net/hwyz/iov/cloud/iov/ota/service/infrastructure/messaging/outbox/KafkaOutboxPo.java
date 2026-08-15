@@ -9,9 +9,11 @@ import lombok.*;
 import java.util.Date;
 
 /**
- * Kafka 下行消息 Outbox PO（CR-013 §6）
+ * Kafka 下行消息 Outbox PO（CR-014 §6/§8）
  *
- * <p>下行结果、命令和回执可靠生产；由独立发布器轮询 PENDING 行并生产到 Kafka。
+ * <p>首次创建即冻结完整序列化 Envelope bytes（envelope_bytes + envelope_sha256）；
+ * 重试只重发已持久化 bytes，不重建 Envelope、不改 message_id/关联链。
+ * 旧 CR-013 的 message_type/message_key/payload_json 已迁移为 legacy_* 列，禁止新写。
  *
  * @author hwyz_leo
  */
@@ -34,20 +36,33 @@ public class KafkaOutboxPo {
     @TableField("aggregate_id")
     private String aggregateId;
 
-    @TableField("message_type")
-    private String messageType;
+    /** 传输消息唯一 ID（首次创建时生成，重试不变） */
+    @TableField("message_id")
+    private String messageId;
 
-    @TableField("message_key")
-    private String messageKey;
+    /** 全限定 payload_type */
+    @TableField("payload_type")
+    private String payloadType;
 
+    /** REQUEST/RESPONSE/EVENT */
+    @TableField("message_kind")
+    private String messageKind;
+
+    /** 关联请求 correlation_id（RESPONSE 指向请求 message_id） */
     @TableField("correlation_id")
     private String correlationId;
 
+    /** 车架号（Kafka Key=Envelope.vin） */
     @TableField("vin")
     private String vin;
 
-    @TableField("payload_json")
-    private String payloadJson;
+    /** 冻结的完整序列化 Envelope bytes（重试复用） */
+    @TableField("envelope_bytes")
+    private byte[] envelopeBytes;
+
+    /** Envelope bytes SHA-256 */
+    @TableField("envelope_sha256")
+    private String envelopeSha256;
 
     @TableField("publish_state")
     private String publishState;

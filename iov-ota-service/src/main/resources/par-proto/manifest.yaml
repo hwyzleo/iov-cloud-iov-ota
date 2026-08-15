@@ -1,0 +1,16 @@
+# CR-014: PAR-PROTO release manifest（IOV-OTA 侧锁定）
+# canonical 源/注册表 hash 由 ParProtoReleaseGuard 在启动时重新计算并 fail-closed 比对。
+par_proto_release: 0.0.1-SNAPSHOT
+protocol_major: 1
+common_artifact: net.hwyz.iov.cloud.proto:proto-vehicle-common:0.0.1-SNAPSHOT
+common_proto_sha256: 6fada5b9d495def3825bea39c06c4989a2c8aae5c04c7eb87a38c9a7202c3741
+fota_artifact: net.hwyz.iov.cloud.proto:proto-fota:0.0.1-SNAPSHOT
+fota_proto_sha256: 9413605ce6096467837465d0ab31f4fea7b71900c2cbe02346b56fd40f7133d9
+proto_vagw_artifact: net.hwyz.iov.cloud.proto:proto-vagw:0.0.1-SNAPSHOT
+delivery_proto_sha256: d954d4661bf9d284a367eb01117550154368c5c91e90466158d82b43724b76db
+payload_type_registry_sha256: 294b27b3c88687f305cc3c2dad95116de10bfc3bd82c8f1cd643b6555f1e0c8f
+# 兼容矩阵：IOV-OTA 与 VAGW/VEH 使用同一 PAR-PROTO release 批准组合
+compatibility_matrix:
+  - consumer: IOV-OTA
+    artifacts: [proto-vehicle-common, proto-fota, proto-vagw]
+    release: 0.0.1-SNAPSHOT

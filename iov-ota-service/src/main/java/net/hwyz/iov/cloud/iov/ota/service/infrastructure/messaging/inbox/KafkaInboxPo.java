@@ -9,10 +9,11 @@ import lombok.*;
 import java.util.Date;
 
 /**
- * Kafka 上行消息 Inbox PO（CR-013 §6）
+ * Kafka 上行消息 Inbox PO（CR-014 §8）
  *
- * <p>上行 Kafka 消息幂等与处理结果索引，UK(consumer_name, business_key)。
- * 保存 message_id/message_type/schema_version/digest/topic/partition/offset/status/result_message_id。
+ * <p>UK(consumer_name, message_id) 幂等，envelope_sha256 区分「同 message_id 同摘要(幂等)」
+ * 与「同 message_id 异摘要(冲突隔离)」。保存 payload_type/message_kind/protocol_version/vin 供观测。
+ * 旧 CR-013 的 business_key/message_type/schema_version/payload_digest 已迁移为 legacy_* 列，禁止新写。
  *
  * @author hwyz_leo
  */
@@ -29,23 +30,33 @@ public class KafkaInboxPo {
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
+    /** 消费者/处理通道标识（=payload_type） */
     @TableField("consumer_name")
     private String consumerName;
 
-    @TableField("business_key")
-    private String businessKey;
-
+    /** 传输消息唯一 ID */
     @TableField("message_id")
     private String messageId;
 
-    @TableField("message_type")
-    private String messageType;
+    /** raw Envelope SHA-256（幂等判定） */
+    @TableField("envelope_sha256")
+    private String envelopeSha256;
 
-    @TableField("schema_version")
-    private Integer schemaVersion;
+    /** 全限定 payload_type */
+    @TableField("payload_type")
+    private String payloadType;
 
-    @TableField("payload_digest")
-    private String payloadDigest;
+    /** REQUEST/RESPONSE/EVENT */
+    @TableField("message_kind")
+    private String messageKind;
+
+    /** protocol version */
+    @TableField("protocol_version")
+    private String protocolVersion;
+
+    /** 车架号 */
+    @TableField("vin")
+    private String vin;
 
     @TableField("kafka_topic")
     private String kafkaTopic;

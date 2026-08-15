@@ -16,6 +16,8 @@
 
     <properties>
         <skipTests>false</skipTests>
+        <!-- CR-014: PAR-PROTO canonical Proto SSOT（common/fota/vagw 同 release 固定） -->
+        <par-proto.version>0.0.1-SNAPSHOT</par-proto.version>
     </properties>
 
     <dependencies>
@@ -64,6 +66,29 @@
         <dependency>
             <groupId>net.hwyz.iov.cloud.framework</groupId>
             <artifactId>framework-kafka-starter</artifactId>
+        </dependency>
+
+        <!-- CR-014: PAR-PROTO 车云协议制品（canonical Proto SSOT，禁止依赖 VEH-PROTO/本地 .proto）
+             common=Envelope；fota=FOTA 业务 payload；vagw=云内技术投递状态 -->
+        <dependency>
+            <groupId>net.hwyz.iov.cloud.proto</groupId>
+            <artifactId>proto-vehicle-common</artifactId>
+            <version>${par-proto.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>net.hwyz.iov.cloud.proto</groupId>
+            <artifactId>proto-fota</artifactId>
+            <version>${par-proto.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>net.hwyz.iov.cloud.proto</groupId>
+            <artifactId>proto-vagw</artifactId>
+            <version>${par-proto.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java-util</artifactId>
+            <version>3.25.5</version>
         </dependency>
 
     </dependencies>

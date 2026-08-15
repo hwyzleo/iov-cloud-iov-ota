@@ -21,6 +21,9 @@ public class OtaKafkaProperties {
     /** 下行生产 */
     private Outbound outbound = new Outbound();
 
+    /** VAGW 云内技术投递状态消费 */
+    private Delivery delivery = new Delivery();
+
     /** 死信 */
     private Dlq dlq = new Dlq();
 
@@ -50,6 +53,18 @@ public class OtaKafkaProperties {
         private int batchSize = 100;
         /** 轮询间隔（毫秒） */
         private long pollIntervalMs = 2000;
+    }
+
+    @Data
+    public static class Delivery {
+        /** 是否启用投递状态消费 */
+        private boolean enabled = true;
+        /** 技术投递状态 topic（iov.vagw.delivery.fota） */
+        private String topic = "iov.vagw.delivery.fota";
+        /** 消费组 */
+        private String groupId = "iov-cloud-iov-ota-delivery";
+        /** 并发消费者数 */
+        private int concurrency = 2;
     }
 
     @Data
