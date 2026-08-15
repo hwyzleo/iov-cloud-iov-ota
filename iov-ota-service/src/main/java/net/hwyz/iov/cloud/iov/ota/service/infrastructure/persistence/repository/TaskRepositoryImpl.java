@@ -30,6 +30,8 @@ import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskVehi
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -131,21 +133,44 @@ public class TaskRepositoryImpl implements TaskRepository {
             });
         }
 
-        restrictionPoList.forEach(po -> {
-            if (po.getId() != null) {
-                taskRestrictionMapper.updatePo(po);
-            } else {
-                taskRestrictionMapper.insertPo(po);
-            }
-        });
+        // 仅对内容发生变化的行执行更新，避免每次 save 全量重写子表造成 binlog 放大
+        List<TaskRestrictionPo> existingRestrictionPoList =
+                taskRestrictionMapper.selectPoByTaskId(task.getId().getValue());
+        Map<Long, TaskRestrictionPo> existingRestrictionById = existingRestrictionPoList.stream()
+                .collect(Collectors.toMap(TaskRestrictionPo::getId, po -> po, (a, b) -> a));
 
-        strategyPoList.forEach(po -> {
-            if (po.getId() != null) {
-                taskStrategyMapper.updatePo(po);
-            } else {
-                taskStrategyMapper.insertPo(po);
+        for (TaskRestrictionPo po : restrictionPoList) {
+            if (po.getId() == null) {
+                taskRestrictionMapper.insertPo(po);
+                continue;
             }
-        });
+            TaskRestrictionPo existing = existingRestrictionById.get(po.getId());
+            if (existing != null
+                    && Objects.equals(existing.getRestrictionType(), po.getRestrictionType())
+                    && Objects.equals(existing.getRestrictionExpression(), po.getRestrictionExpression())) {
+                continue; // 无变化，跳过写库
+            }
+            taskRestrictionMapper.updatePo(po);
+        }
+
+        List<TaskStrategyPo> existingStrategyPoList =
+                taskStrategyMapper.selectPoByTaskId(task.getId().getValue());
+        Map<Long, TaskStrategyPo> existingStrategyById = existingStrategyPoList.stream()
+                .collect(Collectors.toMap(TaskStrategyPo::getId, po -> po, (a, b) -> a));
+
+        for (TaskStrategyPo po : strategyPoList) {
+            if (po.getId() == null) {
+                taskStrategyMapper.insertPo(po);
+                continue;
+            }
+            TaskStrategyPo existing = existingStrategyById.get(po.getId());
+            if (existing != null
+                    && Objects.equals(existing.getStrategyType(), po.getStrategyType())
+                    && Objects.equals(existing.getStrategyExpression(), po.getStrategyExpression())) {
+                continue; // 无变化，跳过写库
+            }
+            taskStrategyMapper.updatePo(po);
+        }
 
         cacheService.setTask(task);
     }

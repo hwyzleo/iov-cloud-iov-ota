@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * 任务调度服务
@@ -47,6 +48,12 @@ public class TaskSchedulerService {
         
         for (Task task : scheduledTasks) {
             try {
+                // 按设计文档 §4.15.6：已超过任务结束时间且尚未发布的任务禁止发布，跳过不再每分钟重试
+                if (task.getEndTime() != null && !now.isBefore(task.getEndTime())) {
+                    log.warn("任务[{}]已超过结束时间[{}]且尚未发布，跳过自动发布（请人工取消或取消排程）",
+                            task.getId().getValue(), task.getEndTime());
+                    continue;
+                }
                 // 检查是否到达release_time
                 if (task.getReleaseTime() != null && !now.isBefore(task.getReleaseTime())) {
                     log.info("任务[{}]已到达计划发布时间[{}]，自动发布", task.getId().getValue(), task.getReleaseTime());
@@ -61,10 +68,10 @@ public class TaskSchedulerService {
                 failedCount++;
                 log.error("任务[{}]自动发布失败", task.getId().getValue(), e);
                 
-                // 记录失败摘要
+                // 记录失败摘要：仅在错误信息有变化时落库，避免持续失败时每分钟重复写入
                 try {
                     Task taskForError = taskRepository.getById(TaskId.of(task.getId().getValue())).orElse(null);
-                    if (taskForError != null) {
+                    if (taskForError != null && !Objects.equals(taskForError.getLastScheduleError(), e.getMessage())) {
                         taskForError.setLastScheduleError(e.getMessage());
                         taskRepository.save(taskForError);
                     }

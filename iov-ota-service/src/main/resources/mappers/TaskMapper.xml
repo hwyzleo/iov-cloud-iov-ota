@@ -212,6 +212,12 @@
         FROM tb_task t
         WHERE t.row_valid = 1
         <!-- 添加自定义条件 -->
+        <if test="state != null">
+            AND t.state = #{state}
+        </if>
+        <if test="activityId != null">
+            AND t.activity_id = #{activityId}
+        </if>
         ORDER BY t.id DESC
     </select>
 
