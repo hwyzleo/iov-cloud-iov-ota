@@ -35,7 +35,7 @@ class FotaEnvelopeFactoryTest {
     @DisplayName("RESPONSE：继承 request_id、correlation_id 指向请求 message_id、payload 强类型")
     void response_envelope_rules() throws InvalidProtocolBufferException {
         FotaMessageMetadata request = new FotaMessageMetadata(
-                "req-1", 1000L, "fota-1", "dev-1", "LSVAU2188N2ZG4G",
+                "req-1", 1000L, "fota-v1", "dev-1", "LSVAU2188N2ZG4G",
                 "1001", "2002", "ik-1", "vehicle.fota.v1.TaskCheckRequest",
                 "msg-1", null, MessageKind.MESSAGE_KIND_REQUEST, null, null);
 

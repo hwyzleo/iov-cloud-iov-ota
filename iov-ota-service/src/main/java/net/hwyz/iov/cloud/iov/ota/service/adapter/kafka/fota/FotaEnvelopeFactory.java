@@ -114,7 +114,7 @@ public class FotaEnvelopeFactory {
     }
 
     private String protocolVersion() {
-        return "fota-" + releaseGuard.registry().getProtocolMajor();
+        return releaseGuard.registry().getProtocolVersion();
     }
 
     private static String orEmpty(String s) {

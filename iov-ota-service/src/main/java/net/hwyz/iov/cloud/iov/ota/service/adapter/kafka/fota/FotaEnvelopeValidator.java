@@ -58,11 +58,12 @@ public class FotaEnvelopeValidator {
             throw OtaKafkaMessagingException.nonRecoverable(
                     "非法 service: " + envelope.getService());
         }
-        // 3. protocol major
-        int major = parseProtocolMajor(envelope.getProtocolVersion());
-        if (major != releaseGuard.registry().getProtocolMajor()) {
+        // 3. protocol_version：不透明版本串，按 SSOT canonical 整串精确匹配（禁止解析数值 major）
+        String expectedVersion = releaseGuard.registry().getProtocolVersion();
+        if (!expectedVersion.equals(envelope.getProtocolVersion())) {
             throw OtaKafkaMessagingException.nonRecoverable(
-                    "protocol major 不支持: " + envelope.getProtocolVersion());
+                    "protocol_version 不支持: " + envelope.getProtocolVersion()
+                            + "（期望 " + expectedVersion + "）");
         }
         // 4. 必填字段
         if (isBlank(envelope.getMessageId())) {
@@ -139,18 +140,6 @@ public class FotaEnvelopeValidator {
         }
         String name = kind.name();
         return name.startsWith("MESSAGE_KIND_") ? name.substring("MESSAGE_KIND_".length()) : name;
-    }
-
-    private static int parseProtocolMajor(String protocolVersion) {
-        if (protocolVersion == null) {
-            return -1;
-        }
-        String[] parts = protocolVersion.split("-");
-        try {
-            return Integer.parseInt(parts[parts.length - 1].trim());
-        } catch (NumberFormatException e) {
-            return -1;
-        }
     }
 
     private static boolean isBlank(String s) {

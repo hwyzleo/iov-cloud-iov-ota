@@ -32,7 +32,7 @@ class TaskCheckCommandHandlerTest {
     private final TaskDetectionAppService appService = mock(TaskDetectionAppService.class);
     private final TaskCheckCommandHandler handler = new TaskCheckCommandHandler(appService);
     private final FotaMessageMetadata md = new FotaMessageMetadata(
-            "req-1", 1000L, "fota-1", "dev-1", "LSVAU2188N2ZG4G",
+            "req-1", 1000L, "fota-v1", "dev-1", "LSVAU2188N2ZG4G",
             null, null, null, "vehicle.fota.v1.TaskCheckRequest",
             "msg-1", null, MessageKind.MESSAGE_KIND_REQUEST, null, null);
 

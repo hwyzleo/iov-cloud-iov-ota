@@ -54,7 +54,7 @@ class FotaEnvelopeValidatorTest {
     @Test
     @DisplayName("protocol major 不支持 → 不可恢复契约错误")
     void wrong_protocol_major_fails() {
-        VehicleMessageEnvelope e = envelopeBuilder().setProtocolVersion("fota-9").build();
+        VehicleMessageEnvelope e = envelopeBuilder().setProtocolVersion("fota-v9").build();
         assertNonRecoverable(() -> validator.validate(record(e.getVin(), e), e));
     }
 
@@ -105,7 +105,7 @@ class FotaEnvelopeValidatorTest {
         return VehicleMessageEnvelope.newBuilder()
                 .setRequestId("req-1")
                 .setTimestampMs(System.currentTimeMillis())
-                .setProtocolVersion("fota-1")
+                .setProtocolVersion("fota-v1")
                 .setDeviceId("dev-1")
                 .setVin("LSVAU2188N2ZG4G")
                 .setMessageId("msg-1")

@@ -32,6 +32,17 @@ public final class PayloadTypeRegistry {
         return protocolMajor;
     }
 
+    /**
+     * 车云消息协议版本串（SSOT canonical，形如 "fota-v1"）。
+     *
+     * <p>protocol_version 是不透明版本标识串：消费方按整串精确匹配，禁止从中解析数值 major
+     * （VEH-PROTO / iov-cloud-parent-proto SSOT）。此处由 manifest 校验过的 major 派生出
+     * canonical 串，major 升级时自动跟随（fota-v1 → fota-v2）。
+     */
+    public String getProtocolVersion() {
+        return "fota-v" + protocolMajor;
+    }
+
     /** 按全限定 payload_type 解析条目；未知类型返回 null（调用方 fail-closed）。 */
     public PayloadTypeEntry resolve(String payloadType) {
         return entriesByPayloadType.get(payloadType);

@@ -3,7 +3,7 @@
 par_proto_release: 0.0.1-SNAPSHOT
 protocol_major: 1
 common_artifact: net.hwyz.iov.cloud.proto:proto-vehicle-common:0.0.1-SNAPSHOT
-common_proto_sha256: 6fada5b9d495def3825bea39c06c4989a2c8aae5c04c7eb87a38c9a7202c3741
+common_proto_sha256: 5b6dbb6b981a95a98e06394f21f3b13a5ee52f1214b61c6cb02f56fd37932e6d
 fota_artifact: net.hwyz.iov.cloud.proto:proto-fota:0.0.1-SNAPSHOT
 fota_proto_sha256: 9413605ce6096467837465d0ab31f4fea7b71900c2cbe02346b56fd40f7133d9
 proto_vagw_artifact: net.hwyz.iov.cloud.proto:proto-vagw:0.0.1-SNAPSHOT

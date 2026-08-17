@@ -160,7 +160,7 @@ class FotaKafkaInboundIntegrationTest {
         return VehicleMessageEnvelope.newBuilder()
                 .setRequestId("req-1")
                 .setTimestampMs(System.currentTimeMillis())
-                .setProtocolVersion("fota-1")
+                .setProtocolVersion("fota-v1")
                 .setDeviceId("dev-1")
                 .setVin("LSVAU2188N2ZG4G")
                 .setMessageId("msg-1")
