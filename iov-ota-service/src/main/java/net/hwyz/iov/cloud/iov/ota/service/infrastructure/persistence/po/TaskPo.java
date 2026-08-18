@@ -59,6 +59,18 @@ public class TaskPo extends BasePo {
     private Long activityId;
 
     /**
+     * 活动内放量波次序（CR-015）
+     */
+    @TableField("sequence_no")
+    private Integer sequenceNo;
+
+    /**
+     * 前序任务ID（CR-015）
+     */
+    @TableField("previous_task_id")
+    private Long previousTaskId;
+
+    /**
      * 升级对象，普通任务时为文件代码，快速任务时为VIN
      */
     @TableField("target")

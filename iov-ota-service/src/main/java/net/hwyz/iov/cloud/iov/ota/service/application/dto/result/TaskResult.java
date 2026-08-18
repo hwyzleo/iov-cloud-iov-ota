@@ -21,6 +21,10 @@ public class TaskResult {
     
     private Long activityId;
     
+    private Integer sequenceNo;
+    
+    private Long previousTaskId;
+    
     private String target;
     
     private Instant startTime;

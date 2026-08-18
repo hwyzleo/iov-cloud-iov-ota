@@ -341,7 +341,7 @@ public class MptActivityController extends BaseController {
      * @return 结果
      */
     @Log(title = "升级活动管理", businessType = BusinessType.UPDATE)
-    @RequiresPermissions("ota:fota:task:cancel")
+    @RequiresPermissions("ota:fota:activity:cancel")
     @PostMapping("/{activityId}/action/cancel")
     public ApiResponse<Integer> cancel(@PathVariable Long activityId) {
         log.info("管理后台用户[{}]取消升级活动[{}]", SecurityUtils.getUsername(), activityId);

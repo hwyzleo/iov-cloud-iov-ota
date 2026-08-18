@@ -191,4 +191,30 @@
         DELETE FROM tb_task_vehicle
         WHERE task_id = #{taskId}
     </delete>
+
+    <!-- 按任务ID+车辆任务状态统计（CR-015 指标聚合） -->
+    <select id="countByTaskIdAndVehicleTaskStatus" resultType="int">
+        SELECT COUNT(*)
+        FROM tb_task_vehicle t
+        WHERE t.task_id = #{taskId}
+        AND t.vehicle_task_status = #{status}
+        AND t.row_valid = 1
+    </select>
+
+    <!-- 按任务ID统计车辆任务总数（CR-015 指标聚合） -->
+    <select id="countAllByTaskId" resultType="int">
+        SELECT COUNT(*)
+        FROM tb_task_vehicle t
+        WHERE t.task_id = #{taskId}
+        AND t.row_valid = 1
+    </select>
+
+    <!-- 按任务ID统计超时执行数（CR-015：关联 tb_task_vehicle_execution，GatewayDeliveryStatus 不计入） -->
+    <select id="countTimeoutExecutionByTaskId" resultType="int">
+        SELECT COUNT(*)
+        FROM tb_task_vehicle_execution e
+        JOIN tb_task_vehicle v ON v.id = e.vehicle_task_id
+        WHERE v.task_id = #{taskId}
+        AND e.status = 'TIMED_OUT'
+    </select>
 </mapper>

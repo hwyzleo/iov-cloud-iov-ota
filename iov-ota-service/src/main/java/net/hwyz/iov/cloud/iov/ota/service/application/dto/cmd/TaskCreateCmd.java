@@ -28,6 +28,12 @@ public class TaskCreateCmd {
     
     @NotNull(message = "活动ID不能为空")
     private Long activityId;
+
+    /** 活动内放量波次序（CR-015，同一活动下唯一） */
+    private Integer sequenceNo;
+
+    /** 前序任务ID（CR-015，多任务放行门禁软引用） */
+    private Long previousTaskId;
     
     @NotBlank(message = "目标定义不能为空")
     private String target;

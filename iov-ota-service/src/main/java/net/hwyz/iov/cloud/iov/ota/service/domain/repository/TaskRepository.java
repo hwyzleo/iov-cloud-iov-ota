@@ -24,7 +24,17 @@ public interface TaskRepository {
     List<Task> findScheduledTasks();
     
     void save(Task task);
-    
+
+    /**
+     * 排程更新（乐观锁：更新条件含当前 state 与 rowVersion，冲突返回 false）
+     */
+    boolean scheduleWithOptimisticLock(Task task, Integer expectedRowVersion);
+
+    /**
+     * 获取任务当前 rowVersion（乐观锁基准）
+     */
+    Integer getRowVersion(TaskId id);
+
     void delete(TaskId id);
     
     void deleteAll(List<TaskId> ids);

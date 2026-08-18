@@ -7,6 +7,8 @@ import org.apache.ibatis.annotations.Options;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
+import java.util.List;
+
 /**
  * VAGW 技术投递状态观测 DAO（CR-014 §8）
  *
@@ -29,4 +31,10 @@ public interface GatewayDeliveryObservationMapper {
     GatewayDeliveryObservationPo selectUnique(@Param("originalMessageId") String originalMessageId,
                                               @Param("stage") String stage,
                                               @Param("occurredAtMs") Long occurredAtMs);
+
+    @Select("SELECT * FROM tb_gateway_delivery_observation "
+            + "WHERE vin_hash = #{vinHash} "
+            + "ORDER BY occurred_at_ms DESC, id DESC LIMIT #{limit}")
+    List<GatewayDeliveryObservationPo> selectByVinHash(@Param("vinHash") String vinHash,
+                                                      @Param("limit") int limit);
 }

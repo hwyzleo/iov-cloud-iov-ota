@@ -45,7 +45,7 @@ public class MptConfigWordController extends BaseController {
      * @param configWord 配置字
      * @return 配置字列表
      */
-    @RequiresPermissions("ota:dota:configWord:list")
+    @RequiresPermissions("ota:fota:configWord:list")
     @GetMapping(value = "/list")
     public ApiResponse<PageResult<ConfigWordMpt>> list(ConfigWordMpt configWord) {
         log.info("管理后台用户[{}]分页查询配置字", SecurityUtils.getUsername());
@@ -77,7 +77,7 @@ public class MptConfigWordController extends BaseController {
      * @param configWordProfile 配置字配置文件
      * @return 配置字配置文件列表
      */
-    @RequiresPermissions("ota:dota:configWord:list")
+    @RequiresPermissions("ota:fota:configWord:list")
     @GetMapping(value = "/{configWordCode}/profile/list")
     public ApiResponse<PageResult<ConfigWordProfileMpt>> listProfile(@PathVariable String configWordCode, ConfigWordProfileMpt configWordProfile) {
         log.info("管理后台用户[{}]分页查询配置字[{}]配置文件", SecurityUtils.getUsername(), configWordCode);
@@ -94,7 +94,7 @@ public class MptConfigWordController extends BaseController {
      * @param configWordField 配置字字段
      * @return 配置字字段列表
      */
-    @RequiresPermissions("ota:dota:configWord:list")
+    @RequiresPermissions("ota:fota:configWord:list")
     @GetMapping(value = "/{configWordCode}/profile/{configWordProfileCode}/field/list")
     public ApiResponse<PageResult<ConfigWordFieldMpt>> listField(@PathVariable String configWordCode, @PathVariable String configWordProfileCode,
                                                                   ConfigWordFieldMpt configWordField) {
@@ -112,7 +112,7 @@ public class MptConfigWordController extends BaseController {
      * @param configWord 配置字
      */
     @Log(title = "配置字管理", businessType = BusinessType.EXPORT)
-    @RequiresPermissions("ota:dota:configWord:export")
+    @RequiresPermissions("ota:fota:configWord:export")
     @PostMapping("/export")
     public void export(HttpServletResponse response, ConfigWordMpt configWord) {
         log.info("管理后台用户[{}]导出配置字", SecurityUtils.getUsername());
@@ -124,7 +124,7 @@ public class MptConfigWordController extends BaseController {
      * @param configWordId 配置字ID
      * @return 配置字
      */
-    @RequiresPermissions("ota:dota:configWord:query")
+    @RequiresPermissions("ota:fota:configWord:query")
     @GetMapping(value = "/{configWordId}")
     public ApiResponse<ConfigWordMpt> getInfo(@PathVariable Long configWordId) {
         log.info("管理后台用户[{}]根据配置字ID[{}]获取配置字", SecurityUtils.getUsername(), configWordId);
@@ -139,7 +139,7 @@ public class MptConfigWordController extends BaseController {
      * @param configWordProfileId 配置字配置文件ID
      * @return 配置字配置文件
      */
-    @RequiresPermissions("ota:dota:configWord:query")
+    @RequiresPermissions("ota:fota:configWord:query")
     @GetMapping(value = "/{configWordCode}/profile/{configWordProfileId}")
     public ApiResponse<ConfigWordProfileMpt> getProfileInfo(@PathVariable String configWordCode, @PathVariable Long configWordProfileId) {
         log.info("管理后台用户[{}]根据配置字[{}]配置文件ID[{}]获取配置字配置文件", SecurityUtils.getUsername(), configWordCode, configWordProfileId);
@@ -154,7 +154,7 @@ public class MptConfigWordController extends BaseController {
      * @param configWordFieldId 配置字字段ID
      * @return 配置字字段
      */
-    @RequiresPermissions("ota:dota:configWord:query")
+    @RequiresPermissions("ota:fota:configWord:query")
     @GetMapping(value = "/{configWordCode}/profile/{configWordProfileCode}/field/{configWordFieldId}")
     public ApiResponse<ConfigWordFieldMpt> getFieldInfo(@PathVariable String configWordCode, @PathVariable String configWordProfileCode, @PathVariable Long configWordFieldId) {
         log.info("管理后台用户[{}]根据配置字[{}]配置文件[{}]字段ID[{}]获取配置字字段", SecurityUtils.getUsername(), configWordCode, configWordProfileCode, configWordFieldId);
@@ -169,7 +169,7 @@ public class MptConfigWordController extends BaseController {
      * @return 结果
      */
     @Log(title = "配置字管理", businessType = BusinessType.INSERT)
-    @RequiresPermissions("ota:dota:configWord:add")
+    @RequiresPermissions("ota:fota:configWord:add")
     @PostMapping
     public ApiResponse<Integer> add(@Validated @RequestBody ConfigWordMpt configWord) {
         log.info("管理后台用户[{}]新增配置字[{}]", SecurityUtils.getUsername(), configWord.getCode());
@@ -189,7 +189,7 @@ public class MptConfigWordController extends BaseController {
      * @return 结果
      */
     @Log(title = "配置字管理", businessType = BusinessType.UPDATE)
-    @RequiresPermissions("ota:dota:configWord:edit")
+    @RequiresPermissions("ota:fota:configWord:edit")
     @PostMapping("/{configWordCode}/profile")
     public ApiResponse<Integer> addProfile(@PathVariable String configWordCode, @Validated @RequestBody ConfigWordProfileMpt configWordProfile) {
         log.info("管理后台用户[{}]新增配置字[{}]配置文件[{}]", SecurityUtils.getUsername(), configWordCode, configWordProfile.getCode());
@@ -209,7 +209,7 @@ public class MptConfigWordController extends BaseController {
      * @return 结果
      */
     @Log(title = "配置字管理", businessType = BusinessType.UPDATE)
-    @RequiresPermissions("ota:dota:configWord:edit")
+    @RequiresPermissions("ota:fota:configWord:edit")
     @PostMapping("/{configWordCode}/profile/{configWordProfileCode}/field")
     public ApiResponse<Integer> addField(@PathVariable String configWordCode, @PathVariable String configWordProfileCode,
                                          @Validated @RequestBody ConfigWordFieldMpt configWordField) {
@@ -231,7 +231,7 @@ public class MptConfigWordController extends BaseController {
      * @return 结果
      */
     @Log(title = "配置字管理", businessType = BusinessType.UPDATE)
-    @RequiresPermissions("ota:dota:configWord:edit")
+    @RequiresPermissions("ota:fota:configWord:edit")
     @PutMapping
     public ApiResponse<Integer> edit(@Validated @RequestBody ConfigWordMpt configWord) {
         log.info("管理后台用户[{}]修改保存配置字[{}]", SecurityUtils.getUsername(), configWord.getCode());
@@ -251,7 +251,7 @@ public class MptConfigWordController extends BaseController {
      * @return 结果
      */
     @Log(title = "配置字管理", businessType = BusinessType.UPDATE)
-    @RequiresPermissions("ota:dota:configWord:edit")
+    @RequiresPermissions("ota:fota:configWord:edit")
     @PutMapping("/{configWordCode}/profile")
     public ApiResponse<Integer> editProfile(@PathVariable String configWordCode, @Validated @RequestBody ConfigWordProfileMpt configWordProfile) {
         log.info("管理后台用户[{}]修改保存配置字[{}]配置文件[{}]", SecurityUtils.getUsername(), configWordCode, configWordProfile.getCode());
@@ -271,7 +271,7 @@ public class MptConfigWordController extends BaseController {
      * @return 结果
      */
     @Log(title = "配置字管理", businessType = BusinessType.UPDATE)
-    @RequiresPermissions("ota:dota:configWord:edit")
+    @RequiresPermissions("ota:fota:configWord:edit")
     @PutMapping("/{configWordCode}/profile/{configWordProfileCode}/field")
     public ApiResponse<Integer> editField(@PathVariable String configWordCode, @PathVariable String configWordProfileCode,
                                           @Validated @RequestBody ConfigWordFieldMpt configWordField) {
@@ -293,7 +293,7 @@ public class MptConfigWordController extends BaseController {
      * @return 结果
      */
     @Log(title = "配置字管理", businessType = BusinessType.DELETE)
-    @RequiresPermissions("ota:dota:configWord:remove")
+    @RequiresPermissions("ota:fota:configWord:remove")
     @DeleteMapping("/{configWordIds}")
     public ApiResponse<Integer> remove(@PathVariable Long[] configWordIds) {
         log.info("管理后台用户[{}]删除配置字[{}]", SecurityUtils.getUsername(), configWordIds);
@@ -308,7 +308,7 @@ public class MptConfigWordController extends BaseController {
      * @return 结果
      */
     @Log(title = "配置字管理", businessType = BusinessType.UPDATE)
-    @RequiresPermissions("ota:dota:configWord:edit")
+    @RequiresPermissions("ota:fota:configWord:edit")
     @DeleteMapping("/{configWordCode}/field/{configWordProfileIds}")
     public ApiResponse<Integer> removeProfile(@PathVariable String configWordCode, @PathVariable Long[] configWordProfileIds) {
         log.info("管理后台用户[{}]删除配置字[{}]配置文件[{}]", SecurityUtils.getUsername(), configWordCode, configWordProfileIds);
@@ -323,7 +323,7 @@ public class MptConfigWordController extends BaseController {
      * @return 结果
      */
     @Log(title = "配置字管理", businessType = BusinessType.UPDATE)
-    @RequiresPermissions("ota:dota:configWord:edit")
+    @RequiresPermissions("ota:fota:configWord:edit")
     @DeleteMapping("/{configWordCode}/profile/{configWordProfileCode}/field/{configWordFieldIds}")
     public ApiResponse<Integer> removeField(@PathVariable String configWordCode, @PathVariable String configWordProfileCode,
                                              @PathVariable Long[] configWordFieldIds) {

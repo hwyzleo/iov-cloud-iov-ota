@@ -18,6 +18,7 @@ public class TaskReport {
 
     private Long id;
     private Long taskId;
+    private Integer reportVersion;
     private BigDecimal completeRate;
     private BigDecimal successRate;
     private String failCaseDist;

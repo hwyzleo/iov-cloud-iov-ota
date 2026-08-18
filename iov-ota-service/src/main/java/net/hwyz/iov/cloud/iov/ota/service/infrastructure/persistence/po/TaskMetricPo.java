@@ -37,12 +37,6 @@ public class TaskMetricPo extends BasePo {
     private Long taskId;
 
     /**
-     * 批次号
-     */
-    @TableField("batch_no")
-    private Integer batchNo;
-
-    /**
      * 成功数
      */
     @TableField("success_cnt")

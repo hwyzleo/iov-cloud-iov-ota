@@ -18,7 +18,6 @@ public class TaskMetric {
 
     private Long id;
     private Long taskId;
-    private Integer batchNo;
     private Integer successCnt;
     private Integer failCnt;
     private Integer timeoutCnt;

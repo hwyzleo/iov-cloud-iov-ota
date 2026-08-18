@@ -27,6 +27,8 @@ public class TaskAssembler {
             .state(task.getState().name())
             .phase(task.getPhase().name())
             .activityId(task.getActivityId().getValue())
+            .sequenceNo(task.getSequenceNo())
+            .previousTaskId(task.getPreviousTaskId())
             .target(task.getTarget())
             .startTime(task.getStartTime())
             .endTime(task.getEndTime())

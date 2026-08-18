@@ -45,6 +45,16 @@ public class TaskMpt extends BaseRequest {
     private Long activityId;
 
     /**
+     * 活动内放量波次序（CR-015，同一活动下唯一）
+     */
+    private Integer sequenceNo;
+
+    /**
+     * 前序任务ID（CR-015，多任务放行门禁软引用）
+     */
+    private Long previousTaskId;
+
+    /**
      * 目标定义（结构化JSON），支持三种模式：
      * - LIST: 手动选择车辆列表，格式 {"mode":"LIST","vins":["VIN001","VIN002"]}
      * - IMPORT: 文件导入车辆，格式 {"mode":"IMPORT","vins":[...]} 或 {"mode":"IMPORT","fileId":"xxx"}

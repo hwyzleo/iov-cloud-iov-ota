@@ -35,7 +35,7 @@ public class MptBaselineController extends BaseController {
      * @param baseline 基线
      * @return 基线列表
      */
-    @RequiresPermissions("ota:baseline:list")
+    @RequiresPermissions("ota:fota:baseline:list")
     @GetMapping(value = "/list")
     public ApiResponse<PageResult<BaselineMpt>> list(BaselineMpt baseline) {
         log.info("管理后台用户[{}]分页查询基线", SecurityUtils.getUsername());
@@ -52,7 +52,7 @@ public class MptBaselineController extends BaseController {
      * @param baselineId 基线ID
      * @return 基线
      */
-    @RequiresPermissions("ota:baseline:query")
+    @RequiresPermissions("ota:fota:baseline:query")
     @GetMapping(value = "/{baselineId}")
     public ApiResponse<BaselineMpt> getInfo(@PathVariable Long baselineId) {
         log.info("管理后台用户[{}]根据基线ID[{}]获取基线", SecurityUtils.getUsername(), baselineId);

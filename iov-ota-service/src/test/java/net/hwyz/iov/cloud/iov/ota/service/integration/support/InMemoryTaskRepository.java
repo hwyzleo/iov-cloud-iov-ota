@@ -48,6 +48,17 @@ public class InMemoryTaskRepository implements TaskRepository {
     }
 
     @Override
+    public boolean scheduleWithOptimisticLock(Task task, Integer expectedRowVersion) {
+        store.put(task.getId().getValue(), task);
+        return true;
+    }
+
+    @Override
+    public Integer getRowVersion(TaskId id) {
+        return 1;
+    }
+
+    @Override
     public void delete(TaskId id) {
         store.remove(id.getValue());
     }

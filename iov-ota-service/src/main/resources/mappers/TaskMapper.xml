@@ -16,6 +16,8 @@
         <result column="type" property="type" />
         <result column="phase" property="phase" />
         <result column="activity_id" property="activityId" />
+        <result column="sequence_no" property="sequenceNo" />
+        <result column="previous_task_id" property="previousTaskId" />
         <result column="target" property="target" />
         <result column="start_time" property="startTime" />
         <result column="end_time" property="endTime" />
@@ -28,18 +30,18 @@
 
     <!-- 通用查询结果列 -->
     <sql id="baseColumnList">
-        id, name, type, phase, activity_id, target, start_time, end_time, release_time, notice_type, upgrade_mode, upgrade_mode_arg, state,
+        id, name, type, phase, activity_id, sequence_no, previous_task_id, target, start_time, end_time, release_time, notice_type, upgrade_mode, upgrade_mode_arg, state,
         description, create_time, create_by, modify_time, modify_by, row_version, row_valid
     </sql>
 
     <!-- 插入 -->
     <insert id="insertPo" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO tb_task (
-            id, name, type, phase, activity_id, target, start_time, end_time, release_time, notice_type, upgrade_mode, upgrade_mode_arg, state,
+            id, name, type, phase, activity_id, sequence_no, previous_task_id, target, start_time, end_time, release_time, notice_type, upgrade_mode, upgrade_mode_arg, state,
             description, create_time, create_by, modify_time, modify_by, row_version, row_valid
         )
         VALUES (
-            #{id}, #{name}, #{type}, #{phase}, #{activityId}, #{target}, #{startTime}, #{endTime}, #{releaseTime}, #{noticeType}, #{upgradeMode}, #{upgradeModeArg}, #{state},
+            #{id}, #{name}, #{type}, #{phase}, #{activityId}, #{sequenceNo}, #{previousTaskId}, #{target}, #{startTime}, #{endTime}, #{releaseTime}, #{noticeType}, #{upgradeMode}, #{upgradeModeArg}, #{state},
             #{description}, now(), #{createBy}, now(), #{modifyBy}, 1, 1
         )
     </insert>
@@ -47,13 +49,13 @@
     <!-- 批量插入 -->
     <insert id="batchInsertPo" useGeneratedKeys="true" keyProperty="id" parameterType="java.util.List">
         INSERT INTO tb_task (
-            id, name, type, phase, activity_id, target, start_time, end_time, release_time, notice_type, upgrade_mode, upgrade_mode_arg, state,
+            id, name, type, phase, activity_id, sequence_no, previous_task_id, target, start_time, end_time, release_time, notice_type, upgrade_mode, upgrade_mode_arg, state,
             description, create_time, create_by, modify_time, modify_by, row_version, row_valid
         )
         VALUES
         <foreach collection="list" item="item" index="index" separator=",">
         (
-            #{item.id}, #{item.name}, #{item.type}, #{item.phase}, #{item.activityId}, #{item.target}, #{item.startTime}, #{item.endTime}, #{item.releaseTime}, #{item.noticeType}, #{item.upgradeMode}, #{item.upgradeModeArg}, #{item.state},
+            #{item.id}, #{item.name}, #{item.type}, #{item.phase}, #{item.activityId}, #{item.sequenceNo}, #{item.previousTaskId}, #{item.target}, #{item.startTime}, #{item.endTime}, #{item.releaseTime}, #{item.noticeType}, #{item.upgradeMode}, #{item.upgradeModeArg}, #{item.state},
             #{item.description}, now(), #{item.createBy}, now(), #{item.modifyBy}, 1, 1
         )
         </foreach>
@@ -73,6 +75,12 @@
         </if>
         <if test="activityId != null">
             t.activity_id = #{activityId},
+        </if>
+        <if test="sequenceNo != null">
+            t.sequence_no = #{sequenceNo},
+        </if>
+        <if test="previousTaskId != null">
+            t.previous_task_id = #{previousTaskId},
         </if>
         <if test="target != null and target != ''">
             t.target = #{target},
@@ -161,6 +169,12 @@
         <if test="activityId != null">
             AND t.activity_id = #{activityId}
         </if>
+        <if test="sequenceNo != null">
+            AND t.sequence_no = #{sequenceNo}
+        </if>
+        <if test="previousTaskId != null">
+            AND t.previous_task_id = #{previousTaskId}
+        </if>
         <if test="target != null and target != ''">
             AND t.target = #{target}
         </if>
@@ -228,4 +242,17 @@
         WHERE t.row_valid = 1
         <!-- 添加自定义条件 -->
     </select>
+
+    <!-- 排程更新（乐观锁：WHERE 含 state 与 rowVersion，冲突返回 0） -->
+    <update id="updateScheduleWithVersion">
+        UPDATE tb_task t SET
+        t.release_time = #{releaseTime},
+        t.state = #{newState},
+        t.row_version = t.row_version + 1,
+        t.modify_time = now()
+        WHERE t.id = #{id}
+          AND t.row_valid = 1
+          AND t.state = #{expectedState}
+          AND t.row_version = #{expectedRowVersion}
+    </update>
 </mapper>

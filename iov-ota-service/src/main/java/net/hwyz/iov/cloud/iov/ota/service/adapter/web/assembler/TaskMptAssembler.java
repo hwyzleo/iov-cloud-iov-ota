@@ -32,6 +32,8 @@ public class TaskMptAssembler {
             .name(vo.getName())
             .type(vo.getType() != null ? String.valueOf(vo.getType()) : null)
             .activityId(vo.getActivityId())
+            .sequenceNo(vo.getSequenceNo())
+            .previousTaskId(vo.getPreviousTaskId())
             .target(vo.getTarget())
             .startTime(toInstant(vo.getStartTime()))
             .endTime(toInstant(vo.getEndTime()))
@@ -80,6 +82,8 @@ public class TaskMptAssembler {
         vo.setPhase(TaskPhase.valueOf(result.getPhase()).getValue());
         vo.setState(TaskState.valueOf(result.getState()).value);
         vo.setActivityId(result.getActivityId());
+        vo.setSequenceNo(result.getSequenceNo());
+        vo.setPreviousTaskId(result.getPreviousTaskId());
         vo.setTarget(result.getTarget());
         vo.setStartTime(toDate(result.getStartTime()));
         vo.setEndTime(toDate(result.getEndTime()));
@@ -106,6 +110,8 @@ public class TaskMptAssembler {
         taskMpt.setType(taskPo.getType());
         taskMpt.setPhase(taskPo.getPhase());
         taskMpt.setActivityId(taskPo.getActivityId());
+        taskMpt.setSequenceNo(taskPo.getSequenceNo());
+        taskMpt.setPreviousTaskId(taskPo.getPreviousTaskId());
         taskMpt.setTarget(taskPo.getTarget());
         taskMpt.setStartTime(taskPo.getStartTime());
         taskMpt.setEndTime(taskPo.getEndTime());
@@ -166,6 +172,8 @@ public class TaskMptAssembler {
         taskPo.setType(taskMpt.getType());
         taskPo.setPhase(taskMpt.getPhase());
         taskPo.setActivityId(taskMpt.getActivityId());
+        taskPo.setSequenceNo(taskMpt.getSequenceNo());
+        taskPo.setPreviousTaskId(taskMpt.getPreviousTaskId());
         taskPo.setTarget(taskMpt.getTarget());
         taskPo.setStartTime(taskMpt.getStartTime());
         taskPo.setEndTime(taskMpt.getEndTime());

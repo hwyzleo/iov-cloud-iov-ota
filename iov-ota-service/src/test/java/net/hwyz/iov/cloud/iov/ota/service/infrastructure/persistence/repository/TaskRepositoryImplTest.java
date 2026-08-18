@@ -1,5 +1,6 @@
 package net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.repository;
 
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskState;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskStrategyType;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskType;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.UpgradeMode;
@@ -22,6 +23,8 @@ import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
+import java.util.Date;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -38,7 +41,6 @@ class TaskRepositoryImplTest {
     @Mock private TaskStrategyMapper taskStrategyMapper;
     @Mock private TaskVehicleMapper taskVehicleMapper;
     @Mock private TaskInstallConditionMapper taskInstallConditionMapper;
-    @Mock private TaskBatchMapper taskBatchMapper;
     @Mock private TaskMetricMapper taskMetricMapper;
     @Mock private TaskReportMapper taskReportMapper;
     @Mock private UserConsentMapper userConsentMapper;
@@ -154,6 +156,57 @@ class TaskRepositoryImplTest {
 
             verify(taskRestrictionMapper, never()).updatePo(any());
             verify(taskRestrictionMapper, never()).insertPo(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("scheduleWithOptimisticLock 排程乐观锁")
+    class ScheduleOptimisticLock {
+
+        @Test
+        @DisplayName("更新条件含 state 与 rowVersion，冲突返回 false")
+        void scheduleLock_passThroughParams() {
+            Task task = Task.create(TaskId.of(1L), "测试任务", TaskType.NORMAL, ActivityId.of(10L));
+            task.setState(TaskState.SCHEDULED);
+            task.setReleaseTime(Instant.parse("2026-08-20T00:00:00Z"));
+
+            when(taskMapper.updateScheduleWithVersion(
+                    1L, TaskState.APPROVED.value, 5,
+                    Date.from(Instant.parse("2026-08-20T00:00:00Z")),
+                    TaskState.SCHEDULED.value)).thenReturn(1);
+
+            boolean ok = repository.scheduleWithOptimisticLock(task, 5);
+
+            assertTrue(ok);
+            verify(taskMapper).updateScheduleWithVersion(
+                    1L, TaskState.APPROVED.value, 5,
+                    Date.from(Instant.parse("2026-08-20T00:00:00Z")),
+                    TaskState.SCHEDULED.value);
+        }
+
+        @Test
+        @DisplayName("影响行数为 0 -> 乐观锁冲突返回 false")
+        void scheduleLock_conflict_returnsFalse() {
+            Task task = Task.create(TaskId.of(1L), "测试任务", TaskType.NORMAL, ActivityId.of(10L));
+            task.setState(TaskState.SCHEDULED);
+            task.setReleaseTime(Instant.parse("2026-08-20T00:00:00Z"));
+
+            when(taskMapper.updateScheduleWithVersion(any(), any(), any(), any(), any())).thenReturn(0);
+
+            boolean ok = repository.scheduleWithOptimisticLock(task, 5);
+
+            assertFalse(ok);
+            verify(cacheService, never()).setTask(any());
+        }
+
+        @Test
+        @DisplayName("getRowVersion 从库内取当前版本")
+        void getRowVersion_readsCurrent() {
+            when(taskMapper.selectPoById(1L)).thenReturn(TaskPo.builder().id(1L).rowVersion(7).build());
+
+            Integer version = repository.getRowVersion(TaskId.of(1L));
+
+            assertEquals(7, version);
         }
     }
 }

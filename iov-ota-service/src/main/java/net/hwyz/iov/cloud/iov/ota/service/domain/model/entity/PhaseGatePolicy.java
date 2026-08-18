@@ -42,7 +42,8 @@ public class PhaseGatePolicy {
         }
         
         // 检查严重缺陷
-        if (!severeDefectAllowed && severeDefectCount != null && severeDefectCount > 0) {
+        boolean severeAllowed = Boolean.TRUE.equals(severeDefectAllowed);
+        if (!severeAllowed && severeDefectCount != null && severeDefectCount > 0) {
             return false;
         }
         

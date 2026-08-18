@@ -52,7 +52,7 @@ public class MptSoftwareBuildVersionController extends BaseController {
      * @param softwareBuildVersion 软件内部版本信息
      * @return 软件内部版本信息列表
      */
-    @RequiresPermissions("ota:pota:softwareBuildVersion:list")
+    @RequiresPermissions("ota:fota:softwareBuildVersion:list")
     @GetMapping(value = "/list")
     public ApiResponse<PageResult<SoftwareBuildVersionMpt>> list(SoftwareBuildVersionMpt softwareBuildVersion) {
         log.info("管理后台用户[{}]分页查询软件内部版本信息", SecurityUtils.getUsername());
@@ -80,7 +80,7 @@ public class MptSoftwareBuildVersionController extends BaseController {
      * @param softwarePackage        软件包
      * @return 软件包列表
      */
-    @RequiresPermissions("ota:pota:softwareBuildVersion:list")
+    @RequiresPermissions("ota:fota:softwareBuildVersion:list")
     @GetMapping(value = "/{softwareBuildVersionId}/listSoftwarePackage")
     public ApiResponse<List<SoftwarePackageMpt>> listSoftwarePackage(@PathVariable Long softwareBuildVersionId, SoftwarePackageMpt softwarePackage) {
         log.info("管理后台用户[{}]查询软件内部版本[{}]下软件包", SecurityUtils.getUsername(), softwareBuildVersionId);
@@ -97,7 +97,7 @@ public class MptSoftwareBuildVersionController extends BaseController {
      * @param softwareBuildVersion   软件零件版本信息
      * @return 依赖的软件零件版本列表
      */
-    @RequiresPermissions("ota:pota:softwareBuildVersion:list")
+    @RequiresPermissions("ota:fota:softwareBuildVersion:list")
     @GetMapping(value = "/{softwareBuildVersionId}/listDependency")
     public ApiResponse<List<SoftwareBuildVersionMpt>> listDependency(@PathVariable Long softwareBuildVersionId, SoftwareBuildVersionMpt softwareBuildVersion) {
         log.info("管理后台用户[{}]查询软件内部版本[{}]下依赖的软件零件版本", SecurityUtils.getUsername(), softwareBuildVersionId);
@@ -118,7 +118,7 @@ public class MptSoftwareBuildVersionController extends BaseController {
      * @param softwareBuildVersion 软件内部版本信息
      */
     @Log(title = "软件内部版本信息管理", businessType = BusinessType.EXPORT)
-    @RequiresPermissions("ota:pota:softwareBuildVersion:export")
+    @RequiresPermissions("ota:fota:softwareBuildVersion:export")
     @PostMapping("/export")
     public void export(HttpServletResponse response, SoftwareBuildVersionMpt softwareBuildVersion) {
         log.info("管理后台用户[{}]导出软件零件版本信息", SecurityUtils.getUsername());
@@ -130,7 +130,7 @@ public class MptSoftwareBuildVersionController extends BaseController {
      * @param softwareBuildVersionId 软件内部版本信息ID
      * @return 软件内部版本信息
      */
-    @RequiresPermissions("ota:pota:softwareBuildVersion:query")
+    @RequiresPermissions("ota:fota:softwareBuildVersion:query")
     @GetMapping(value = "/{softwareBuildVersionId}")
     public ApiResponse<SoftwareBuildVersionMpt> getInfo(@PathVariable Long softwareBuildVersionId) {
         log.info("管理后台用户[{}]根据软件内部版本信息ID[{}]获取软件内部版本信息", SecurityUtils.getUsername(), softwareBuildVersionId);
@@ -145,7 +145,7 @@ public class MptSoftwareBuildVersionController extends BaseController {
      * @return 结果
      */
     @Log(title = "软件内部版本信息管理", businessType = BusinessType.INSERT)
-    @RequiresPermissions("ota:pota:softwareBuildVersion:add")
+    @RequiresPermissions("ota:fota:softwareBuildVersion:add")
     @PostMapping
     public ApiResponse<Integer> add(@Validated @RequestBody SoftwareBuildVersionMpt softwareBuildVersion) {
         log.info("管理后台用户[{}]新增零件[{}]软件内部版本信息[{}]", SecurityUtils.getUsername(), softwareBuildVersion.getSoftwarePn(), softwareBuildVersion.getSoftwareBuildVer());
@@ -166,7 +166,7 @@ public class MptSoftwareBuildVersionController extends BaseController {
      * @return 结果
      */
     @Log(title = "软件内部版本信息管理", businessType = BusinessType.UPDATE)
-    @RequiresPermissions("ota:pota:softwareBuildVersion:edit")
+    @RequiresPermissions("ota:fota:softwareBuildVersion:edit")
     @PostMapping(value = "/{softwareBuildVersionId}/action/addSoftwarePackage/{softwarePackageIds}")
     public ApiResponse<Integer> addSoftwarePackage(@PathVariable Long softwareBuildVersionId, @PathVariable Long[] softwarePackageIds) {
         log.info("管理后台用户[{}]新增软件内部版本[{}]关联的软件包[{}]", SecurityUtils.getUsername(), softwareBuildVersionId, softwarePackageIds);
@@ -182,7 +182,7 @@ public class MptSoftwareBuildVersionController extends BaseController {
      * @return 结果
      */
     @Log(title = "软件内部版本信息管理", businessType = BusinessType.UPDATE)
-    @RequiresPermissions("ota:pota:softwareBuildVersion:edit")
+    @RequiresPermissions("ota:fota:softwareBuildVersion:edit")
     @PostMapping(value = "/{softwareBuildVersionId}/action/addDependency/{softwareBuildVersionIds}")
     public ApiResponse<Integer> addDependency(@PathVariable Long softwareBuildVersionId, @PathVariable Long[] softwareBuildVersionIds, @RequestParam Integer adaptiveLevel) {
         log.info("管理后台用户[{}]新增软件内部版本[{}]依赖的软件内部版本[{}]", SecurityUtils.getUsername(), softwareBuildVersionId, softwareBuildVersionIds);
@@ -196,7 +196,7 @@ public class MptSoftwareBuildVersionController extends BaseController {
      * @return 结果
      */
     @Log(title = "软件内部版本信息管理", businessType = BusinessType.UPDATE)
-    @RequiresPermissions("ota:pota:softwareBuildVersion:edit")
+    @RequiresPermissions("ota:fota:softwareBuildVersion:edit")
     @PutMapping
     public ApiResponse<Integer> edit(@Validated @RequestBody SoftwareBuildVersionMpt softwareBuildVersion) {
         log.info("管理后台用户[{}]修改保存零件[{}]软件内部版本信息[{}]", SecurityUtils.getUsername(), softwareBuildVersion.getSoftwarePn(), softwareBuildVersion.getSoftwareBuildVer());
@@ -218,7 +218,7 @@ public class MptSoftwareBuildVersionController extends BaseController {
      * @return 结果
      */
     @Log(title = "软件内部版本信息管理", businessType = BusinessType.UPDATE)
-    @RequiresPermissions("ota:pota:softwareBuildVersion:edit")
+    @RequiresPermissions("ota:fota:softwareBuildVersion:edit")
     @PostMapping(value = "/{softwareBuildVersionId}/action/editDependency/{softwareBuildVersionIds}")
     public ApiResponse<Integer> editDependency(@PathVariable Long softwareBuildVersionId, @PathVariable Long[] softwareBuildVersionIds, @RequestParam Integer adaptiveLevel) {
         log.info("管理后台用户[{}]修改保存软件内部版本[{}]依赖的软件内部版本[{}]", SecurityUtils.getUsername(), softwareBuildVersionId, softwareBuildVersionIds);
@@ -232,7 +232,7 @@ public class MptSoftwareBuildVersionController extends BaseController {
      * @return 结果
      */
     @Log(title = "软件内部版本信息管理", businessType = BusinessType.DELETE)
-    @RequiresPermissions("ota:pota:softwareBuildVersion:remove")
+    @RequiresPermissions("ota:fota:softwareBuildVersion:remove")
     @DeleteMapping("/{softwareBuildVersionIds}")
     public ApiResponse<Integer> remove(@PathVariable Long[] softwareBuildVersionIds) {
         log.info("管理后台用户[{}]删除软件内部版本信息[{}]", SecurityUtils.getUsername(), softwareBuildVersionIds);
@@ -247,7 +247,7 @@ public class MptSoftwareBuildVersionController extends BaseController {
      * @return 结果
      */
     @Log(title = "软件内部版本信息管理", businessType = BusinessType.UPDATE)
-    @RequiresPermissions("ota:pota:softwareBuildVersion:edit")
+    @RequiresPermissions("ota:fota:softwareBuildVersion:edit")
     @PostMapping(value = "/{softwareBuildVersionId}/action/removeSoftwarePackage/{softwarePackageIds}")
     public ApiResponse<Integer> removeSoftwarePackage(@PathVariable Long softwareBuildVersionId, @PathVariable Long[] softwarePackageIds) {
         log.info("管理后台用户[{}]删除软件内部版本[{}]关联的软件包[{}]", SecurityUtils.getUsername(), softwareBuildVersionId, softwarePackageIds);
@@ -262,7 +262,7 @@ public class MptSoftwareBuildVersionController extends BaseController {
      * @return 结果
      */
     @Log(title = "软件内部版本信息管理", businessType = BusinessType.UPDATE)
-    @RequiresPermissions("ota:pota:softwareBuildVersion:edit")
+    @RequiresPermissions("ota:fota:softwareBuildVersion:edit")
     @PostMapping(value = "/{softwareBuildVersionId}/action/removeDependency/{softwareBuildVersionIds}")
     public ApiResponse<Integer> removeDependency(@PathVariable Long softwareBuildVersionId, @PathVariable Long[] softwareBuildVersionIds) {
         log.info("管理后台用户[{}]删除软件内部版本[{}]依赖的软件内部版本[{}]", SecurityUtils.getUsername(), softwareBuildVersionId, softwareBuildVersionIds);
@@ -272,7 +272,7 @@ public class MptSoftwareBuildVersionController extends BaseController {
     // ==================== CR-004: 发布工作流状态流转 ====================
 
     @Log(title = "软件内部版本信息管理", businessType = BusinessType.UPDATE)
-    @RequiresPermissions("ota:pota:softwareBuildVersion:edit")
+    @RequiresPermissions("ota:fota:softwareBuildVersion:edit")
     @PostMapping(value = "/{softwareBuildVersionId}/action/release")
     public ApiResponse<Integer> release(@PathVariable Long softwareBuildVersionId) {
         log.info("管理后台用户[{}]发布软件内部版本[{}]", SecurityUtils.getUsername(), softwareBuildVersionId);
@@ -280,7 +280,7 @@ public class MptSoftwareBuildVersionController extends BaseController {
     }
 
     @Log(title = "软件内部版本信息管理", businessType = BusinessType.UPDATE)
-    @RequiresPermissions("ota:pota:softwareBuildVersion:edit")
+    @RequiresPermissions("ota:fota:softwareBuildVersion:edit")
     @PostMapping(value = "/{softwareBuildVersionId}/action/deprecate")
     public ApiResponse<Integer> deprecate(@PathVariable Long softwareBuildVersionId) {
         log.info("管理后台用户[{}]停用软件内部版本[{}]", SecurityUtils.getUsername(), softwareBuildVersionId);
@@ -288,7 +288,7 @@ public class MptSoftwareBuildVersionController extends BaseController {
     }
 
     @Log(title = "软件内部版本信息管理", businessType = BusinessType.UPDATE)
-    @RequiresPermissions("ota:pota:softwareBuildVersion:edit")
+    @RequiresPermissions("ota:fota:softwareBuildVersion:edit")
     @PostMapping(value = "/{softwareBuildVersionId}/action/retire")
     public ApiResponse<Integer> retire(@PathVariable Long softwareBuildVersionId) {
         log.info("管理后台用户[{}]退役软件内部版本[{}]", SecurityUtils.getUsername(), softwareBuildVersionId);
@@ -297,7 +297,7 @@ public class MptSoftwareBuildVersionController extends BaseController {
 
     // ==================== CR-004: 测试报告管理 ====================
 
-    @RequiresPermissions("ota:pota:softwareBuildVersion:list")
+    @RequiresPermissions("ota:fota:softwareBuildVersion:list")
     @GetMapping(value = "/{softwareBuildVersionId}/listTestReport")
     public ApiResponse<List<SoftwareBuildVersionTestReportPo>> listTestReport(@PathVariable Long softwareBuildVersionId) {
         log.info("管理后台用户[{}]查询软件内部版本[{}]测试报告", SecurityUtils.getUsername(), softwareBuildVersionId);
@@ -305,7 +305,7 @@ public class MptSoftwareBuildVersionController extends BaseController {
     }
 
     @Log(title = "软件内部版本信息管理", businessType = BusinessType.INSERT)
-    @RequiresPermissions("ota:pota:softwareBuildVersion:edit")
+    @RequiresPermissions("ota:fota:softwareBuildVersion:edit")
     @PostMapping(value = "/{softwareBuildVersionId}/action/addTestReport")
     public ApiResponse<Integer> addTestReport(@PathVariable Long softwareBuildVersionId, @Validated @RequestBody SoftwareBuildVersionTestReportPo testReport) {
         log.info("管理后台用户[{}]新增软件内部版本[{}]测试报告", SecurityUtils.getUsername(), softwareBuildVersionId);
@@ -315,7 +315,7 @@ public class MptSoftwareBuildVersionController extends BaseController {
     }
 
     @Log(title = "软件内部版本信息管理", businessType = BusinessType.DELETE)
-    @RequiresPermissions("ota:pota:softwareBuildVersion:edit")
+    @RequiresPermissions("ota:fota:softwareBuildVersion:edit")
     @DeleteMapping(value = "/{softwareBuildVersionId}/testReport/{testReportIds}")
     public ApiResponse<Integer> removeTestReport(@PathVariable Long softwareBuildVersionId, @PathVariable Long[] testReportIds) {
         log.info("管理后台用户[{}]删除软件内部版本[{}]测试报告[{}]", SecurityUtils.getUsername(), softwareBuildVersionId, testReportIds);
@@ -328,7 +328,7 @@ public class MptSoftwareBuildVersionController extends BaseController {
 
     // ==================== CR-004: 软硬件适配矩阵管理 ====================
 
-    @RequiresPermissions("ota:pota:softwareBuildVersion:list")
+    @RequiresPermissions("ota:fota:softwareBuildVersion:list")
     @GetMapping(value = "/{softwareBuildVersionId}/listAdaptation")
     public ApiResponse<List<SoftwareBuildVersionAdaptationPo>> listAdaptation(@PathVariable Long softwareBuildVersionId) {
         log.info("管理后台用户[{}]查询软件内部版本[{}]适配矩阵", SecurityUtils.getUsername(), softwareBuildVersionId);
@@ -336,7 +336,7 @@ public class MptSoftwareBuildVersionController extends BaseController {
     }
 
     @Log(title = "软件内部版本信息管理", businessType = BusinessType.UPDATE)
-    @RequiresPermissions("ota:pota:softwareBuildVersion:edit")
+    @RequiresPermissions("ota:fota:softwareBuildVersion:edit")
     @PostMapping(value = "/{softwareBuildVersionId}/action/saveAdaptation")
     public ApiResponse<Integer> saveAdaptation(@PathVariable Long softwareBuildVersionId, @Validated @RequestBody List<SoftwareBuildVersionAdaptationPo> adaptations) {
         log.info("管理后台用户[{}]保存软件内部版本[{}]适配矩阵", SecurityUtils.getUsername(), softwareBuildVersionId);

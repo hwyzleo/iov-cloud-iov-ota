@@ -30,6 +30,8 @@ public class TaskPoAssembler {
         task.setType(TaskType.valOf(taskPo.getType()));
         task.setPhase(TaskPhase.valOf(taskPo.getPhase()));
         task.setActivityId(ActivityId.of(taskPo.getActivityId()));
+        task.setSequenceNo(taskPo.getSequenceNo());
+        task.setPreviousTaskId(taskPo.getPreviousTaskId());
         task.setTarget(taskPo.getTarget());
         task.setStartTime(toInstant(taskPo.getStartTime()));
         task.setEndTime(toInstant(taskPo.getEndTime()));
@@ -63,6 +65,8 @@ public class TaskPoAssembler {
         po.setType(task.getType().getValue());
         po.setPhase(task.getPhase().getValue());
         po.setActivityId(task.getActivityId().getValue());
+        po.setSequenceNo(task.getSequenceNo());
+        po.setPreviousTaskId(task.getPreviousTaskId());
         po.setTarget(task.getTarget());
         po.setStartTime(toDate(task.getStartTime()));
         po.setEndTime(toDate(task.getEndTime()));

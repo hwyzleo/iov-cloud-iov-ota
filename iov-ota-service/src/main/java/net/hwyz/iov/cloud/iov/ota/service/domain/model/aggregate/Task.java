@@ -34,6 +34,10 @@ public class Task {
     @Setter private TaskType type;
     @Setter private TaskPhase phase;
     @Setter private ActivityId activityId;
+    /** 活动内放量波次序（CR-015，同一 Activity 下唯一） */
+    @Setter private Integer sequenceNo;
+    /** 前序任务ID（CR-015，多任务放行门禁软引用） */
+    @Setter private Long previousTaskId;
     @Setter private String target;
     @Setter private Set<Vin> vehicles;
     @Setter private Instant startTime;
@@ -336,6 +340,15 @@ public class Task {
         pendingEvents.add(new TaskFinishedEvent(this.id, this.name));
 
         log.info("任务[{}]已结束", id.getValue());
+    }
+
+    /**
+     * 任务是否处于终态（CR-015，用于生成正式报告）
+     */
+    public boolean isTerminal() {
+        return this.state == TaskState.COMPLETED
+                || this.state == TaskState.CANCELED
+                || this.state == TaskState.SUPERSEDED;
     }
     
     /**

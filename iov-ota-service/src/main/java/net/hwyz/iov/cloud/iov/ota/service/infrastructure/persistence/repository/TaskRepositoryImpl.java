@@ -14,7 +14,6 @@ import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.Task
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskStrategyMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskVehicleMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskInstallConditionMapper;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskBatchMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskMetricMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskReportMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.UserConsentMapper;
@@ -45,7 +44,6 @@ public class TaskRepositoryImpl implements TaskRepository {
     private final TaskStrategyMapper taskStrategyMapper;
     private final TaskVehicleMapper taskVehicleMapper;
     private final TaskInstallConditionMapper taskInstallConditionMapper;
-    private final TaskBatchMapper taskBatchMapper;
     private final TaskMetricMapper taskMetricMapper;
     private final TaskReportMapper taskReportMapper;
     private final UserConsentMapper userConsentMapper;
@@ -176,6 +174,32 @@ public class TaskRepositoryImpl implements TaskRepository {
     }
 
     @Override
+    public boolean scheduleWithOptimisticLock(Task task, Integer expectedRowVersion) {
+        TaskState newState = task.getState();
+        if (newState != TaskState.SCHEDULED) {
+            // 仅支持 APPROVED -> SCHEDULED 的排程更新
+            throw new IllegalStateException("乐观锁排程更新仅支持进入 SCHEDULED 状态");
+        }
+        int affected = taskMapper.updateScheduleWithVersion(
+                task.getId().getValue(),
+                TaskState.APPROVED.value,
+                expectedRowVersion,
+                task.getReleaseTime() != null ? java.util.Date.from(task.getReleaseTime()) : null,
+                TaskState.SCHEDULED.value);
+        if (affected > 0) {
+            cacheService.setTask(task);
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public Integer getRowVersion(TaskId id) {
+        TaskPo po = taskMapper.selectPoById(id.getValue());
+        return po != null ? po.getRowVersion() : null;
+    }
+
+    @Override
     public void delete(TaskId id) {
         deleteAll(List.of(id));
     }
@@ -200,9 +224,6 @@ public class TaskRepositoryImpl implements TaskRepository {
             taskRestrictionMapper.deleteByTaskId(taskId);
             taskStrategyMapper.deleteByTaskId(taskId);
             taskInstallConditionMapper.deleteByTaskId(taskId);
-            taskBatchMapper.delete(
-                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskBatchPo>()
-                    .eq(net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskBatchPo::getTaskId, taskId));
             taskMetricMapper.delete(
                 new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskMetricPo>()
                     .eq(net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskMetricPo::getTaskId, taskId));

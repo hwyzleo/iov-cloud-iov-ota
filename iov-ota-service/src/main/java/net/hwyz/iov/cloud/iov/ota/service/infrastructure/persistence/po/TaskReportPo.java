@@ -37,6 +37,12 @@ public class TaskReportPo extends BasePo {
     private Long taskId;
 
     /**
+     * 报告版本（幂等）
+     */
+    @TableField("report_version")
+    private Integer reportVersion;
+
+    /**
      * 完成率
      */
     @TableField("complete_rate")

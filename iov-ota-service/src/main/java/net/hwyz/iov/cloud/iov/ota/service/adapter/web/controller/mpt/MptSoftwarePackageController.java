@@ -39,7 +39,7 @@ public class MptSoftwarePackageController extends BaseController {
      * @param softwarePackage 软件包信息
      * @return 软件包信息列表
      */
-    @RequiresPermissions("ota:pota:softwarePackage:list")
+    @RequiresPermissions("ota:fota:softwarePackage:list")
     @GetMapping(value = "/list")
     public ApiResponse<PageResult<SoftwarePackageMpt>> list(SoftwarePackageMpt softwarePackage) {
         log.info("管理后台用户[{}]分页查询软件包信息", SecurityUtils.getUsername());
@@ -57,7 +57,7 @@ public class MptSoftwarePackageController extends BaseController {
      * @param softwarePackage 软件包信息
      */
     @Log(title = "软件包信息管理", businessType = BusinessType.EXPORT)
-    @RequiresPermissions("ota:pota:softwarePackage:export")
+    @RequiresPermissions("ota:fota:softwarePackage:export")
     @PostMapping("/export")
     public void export(HttpServletResponse response, SoftwarePackageMpt softwarePackage) {
         log.info("管理后台用户[{}]导出软件包信息", SecurityUtils.getUsername());
@@ -69,7 +69,7 @@ public class MptSoftwarePackageController extends BaseController {
      * @param softwarePackageId 软件包信息ID
      * @return 软件包信息
      */
-    @RequiresPermissions("ota:pota:softwarePackage:query")
+    @RequiresPermissions("ota:fota:softwarePackage:query")
     @GetMapping(value = "/{softwarePackageId}")
     public ApiResponse<SoftwarePackageMpt> getInfo(@PathVariable Long softwarePackageId) {
         log.info("管理后台用户[{}]根据软件包信息ID[{}]获取软件包信息", SecurityUtils.getUsername(), softwarePackageId);
@@ -84,7 +84,7 @@ public class MptSoftwarePackageController extends BaseController {
      * @return 结果
      */
     @Log(title = "软件包信息管理", businessType = BusinessType.INSERT)
-    @RequiresPermissions("ota:pota:softwarePackage:add")
+    @RequiresPermissions("ota:fota:softwarePackage:add")
     @PostMapping
     public ApiResponse<Integer> add(@Validated @RequestBody SoftwarePackageMpt softwarePackage) {
         log.info("管理后台用户[{}]新增软件包信息[{}]", SecurityUtils.getUsername(), softwarePackage.getPackageCode());
@@ -100,7 +100,7 @@ public class MptSoftwarePackageController extends BaseController {
      * @return 结果
      */
     @Log(title = "软件包信息管理", businessType = BusinessType.UPDATE)
-    @RequiresPermissions("ota:pota:softwarePackage:edit")
+    @RequiresPermissions("ota:fota:softwarePackage:edit")
     @PutMapping
     public ApiResponse<Integer> edit(@Validated @RequestBody SoftwarePackageMpt softwarePackage) {
         log.info("管理后台用户[{}]修改保存软件包信息[{}]", SecurityUtils.getUsername(), softwarePackage.getPackageCode());
@@ -116,7 +116,7 @@ public class MptSoftwarePackageController extends BaseController {
      * @return 结果
      */
     @Log(title = "软件包信息管理", businessType = BusinessType.DELETE)
-    @RequiresPermissions("ota:pota:softwarePartVersion:remove")
+    @RequiresPermissions("ota:fota:softwarePackage:remove")
     @DeleteMapping("/{softwarePackageIds}")
     public ApiResponse<Integer> remove(@PathVariable Long[] softwarePackageIds) {
         log.info("管理后台用户[{}]删除软件包信息[{}]", SecurityUtils.getUsername(), softwarePackageIds);
@@ -126,7 +126,7 @@ public class MptSoftwarePackageController extends BaseController {
     // ==================== CR-004: 制品可用性状态流转 ====================
 
     @Log(title = "软件包信息管理", businessType = BusinessType.UPDATE)
-    @RequiresPermissions("ota:pota:softwarePackage:edit")
+    @RequiresPermissions("ota:fota:softwarePackage:edit")
     @PostMapping(value = "/{softwarePackageId}/action/deprecate")
     public ApiResponse<Integer> deprecate(@PathVariable Long softwarePackageId) {
         log.info("管理后台用户[{}]停用软件包[{}]", SecurityUtils.getUsername(), softwarePackageId);
@@ -134,7 +134,7 @@ public class MptSoftwarePackageController extends BaseController {
     }
 
     @Log(title = "软件包信息管理", businessType = BusinessType.UPDATE)
-    @RequiresPermissions("ota:pota:softwarePackage:edit")
+    @RequiresPermissions("ota:fota:softwarePackage:edit")
     @PostMapping(value = "/{softwarePackageId}/action/revoke")
     public ApiResponse<Integer> revoke(@PathVariable Long softwarePackageId) {
         log.info("管理后台用户[{}]吊销软件包[{}]", SecurityUtils.getUsername(), softwarePackageId);
@@ -142,7 +142,7 @@ public class MptSoftwarePackageController extends BaseController {
     }
 
     @Log(title = "软件包信息管理", businessType = BusinessType.UPDATE)
-    @RequiresPermissions("ota:pota:softwarePackage:edit")
+    @RequiresPermissions("ota:fota:softwarePackage:edit")
     @PostMapping(value = "/{softwarePackageId}/action/retire")
     public ApiResponse<Integer> retire(@PathVariable Long softwarePackageId) {
         log.info("管理后台用户[{}]退役软件包[{}]", SecurityUtils.getUsername(), softwarePackageId);

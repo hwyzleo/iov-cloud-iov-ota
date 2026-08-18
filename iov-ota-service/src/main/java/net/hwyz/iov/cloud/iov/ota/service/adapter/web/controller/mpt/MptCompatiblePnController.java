@@ -39,7 +39,7 @@ public class MptCompatiblePnController extends BaseController {
      * @param compatiblePn 兼容零件号
      * @return 兼容零件号列表
      */
-    @RequiresPermissions("ota:baseline:compatiblePn:list")
+    @RequiresPermissions("ota:fota:compatiblePn:list")
     @GetMapping(value = "/list")
     public ApiResponse<PageResult<CompatiblePnMpt>> list(CompatiblePnMpt compatiblePn) {
         log.info("管理后台用户[{}]分页查询兼容零件号", SecurityUtils.getUsername());
@@ -56,7 +56,7 @@ public class MptCompatiblePnController extends BaseController {
      * @param compatiblePn 兼容零件号
      */
     @Log(title = "兼容零件号管理", businessType = BusinessType.EXPORT)
-    @RequiresPermissions("ota:baseline:compatiblePn:export")
+    @RequiresPermissions("ota:fota:compatiblePn:export")
     @PostMapping("/export")
     public void export(HttpServletResponse response, CompatiblePnMpt compatiblePn) {
         log.info("管理后台用户[{}]导出兼容零件号", SecurityUtils.getUsername());
@@ -68,7 +68,7 @@ public class MptCompatiblePnController extends BaseController {
      * @param compatiblePnId 兼容零件号ID
      * @return 兼容零件号
      */
-    @RequiresPermissions("ota:baseline:compatiblePn:query")
+    @RequiresPermissions("ota:fota:compatiblePn:query")
     @GetMapping(value = "/{compatiblePnId}")
     public ApiResponse<CompatiblePnMpt> getInfo(@PathVariable Long compatiblePnId) {
         log.info("管理后台用户[{}]根据兼容零件号ID[{}]获取兼容零件号", SecurityUtils.getUsername(), compatiblePnId);
@@ -83,7 +83,7 @@ public class MptCompatiblePnController extends BaseController {
      * @return 结果
      */
     @Log(title = "兼容零件号管理", businessType = BusinessType.INSERT)
-    @RequiresPermissions("ota:baseline:compatiblePn:add")
+    @RequiresPermissions("ota:fota:compatiblePn:add")
     @PostMapping
     public ApiResponse<Integer> add(@Validated @RequestBody CompatiblePnMpt compatiblePn) {
         log.info("管理后台用户[{}]新增兼容零件号[{}]", SecurityUtils.getUsername(), compatiblePn.getDeviceCode());
@@ -99,7 +99,7 @@ public class MptCompatiblePnController extends BaseController {
      * @return 结果
      */
     @Log(title = "兼容零件号管理", businessType = BusinessType.UPDATE)
-    @RequiresPermissions("ota:baseline:compatiblePn:edit")
+    @RequiresPermissions("ota:fota:compatiblePn:edit")
     @PutMapping
     public ApiResponse<Integer> edit(@Validated @RequestBody CompatiblePnMpt compatiblePn) {
         log.info("管理后台用户[{}]修改保存兼容零件号[{}]", SecurityUtils.getUsername(), compatiblePn.getDeviceCode());
@@ -115,7 +115,7 @@ public class MptCompatiblePnController extends BaseController {
      * @return 结果
      */
     @Log(title = "兼容零件号管理", businessType = BusinessType.DELETE)
-    @RequiresPermissions("ota:baseline:compatiblePn:remove")
+    @RequiresPermissions("ota:fota:compatiblePn:remove")
     @DeleteMapping("/{compatiblePnIds}")
     public ApiResponse<Integer> remove(@PathVariable Long[] compatiblePnIds) {
         log.info("管理后台用户[{}]删除兼容零件号[{}]", SecurityUtils.getUsername(), compatiblePnIds);

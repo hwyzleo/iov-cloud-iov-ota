@@ -17,10 +17,17 @@ import net.hwyz.iov.cloud.iov.ota.service.application.service.ActivityAppService
 import net.hwyz.iov.cloud.iov.ota.service.application.service.TaskAppService;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.TaskVehicleAppService;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.TaskResult;
+import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.TaskVehicleProcessResult;
+import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.ExecutionProcessView;
+import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.ExecutionEventProcessView;
+import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.TaskVehicleRetryLogResult;
+import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.UpgradeLogResult;
+import net.hwyz.iov.cloud.iov.ota.service.application.service.TaskVehicleProcessQueryService;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskVehiclePo;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -37,6 +44,7 @@ public class MptTaskVehicleController extends BaseController {
     private final TaskAppService taskAppService;
     private final ActivityAppService activityAppService;
     private final TaskVehicleAppService taskVehicleAppService;
+    private final TaskVehicleProcessQueryService taskVehicleProcessQueryService;
 
     /**
      * 分页查询车辆升级任务
@@ -92,15 +100,76 @@ taskVehicleMptList.forEach(taskVehicleMpt -> {
     }
 
     /**
-     * 获取车辆升级任务过程
+     * 获取车辆升级任务完整过程（CR-015 §3.3）
      *
      * @param taskVehicleId 升级任务车辆ID
-     * @return 升级任务过程列表
+     * @return 完整过程视图（含清单/授权/包/执行/控制/ECU结果/日志/技术投递）
      */
     @RequiresPermissions("ota:fota:taskVehicle:query")
     @GetMapping(value = "/{taskVehicleId}/process")
-    public ApiResponse<TaskVehicleMpt> listProcess(@PathVariable Long taskVehicleId) {
-        log.info("管理后台用户[{}]获取车辆升级任务[{}]过程", SecurityUtils.getUsername(), taskVehicleId);
-        return null;
+    public ApiResponse<TaskVehicleProcessResult> listProcess(@PathVariable Long taskVehicleId) {
+        log.info("管理后台用户[{}]获取车辆升级任务[{}]完整过程", SecurityUtils.getUsername(), taskVehicleId);
+        return ApiResponse.ok(taskVehicleProcessQueryService.getProcess(taskVehicleId));
+    }
+
+    /**
+     * 车辆任务的安装尝试列表（CR-015 §3.3 分页子资源）
+     */
+    @RequiresPermissions("ota:fota:taskVehicle:query")
+    @GetMapping(value = "/{taskVehicleId}/executions")
+    public ApiResponse<PageResult<ExecutionProcessView>> executions(@PathVariable Long taskVehicleId) {
+        log.info("管理后台用户[{}]查询车辆升级任务[{}]安装尝试", SecurityUtils.getUsername(), taskVehicleId);
+        startPage();
+        List<ExecutionProcessView> list = taskVehicleProcessQueryService.listExecutions(taskVehicleId);
+        return ApiResponse.ok(getPageResult(list));
+    }
+
+    /**
+     * 单次执行的事件列表（CR-015 §3.3 分页子资源）
+     */
+    @RequiresPermissions("ota:fota:taskVehicle:query")
+    @GetMapping(value = "/{taskVehicleId}/executions/{executionId}/events")
+    public ApiResponse<PageResult<ExecutionEventProcessView>> executionEvents(
+            @PathVariable Long taskVehicleId, @PathVariable Long executionId) {
+        log.info("管理后台用户[{}]查询执行[{}]事件列表", SecurityUtils.getUsername(), executionId);
+        startPage();
+        List<ExecutionEventProcessView> list = taskVehicleProcessQueryService.listExecutionEvents(executionId);
+        return ApiResponse.ok(getPageResult(list));
+    }
+
+    /**
+     * 车辆任务重试/续传轨迹（CR-015 §3.3 分页子资源 / §3.4 审计筛选）
+     */
+    @RequiresPermissions("ota:fota:taskVehicle:query")
+    @GetMapping(value = "/{taskVehicleId}/retryLogs")
+    public ApiResponse<PageResult<TaskVehicleRetryLogResult>> retryLogs(
+            @PathVariable Long taskVehicleId,
+            @RequestParam(required = false) Date beginTime,
+            @RequestParam(required = false) Date endTime,
+            @RequestParam(required = false) String stage,
+            @RequestParam(required = false) String result,
+            @RequestParam(required = false) Integer attemptNo) {
+        log.info("管理后台用户[{}]查询车辆升级任务[{}]重试/续传轨迹", SecurityUtils.getUsername(), taskVehicleId);
+        startPage();
+        List<TaskVehicleRetryLogResult> list = taskVehicleProcessQueryService
+                .listRetryLogs(taskVehicleId, beginTime, endTime, stage, result, attemptNo);
+        return ApiResponse.ok(getPageResult(list));
+    }
+
+    /**
+     * 车辆升级日志登记（CR-015 §3.3 分页子资源 / §3.4 审计筛选）
+     */
+    @RequiresPermissions("ota:fota:taskVehicle:query")
+    @GetMapping(value = "/{taskVehicleId}/upgradeLogs")
+    public ApiResponse<PageResult<UpgradeLogResult>> upgradeLogs(
+            @PathVariable Long taskVehicleId,
+            @RequestParam(required = false) Date beginTime,
+            @RequestParam(required = false) Date endTime,
+            @RequestParam(required = false) String uploadState) {
+        log.info("管理后台用户[{}]查询车辆升级任务[{}]升级日志", SecurityUtils.getUsername(), taskVehicleId);
+        startPage();
+        List<UpgradeLogResult> list = taskVehicleProcessQueryService
+                .listUpgradeLogs(taskVehicleId, beginTime, endTime, uploadState);
+        return ApiResponse.ok(getPageResult(list));
     }
 }

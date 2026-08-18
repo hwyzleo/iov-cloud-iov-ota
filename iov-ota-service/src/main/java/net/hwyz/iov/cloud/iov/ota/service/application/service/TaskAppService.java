@@ -15,6 +15,7 @@ import net.hwyz.iov.cloud.iov.ota.service.domain.repository.TaskRepository;
 import net.hwyz.iov.cloud.iov.ota.service.domain.repository.TaskInstallConditionRepository;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.event.publisher.DomainEventPublisher;
 import net.hwyz.iov.cloud.iov.ota.service.common.exception.TaskNotExistException;
+import net.hwyz.iov.cloud.iov.ota.service.common.exception.OptimisticLockException;
 import net.hwyz.iov.cloud.iov.ota.service.domain.service.TargetResolutionDomainService;
 import net.hwyz.iov.cloud.iov.ota.service.domain.service.ApprovalDomainService;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.ApprovalLevel;
@@ -44,6 +45,8 @@ public class TaskAppService {
     private final ActivityAppService activityAppService;
     private final ApprovalDomainService approvalDomainService;
     private final TargetResolutionDomainService targetResolutionDomainService;
+    private final TaskReleaseGateService taskReleaseGateService;
+    private final TaskReportAppService taskReportAppService;
 
     public List<TaskResult> search(String name, Date beginTime, Date endTime) {
         Map<String, Object> map = new HashMap<>();
@@ -90,6 +93,13 @@ public class TaskAppService {
         task.setUpgradeMode(cmd.getUpgradeMode() != null && !cmd.getUpgradeMode().isEmpty() 
             ? net.hwyz.iov.cloud.iov.ota.api.vo.enums.UpgradeMode.valOf(Integer.parseInt(cmd.getUpgradeMode())) : null);
         task.setDescription(cmd.getDescription());
+
+        // CR-015: 多任务放量 - 波次序与前一任务引用
+        task.setSequenceNo(cmd.getSequenceNo() != null ? cmd.getSequenceNo() : 0);
+        task.setPreviousTaskId(cmd.getPreviousTaskId());
+        if (cmd.getPreviousTaskId() != null) {
+            validatePreviousTask(cmd.getActivityId(), cmd.getPreviousTaskId());
+        }
         
         if (cmd.getRestrictions() != null) {
             task.loadRestrictionsAndStrategies(
@@ -216,6 +226,9 @@ public class TaskAppService {
         if (!approvalDomainService.checkApprovalRequirements(taskId, task.getPhase(), task.getActivityId().getValue())) {
             throw new IllegalStateException("任务[" + taskId + "]未满足阶段[" + task.getPhase() + "]的审批要求");
         }
+
+        // CR-015: 多任务放行门禁 - 校验前序正式报告并计算/读取门禁，PASS 才继续；FAIL/PENDING fail-safe
+        taskReleaseGateService.checkGateForRelease(taskId);
         
         // 解析目标定义，获取车辆集合
         Set<Vin> vehicles = targetResolutionDomainService.resolveTarget(task.getTarget());
@@ -239,7 +252,10 @@ public class TaskAppService {
         
         Task task = taskRepository.getById(TaskId.of(taskId))
             .orElseThrow(() -> new TaskNotExistException(taskId));
-        
+
+        // CR-015: 多任务放行门禁 - 校验前序正式报告并计算/读取门禁，PASS 才继续；FAIL/PENDING fail-safe
+        taskReleaseGateService.checkGateForRelease(taskId);
+
         // 解析目标定义，获取车辆集合
         Set<Vin> vehicles = targetResolutionDomainService.resolveTarget(task.getTarget());
         
@@ -297,25 +313,38 @@ public class TaskAppService {
         taskRepository.save(task);
         eventPublisher.publishAll(task.getPendingEvents());
         task.clearPendingEvents();
+
+        // CR-015: 终态生成不可变正式报告
+        taskReportAppService.generateFormalReport(taskId);
         
         return taskAssembler.toResult(task);
     }
 
     /**
-     * 排程任务（定时发布）
-     * @param taskId 任务ID
-     * @param releaseTime 计划发布时间
+     * 排程任务（定时发布，CR-015 §5 乐观锁）
+     * @param taskId       任务ID
+     * @param releaseTime  计划发布时间
+     * @param rowVersion   乐观锁版本（前端携带；为空时取库内当前值）
      */
     @Transactional
-    public TaskResult scheduleTask(Long taskId, Instant releaseTime) {
-        log.info("排程任务: {}, 计划发布时间: {}", taskId, releaseTime);
-        
+    public TaskResult scheduleTask(Long taskId, Instant releaseTime, Integer rowVersion) {
+        log.info("排程任务: {}, 计划发布时间: {}, rowVersion: {}", taskId, releaseTime, rowVersion);
+
         Task task = taskRepository.getById(TaskId.of(taskId))
             .orElseThrow(() -> new TaskNotExistException(taskId));
-        
+
+        // 乐观锁基准：优先使用前端回传的 rowVersion，否则取库内当前版本
+        Integer expectedRowVersion = rowVersion != null
+                ? rowVersion
+                : taskRepository.getRowVersion(TaskId.of(taskId));
+
         task.schedule(releaseTime);
-        
-        taskRepository.save(task);
+
+        boolean updated = taskRepository.scheduleWithOptimisticLock(task, expectedRowVersion);
+        if (!updated) {
+            throw new OptimisticLockException("任务[" + taskId + "]已被他人修改，请刷新后重试");
+        }
+
         eventPublisher.publishAll(task.getPendingEvents());
         task.clearPendingEvents();
         
@@ -390,6 +419,9 @@ public class TaskAppService {
         taskRepository.save(task);
         eventPublisher.publishAll(task.getPendingEvents());
         task.clearPendingEvents();
+
+        // CR-015: 终态生成不可变正式报告
+        taskReportAppService.generateFormalReport(taskId);
         
         return taskAssembler.toResult(task);
     }
@@ -406,6 +438,9 @@ public class TaskAppService {
         taskRepository.save(task);
         eventPublisher.publishAll(task.getPendingEvents());
         task.clearPendingEvents();
+
+        // CR-015: 终态生成不可变正式报告
+        taskReportAppService.generateFormalReport(taskId);
         
         return taskAssembler.toResult(task);
     }
@@ -422,6 +457,9 @@ public class TaskAppService {
         taskRepository.save(task);
         eventPublisher.publishAll(task.getPendingEvents());
         task.clearPendingEvents();
+
+        // CR-015: 终态生成不可变正式报告
+        taskReportAppService.generateFormalReport(taskId);
         
         return taskAssembler.toResult(task);
     }
@@ -436,6 +474,17 @@ public class TaskAppService {
 
     private Long generateId() {
         return System.currentTimeMillis();
+    }
+
+    /**
+     * 校验前序任务与当前任务属于同一升级活动（CR-015）
+     */
+    private void validatePreviousTask(Long activityId, Long previousTaskId) {
+        Task prev = taskRepository.getById(TaskId.of(previousTaskId))
+                .orElseThrow(() -> new TaskNotExistException(previousTaskId));
+        if (!prev.getActivityId().getValue().equals(activityId)) {
+            throw new IllegalStateException("前序任务[" + previousTaskId + "]不属于同一升级活动，无法作为放行依据");
+        }
     }
 
     /**

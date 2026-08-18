@@ -19,7 +19,15 @@ import net.hwyz.iov.cloud.iov.ota.api.vo.TaskPauseMpt;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.TaskMptAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.cmd.*;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.TaskResult;
+import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.TaskMetricResult;
+import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.TaskReportResult;
+import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.TaskReleaseGateResult;
+import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.TaskStateLogResult;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.TaskAppService;
+import net.hwyz.iov.cloud.iov.ota.service.application.service.TaskMetricQueryService;
+import net.hwyz.iov.cloud.iov.ota.service.application.service.TaskReportAppService;
+import net.hwyz.iov.cloud.iov.ota.service.application.service.TaskReleaseGateService;
+import net.hwyz.iov.cloud.iov.ota.service.application.service.OperationAuditQueryService;
 import net.hwyz.iov.cloud.iov.ota.service.domain.service.ApprovalDomainService;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskApproval;
 import net.hwyz.iov.cloud.iov.ota.api.vo.TaskApprovalMpt;
@@ -42,6 +50,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -61,6 +70,10 @@ public class MptTaskController extends BaseController {
     private final InstallConditionTypeRepository installConditionTypeRepository;
     private final TaskMptAssembler taskMptAssembler;
     private final ApprovalDomainService approvalDomainService;
+    private final TaskMetricQueryService taskMetricQueryService;
+    private final TaskReportAppService taskReportAppService;
+    private final TaskReleaseGateService taskReleaseGateService;
+    private final OperationAuditQueryService operationAuditQueryService;
 
     @RequiresPermissions("ota:fota:task:list")
     @GetMapping(value = "/list")
@@ -190,6 +203,7 @@ public class MptTaskController extends BaseController {
     public ApiResponse<Integer> schedule(@PathVariable Long taskId, @RequestBody Map<String, Object> body) {
         log.info("管理后台用户[{}]排程升级任务[{}]", SecurityUtils.getUsername(), taskId);
         String releaseTimeStr = (String) body.get("releaseTime");
+        Integer rowVersion = (Integer) body.get("rowVersion");
         Instant releaseTime;
         try {
             releaseTime = Instant.parse(releaseTimeStr);
@@ -198,7 +212,7 @@ public class MptTaskController extends BaseController {
                 .atZone(ZoneId.of("Asia/Shanghai"))
                 .toInstant();
         }
-        taskAppService.scheduleTask(taskId, releaseTime);
+        taskAppService.scheduleTask(taskId, releaseTime, rowVersion);
         return ApiResponse.ok(1);
     }
 
@@ -280,5 +294,66 @@ public class MptTaskController extends BaseController {
     public ApiResponse<Integer> remove(@PathVariable Long[] taskIds) {
         log.info("管理后台用户[{}]删除升级任务[{}]", SecurityUtils.getUsername(), taskIds);
         return ApiResponse.ok(taskAppService.deleteTaskByIds(taskIds));
+    }
+
+    /**
+     * 任务状态迁移审计（CR-015 §3.4）
+     */
+    @RequiresPermissions("ota:fota:task:query")
+    @GetMapping(value = "/{taskId}/stateLogs")
+    public ApiResponse<PageResult<TaskStateLogResult>> stateLogs(
+            @PathVariable Long taskId,
+            @RequestParam(required = false) Date beginTime,
+            @RequestParam(required = false) Date endTime,
+            @RequestParam(required = false) String action) {
+        log.info("管理后台用户[{}]查询升级任务[{}]状态迁移审计", SecurityUtils.getUsername(), taskId);
+        startPage();
+        List<TaskStateLogResult> list = operationAuditQueryService.listStateLogs(taskId, beginTime, endTime, action);
+        return ApiResponse.ok(getPageResult(list));
+    }
+
+    /**
+     * 查询单任务健康指标（CR-015 §3.2）
+     */
+    @RequiresPermissions("ota:fota:task:query")
+    @GetMapping(value = "/{taskId}/metric")
+    public ApiResponse<TaskMetricResult> metric(@PathVariable Long taskId) {
+        log.info("管理后台用户[{}]查询升级任务[{}]健康指标", SecurityUtils.getUsername(), taskId);
+        return ApiResponse.ok(taskMetricQueryService.getMetric(taskId));
+    }
+
+    /**
+     * 查询任务报告（CR-015 §3.2）：终态返回正式报告，执行中返回 provisional 统计
+     */
+    @RequiresPermissions("ota:fota:task:query")
+    @GetMapping(value = "/{taskId}/report")
+    public ApiResponse<TaskReportResult> report(@PathVariable Long taskId) {
+        log.info("管理后台用户[{}]查询升级任务[{}]报告", SecurityUtils.getUsername(), taskId);
+        return ApiResponse.ok(taskReportAppService.getReport(taskId));
+    }
+
+    /**
+     * 查询该任务对下一任务的放行结论（CR-015 §3.2）
+     */
+    @RequiresPermissions("ota:fota:task:query")
+    @GetMapping(value = "/{taskId}/releaseGate")
+    public ApiResponse<TaskReleaseGateResult> releaseGate(@PathVariable Long taskId) {
+        log.info("管理后台用户[{}]查询升级任务[{}]对下一任务的放行门禁", SecurityUtils.getUsername(), taskId);
+        return ApiResponse.ok(taskReleaseGateService.queryGateForTask(taskId));
+    }
+
+    /**
+     * 人工放行（CR-015 §3.2）：必须携带权限、原因与审批引用
+     */
+    @Log(title = "升级任务管理", businessType = BusinessType.UPDATE)
+    @RequiresPermissions("ota:fota:task:edit")
+    @PostMapping("/{taskId}/releaseGate/override")
+    public ApiResponse<TaskReleaseGateResult> overrideReleaseGate(@PathVariable Long taskId,
+                                                                  @RequestBody(required = false) Map<String, Object> body) {
+        String approvalRef = body != null ? (String) body.get("approvalRef") : null;
+        String reason = body != null ? (String) body.get("reason") : null;
+        log.info("管理后台用户[{}]人工放行升级任务[{}]的门禁，审批引用[{}]", SecurityUtils.getUsername(), taskId, approvalRef);
+        return ApiResponse.ok(taskReleaseGateService.overrideGateForNextTask(
+                taskId, SecurityUtils.getUsername(), approvalRef, reason));
     }
 }
