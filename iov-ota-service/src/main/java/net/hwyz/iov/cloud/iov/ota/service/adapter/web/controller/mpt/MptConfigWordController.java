@@ -309,7 +309,7 @@ public class MptConfigWordController extends BaseController {
      */
     @Log(title = "配置字管理", businessType = BusinessType.UPDATE)
     @RequiresPermissions("ota:fota:configWord:edit")
-    @DeleteMapping("/{configWordCode}/field/{configWordProfileIds}")
+    @DeleteMapping("/{configWordCode}/profile/{configWordProfileIds}")
     public ApiResponse<Integer> removeProfile(@PathVariable String configWordCode, @PathVariable Long[] configWordProfileIds) {
         log.info("管理后台用户[{}]删除配置字[{}]配置文件[{}]", SecurityUtils.getUsername(), configWordCode, configWordProfileIds);
         return ApiResponse.ok(configWordAppService.deleteConfigWordProfileByIds(configWordCode, configWordProfileIds));
