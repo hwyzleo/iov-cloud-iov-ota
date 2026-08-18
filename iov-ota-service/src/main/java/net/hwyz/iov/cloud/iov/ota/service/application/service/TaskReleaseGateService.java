@@ -4,6 +4,7 @@ import cn.hutool.json.JSONObject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.ReleaseGateState;
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskPhase;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.TaskReleaseGateResult;
 import net.hwyz.iov.cloud.iov.ota.service.common.exception.TaskNotExistException;
 import net.hwyz.iov.cloud.iov.ota.service.domain.exception.TaskReleaseGateException;
@@ -19,6 +20,8 @@ import net.hwyz.iov.cloud.iov.ota.service.domain.repository.TaskRepository;
 import net.hwyz.iov.cloud.iov.ota.service.domain.service.TaskReleaseGateDomainService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Comparator;
 
 
 /**
@@ -41,6 +44,10 @@ public class TaskReleaseGateService {
 
     /**
      * 发布前门禁校验：PASS 放行，FAIL/PENDING 抛异常拦截（fail-safe）
+     * <p>IOV-OTA-DSN-CR-017 §5：读取 tb_task 已持久化的 sequenceNo + previousTaskId，不得信任发布请求临时传值；
+     * 后续波次缺失前序关系（sequenceNo>0 且 previousTaskId 为空）一律阻断；
+     * CANARY／RELEASE 首波仍须执行 US-054 跨阶段门禁。</p>
+     *
      * @param nextTaskId 待发布任务ID
      * @return 门禁状态（PASS）
      */
@@ -50,16 +57,89 @@ public class TaskReleaseGateService {
                 .orElseThrow(() -> new TaskNotExistException(nextTaskId));
 
         Long prevTaskId = nextTask.getPreviousTaskId();
-        if (prevTaskId == null) {
-            log.info("任务[{}]无前序任务，无需放行门禁", nextTaskId);
-            return ReleaseGateState.PASS;
+        Integer seq = nextTask.getSequenceNo();
+
+        Task prevTask;
+        if (prevTaskId != null) {
+            prevTask = taskRepository.getById(TaskId.of(prevTaskId))
+                    .orElseThrow(() -> new TaskReleaseGateException("前序任务[" + prevTaskId + "]不存在，无法放行"));
+            validateReleaseRelation(prevTask, nextTask);
+        } else if (seq != null && seq > 0) {
+            // CR-017 §5.1：后续波次缺失前序关系 → fail-safe 阻断，不得进入“无前序任务直接 PASS”
+            log.warn("任务[{}]为第[{}]波次但缺少前序任务关系（previousTaskId 为空），禁止发布", nextTaskId, seq);
+            throw new TaskReleaseGateException(
+                    "任务[" + nextTaskId + "]为第[" + seq + "]波次但缺少前序任务关系（previousTaskId 为空），禁止发布");
+        } else {
+            // phase 首波（sequence_no=0 或历史无序号）：无同 phase 前一波
+            if (nextTask.getPhase() == TaskPhase.VALIDATION) {
+                log.info("任务[{}]为验证阶段首波，无同阶段前序，按既有首阶段规则放行", nextTaskId);
+                return ReleaseGateState.PASS;
+            }
+            // CR-017 §5.3：CANARY／RELEASE 首波仍必须执行 US-054 跨阶段门禁
+            prevTask = findLatestPreviousPhaseTask(nextTask);
+            if (prevTask == null) {
+                log.warn("任务[{}]为阶段[{}]首波但前序阶段无已完成任务，禁止发布", nextTaskId, nextTask.getPhase());
+                throw new TaskReleaseGateException(
+                        "任务[" + nextTaskId + "]为阶段[" + nextTask.getPhase().name() + "]首波但前序阶段无已完成任务，禁止发布");
+            }
         }
 
-        Task prevTask = taskRepository.getById(TaskId.of(prevTaskId))
-                .orElseThrow(() -> new TaskReleaseGateException("前序任务[" + prevTaskId + "]不存在，无法放行"));
-        if (!prevTask.getActivityId().getValue().equals(nextTask.getActivityId().getValue())) {
-            throw new TaskReleaseGateException("前序任务[" + prevTaskId + "]不属于同一升级活动，无法作为放行依据");
+        return evaluateGate(nextTask, prevTask);
+    }
+
+    /**
+     * 关系完整性校验（IOV-OTA-DSN-CR-017 §5.2）
+     * <p>前序与当前同 Activity；不得指向自身；同 phase 时前序序号必须小于当前；
+     * 跨 phase 时满足 US-054 阶段顺序。</p>
+     */
+    private void validateReleaseRelation(Task prevTask, Task nextTask) {
+        if (prevTask.getId().getValue().equals(nextTask.getId().getValue())) {
+            throw new TaskReleaseGateException("前序任务不能指向自身");
         }
+        if (!prevTask.getActivityId().getValue().equals(nextTask.getActivityId().getValue())) {
+            throw new TaskReleaseGateException("前序任务[" + prevTask.getId().getValue() + "]不属于同一升级活动，无法作为放行依据");
+        }
+        if (prevTask.getPhase() == nextTask.getPhase()) {
+            int prevSeq = prevTask.getSequenceNo() != null ? prevTask.getSequenceNo() : -1;
+            int nextSeq = nextTask.getSequenceNo() != null ? nextTask.getSequenceNo() : Integer.MAX_VALUE;
+            if (prevSeq >= nextSeq) {
+                throw new TaskReleaseGateException(
+                        "前序任务序号[" + prevSeq + "]必须小于当前任务序号[" + nextSeq + "]");
+            }
+        } else if (prevTask.getPhase().getValue() >= nextTask.getPhase().getValue()) {
+            throw new TaskReleaseGateException(
+                    "跨阶段前序任务阶段[" + prevTask.getPhase().name() + "]不满足 US-054 阶段顺序");
+        }
+    }
+
+    /**
+     * 查找前序阶段最近（序号最大）的已完成任务（IOV-OTA-DSN-CR-017 §5.3）
+     * <p>CANARY 前序阶段为 VALIDATION；RELEASE 前序阶段为 CANARY。</p>
+     */
+    private Task findLatestPreviousPhaseTask(Task nextTask) {
+        TaskPhase prevPhase = switch (nextTask.getPhase()) {
+            case CANARY -> TaskPhase.VALIDATION;
+            case RELEASE -> TaskPhase.CANARY;
+            default -> null;
+        };
+        if (prevPhase == null) {
+            return null;
+        }
+        return taskRepository.findByActivityId(nextTask.getActivityId()).stream()
+                .filter(t -> t.getPhase() == prevPhase)
+                .max(Comparator.comparing((Task t) -> t.getSequenceNo() != null ? t.getSequenceNo() : 0)
+                        .thenComparing(t -> t.getId().getValue()))
+                .orElse(null);
+    }
+
+    /**
+     * 基于前序正式报告计算/读取门禁（IOV-OTA-DSN-CR-017 与 CR-015 §3.2 共用）
+     * <p>已存在已决定的门禁则复用；前序报告缺失/FAIL/PENDING fail-safe；
+     * 计算后落库 gate（PASS/FAIL/PENDING）并保留 reportRef 与阈值快照。</p>
+     */
+    private ReleaseGateState evaluateGate(Task nextTask, Task prevTask) {
+        Long nextTaskId = nextTask.getId().getValue();
+        Long prevTaskId = prevTask.getId().getValue();
 
         // 已存在已决定的门禁（PASS/FAIL，含人工 override）则直接复用，不重复计算
         TaskReleaseGate existing = taskReleaseGateRepository.getByNextTaskId(nextTaskId).orElse(null);

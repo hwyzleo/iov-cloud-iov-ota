@@ -93,17 +93,23 @@ class TaskReleaseFlowIntegrationTest {
     }
 
     @Test
-    @DisplayName("无前序任务的波次 -> 直接放行")
-    void noPreviousTask_release() {
-        waveTask(1L, 100L, 1, null, TaskPhase.VALIDATION);
+    @DisplayName("VALIDATION 阶段首波（seq=0 无前序）-> 直接放行；后续波次缺失前序关系 -> 阻断")
+    void firstWaveReleaseAndLaterMissingRelation() {
+        // 首波：seq=0、prev=null -> 放行
+        waveTask(1L, 100L, 0, null, TaskPhase.VALIDATION);
         assertEquals(ReleaseGateState.PASS, taskReleaseGateService.checkGateForRelease(1L));
+
+        // 后续波次（seq>0）缺失前序关系 -> fail-safe 阻断，不得无条件 PASS
+        waveTask(9L, 100L, 1, null, TaskPhase.VALIDATION);
+        assertThrows(TaskReleaseGateException.class,
+                () -> taskReleaseGateService.checkGateForRelease(9L));
     }
 
     @Test
     @DisplayName("前序终态生成正式报告后 -> 下一波次 PASS 放行")
     void prevFormalReport_thenNextRelease() {
-        // 波次1（无前序）发布
-        waveTask(1L, 100L, 1, null, TaskPhase.CANARY);
+        // 波次1（VALIDATION 首波，无前序）发布
+        waveTask(1L, 100L, 0, null, TaskPhase.VALIDATION);
         assertEquals(ReleaseGateState.PASS, taskReleaseGateService.checkGateForRelease(1L));
 
         // 波次1 终态 + 生成正式报告
@@ -117,14 +123,14 @@ class TaskReleaseFlowIntegrationTest {
 
         // 配置门禁阈值策略（活动级）
         phaseGatePolicyRepository.save(PhaseGatePolicy.builder()
-                .phase(TaskPhase.CANARY)
+                .phase(TaskPhase.VALIDATION)
                 .activityId(100L)
                 .successRateMin(BigDecimal.valueOf(0.95))
                 .failCntMax(5)
                 .build());
 
-        // 波次2（同活动，prev=1）发布 -> PASS
-        waveTask(2L, 100L, 2, 1L, TaskPhase.CANARY);
+        // 波次2（同活动同阶段，prev=1）发布 -> PASS
+        waveTask(2L, 100L, 1, 1L, TaskPhase.VALIDATION);
         assertEquals(ReleaseGateState.PASS, taskReleaseGateService.checkGateForRelease(2L));
 
         // 波次1 对波次2 的放行结论为 PASS
@@ -135,10 +141,33 @@ class TaskReleaseFlowIntegrationTest {
     }
 
     @Test
+    @DisplayName("CANARY 首波必须执行 US-054 跨阶段门禁：前序 VALIDATION 正式报告 PASS 后放行")
+    void canaryFirstWave_requiresValidationReport() {
+        // VALIDATION 首波发布并终态出正式报告
+        waveTask(1L, 100L, 0, null, TaskPhase.VALIDATION);
+        assertEquals(ReleaseGateState.PASS, taskReleaseGateService.checkGateForRelease(1L));
+        Task wave1 = taskRepository.getById(TaskId.of(1L)).orElseThrow();
+        wave1.setState(TaskState.COMPLETED);
+        taskRepository.save(wave1);
+        stubReportCounts();
+        taskReportAppService.generateFormalReport(1L);
+        phaseGatePolicyRepository.save(PhaseGatePolicy.builder()
+                .phase(TaskPhase.VALIDATION)
+                .activityId(100L)
+                .successRateMin(BigDecimal.valueOf(0.95))
+                .failCntMax(5)
+                .build());
+
+        // CANARY 首波（seq=0 且 prev=null）发布 -> 自动取前序 VALIDATION 任务做跨阶段门禁
+        waveTask(2L, 100L, 0, null, TaskPhase.CANARY);
+        assertEquals(ReleaseGateState.PASS, taskReleaseGateService.checkGateForRelease(2L));
+    }
+
+    @Test
     @DisplayName("前序无正式报告 -> PENDING 拦截；人工 override 后放行")
     void noReport_blockedThenOverride() {
-        waveTask(1L, 100L, 1, null, TaskPhase.VALIDATION);
-        waveTask(2L, 100L, 2, 1L, TaskPhase.VALIDATION);
+        waveTask(1L, 100L, 0, null, TaskPhase.VALIDATION);
+        waveTask(2L, 100L, 1, 1L, TaskPhase.VALIDATION);
 
         // 前序任务1 尚未终态/无正式报告 -> 拦截
         TaskReleaseGateException ex = assertThrows(TaskReleaseGateException.class,
@@ -157,9 +186,9 @@ class TaskReleaseFlowIntegrationTest {
     @Test
     @DisplayName("前序任务非同活动 -> 拒绝放行")
     void previousTaskDifferentActivity_rejected() {
-        waveTask(1L, 100L, 1, null, TaskPhase.VALIDATION);
+        waveTask(1L, 100L, 0, null, TaskPhase.VALIDATION);
         // 波次2 属于活动 999，但 previousTaskId 指向活动 100 的任务1
-        waveTask(2L, 999L, 1, 1L, TaskPhase.VALIDATION);
+        waveTask(2L, 999L, 0, 1L, TaskPhase.VALIDATION);
 
         assertThrows(TaskReleaseGateException.class, () -> taskReleaseGateService.checkGateForRelease(2L));
     }
@@ -167,7 +196,7 @@ class TaskReleaseFlowIntegrationTest {
     @Test
     @DisplayName("正式报告幂等：终态多次生成不覆盖，reportVersion 唯一")
     void formalReport_idempotent() {
-        waveTask(1L, 100L, 1, null, TaskPhase.VALIDATION);
+        waveTask(1L, 100L, 0, null, TaskPhase.VALIDATION);
         Task wave1 = taskRepository.getById(TaskId.of(1L)).orElseThrow();
         wave1.setState(TaskState.CANCELED);
         taskRepository.save(wave1);

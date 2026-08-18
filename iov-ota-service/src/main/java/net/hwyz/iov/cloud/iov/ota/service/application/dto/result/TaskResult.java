@@ -25,6 +25,18 @@ public class TaskResult {
     
     private Long previousTaskId;
     
+    /** 前序任务名称（IOV-OTA-DSN-CR-017 §6.2 只读展示） */
+    private String previousTaskName;
+    
+    /** 前序任务阶段（IOV-OTA-DSN-CR-017 §6.2 只读展示） */
+    private String previousPhase;
+    
+    /** 前序任务正式报告状态：REPORTED / NONE（IOV-OTA-DSN-CR-017 §6.2 只读展示） */
+    private String previousReportState;
+    
+    /** 当前任务放行门禁状态：PASS / FAIL / PENDING（IOV-OTA-DSN-CR-017 §6.2 只读展示） */
+    private String releaseGateState;
+    
     private String target;
     
     private Instant startTime;

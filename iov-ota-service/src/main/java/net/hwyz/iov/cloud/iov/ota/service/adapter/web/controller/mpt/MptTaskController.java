@@ -116,18 +116,21 @@ public class MptTaskController extends BaseController {
         Map<String, InstallConditionType> conditionTypeMap = installConditionTypeRepository.listAll()
             .stream()
             .collect(Collectors.toMap(InstallConditionType::getCode, t -> t));
-        TaskMpt vo = taskMptAssembler.fromPo(taskMptAssembler.toPo(taskMptAssembler.toVo(result)), restrictions, strategies, installConditions, conditionTypeMap);
+        // IOV-OTA-DSN-CR-017 §6.2：基础 VO 保留服务端派生的只读展示字段，再挂载限制/策略/安装条件
+        TaskMpt vo = taskMptAssembler.toVo(result);
+        taskMptAssembler.attachExtras(vo, restrictions, strategies, installConditions, conditionTypeMap);
         return ApiResponse.ok(vo);
     }
 
     @Log(title = "升级任务管理", businessType = BusinessType.INSERT)
     @RequiresPermissions("ota:fota:task:add")
     @PostMapping
-    public ApiResponse<Integer> add(@Validated @RequestBody TaskMpt task) {
+    public ApiResponse<TaskMpt> add(@Validated @RequestBody TaskMpt task) {
         log.info("管理后台用户[{}]新增升级任务[{}]", SecurityUtils.getUsername(), task.getName());
         TaskCreateCmd cmd = taskMptAssembler.toCmd(task);
-        taskAppService.createTask(cmd);
-        return ApiResponse.ok(1);
+        TaskResult result = taskAppService.createTask(cmd);
+        // IOV-OTA-DSN-CR-017 §6.1：响应返回系统落库后的 sequenceNo 与 previousTaskId
+        return ApiResponse.ok(taskMptAssembler.toVo(result));
     }
 
     @Log(title = "升级任务管理", businessType = BusinessType.UPDATE)

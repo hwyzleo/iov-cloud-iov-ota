@@ -1,5 +1,6 @@
 package net.hwyz.iov.cloud.iov.ota.service.integration.support;
 
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskPhase;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.aggregate.Task;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.ActivityId;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.TaskId;
@@ -45,6 +46,43 @@ public class InMemoryTaskRepository implements TaskRepository {
     @Override
     public void save(Task task) {
         store.put(task.getId().getValue(), task);
+    }
+
+    @Override
+    public void lockActivity(Long activityId) {
+        // 内存版无行锁语义，no-op
+    }
+
+    @Override
+    public Long findMaxSequence(Long activityId, TaskPhase phase) {
+        return store.values().stream()
+                .filter(t -> t.getActivityId().getValue().equals(activityId) && t.getPhase() == phase)
+                .map(Task::getSequenceNo)
+                .filter(java.util.Objects::nonNull)
+                .map(Integer::longValue)
+                .max(Long::compareTo)
+                .orElse(null);
+    }
+
+    @Override
+    public List<Task> findByActivityPhaseSequence(Long activityId, TaskPhase phase, Long sequenceNo) {
+        return store.values().stream()
+                .filter(t -> t.getActivityId().getValue().equals(activityId)
+                        && t.getPhase() == phase
+                        && t.getSequenceNo() != null
+                        && t.getSequenceNo().longValue() == sequenceNo)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public boolean existsByActivityPhaseSequence(Long activityId, TaskPhase phase, Long sequenceNo) {
+        return !findByActivityPhaseSequence(activityId, phase, sequenceNo).isEmpty();
+    }
+
+    @Override
+    public boolean isReferencedAsPrevious(Long taskId) {
+        return store.values().stream()
+                .anyMatch(t -> taskId.equals(t.getPreviousTaskId()));
     }
 
     @Override

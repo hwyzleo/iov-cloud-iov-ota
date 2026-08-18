@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.hwyz.iov.cloud.framework.common.util.ParamHelper;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskType;
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskPhase;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.cmd.*;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.query.TaskQuery;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.TaskResult;
@@ -11,15 +12,21 @@ import net.hwyz.iov.cloud.iov.ota.service.application.assembler.TaskAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.aggregate.Task;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.ActivityId;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.TaskId;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.TaskOrder;
 import net.hwyz.iov.cloud.iov.ota.service.domain.repository.TaskRepository;
 import net.hwyz.iov.cloud.iov.ota.service.domain.repository.TaskInstallConditionRepository;
+import net.hwyz.iov.cloud.iov.ota.service.domain.repository.TaskReportRepository;
+import net.hwyz.iov.cloud.iov.ota.service.domain.repository.TaskReleaseGateRepository;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.event.publisher.DomainEventPublisher;
 import net.hwyz.iov.cloud.iov.ota.service.common.exception.TaskNotExistException;
+import net.hwyz.iov.cloud.iov.ota.service.common.exception.TaskOrderException;
 import net.hwyz.iov.cloud.iov.ota.service.common.exception.OptimisticLockException;
 import net.hwyz.iov.cloud.iov.ota.service.domain.service.TargetResolutionDomainService;
 import net.hwyz.iov.cloud.iov.ota.service.domain.service.ApprovalDomainService;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.ApprovalLevel;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskApproval;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskReport;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskReleaseGate;
 import net.hwyz.iov.cloud.framework.security.util.SecurityUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +36,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.Set;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.Vin;
@@ -47,6 +55,8 @@ public class TaskAppService {
     private final TargetResolutionDomainService targetResolutionDomainService;
     private final TaskReleaseGateService taskReleaseGateService;
     private final TaskReportAppService taskReportAppService;
+    private final TaskReportRepository taskReportRepository;
+    private final TaskReleaseGateRepository taskReleaseGateRepository;
 
     public List<TaskResult> search(String name, Date beginTime, Date endTime) {
         Map<String, Object> map = new HashMap<>();
@@ -60,14 +70,14 @@ public class TaskAppService {
                 if (endTime != null && task.getEndTime().isAfter(endTime.toInstant())) return false;
                 return true;
             })
-            .map(taskAssembler::toResult)
+            .map(task -> enrichTaskResult(taskAssembler.toResult(task)))
             .collect(Collectors.toList());
     }
 
     public TaskResult getTaskById(Long id) {
         Task task = taskRepository.getById(TaskId.of(id))
             .orElseThrow(() -> new TaskNotExistException(id));
-        return taskAssembler.toResult(task);
+        return enrichTaskResult(taskAssembler.toResult(task));
     }
 
     @Transactional
@@ -76,15 +86,38 @@ public class TaskAppService {
 
         validateTaskWindowWithinActivity(cmd.getActivityId(), cmd.getStartTime(), cmd.getEndTime());
 
-        // US-061: 废弃 TaskType.LIGHT，type 默认为 NORMAL
-        TaskType taskType = (cmd.getType() != null && !cmd.getType().isEmpty()) 
-            ? TaskType.valOf(Integer.parseInt(cmd.getType())) : TaskType.NORMAL;
-        
+        // US-061: 废弃 TaskType.LIGHT，type 默认为 NORMAL（兼容数字字符串与枚举名，如 @Builder.Default 的 "NORMAL"）
+        TaskType taskType = (cmd.getType() != null && !cmd.getType().isEmpty())
+            ? parseTaskType(cmd.getType()) : TaskType.NORMAL;
+
+        // IOV-OTA-DSN-CR-017：锁定 Activity 聚合根，以 Activity 粒度串行化 Task 创建，保证并发排号唯一
+        taskRepository.lockActivity(cmd.getActivityId());
+
+        // UI 创建路径不传 phase，领域工厂固定为 VALIDATION（CR-009 phase 不可变）
+        TaskPhase phase = TaskPhase.VALIDATION;
+        Long newTaskId = generateId();
+
+        // 解析波次序（CR-017 §3.2）：expectedSequence = COALESCE(MAX(sequence_no), -1) + 1
+        long expectedSequence = resolveExpectedSequence(cmd.getActivityId(), phase);
+        long resolvedSequence;
+        if (cmd.getSequenceNo() == null) {
+            resolvedSequence = expectedSequence;
+        } else if (cmd.getSequenceNo() == expectedSequence) {
+            resolvedSequence = cmd.getSequenceNo();
+        } else {
+            // 客户端不得通过显式值插队、复用旧序号或制造跳号
+            throw TaskOrderException.sequenceConflict(cmd.getActivityId(), (int) expectedSequence, cmd.getSequenceNo());
+        }
+
+        // 解析前序任务（CR-017 §3.3）：缺省自动绑定同作用域 sequence-1，显式值必须结构合法
+        Long resolvedPreviousTaskId = resolvePreviousTaskId(cmd, phase, resolvedSequence, newTaskId);
+
         Task task = Task.create(
-            TaskId.of(generateId()),
+            TaskId.of(newTaskId),
             cmd.getName(),
             taskType,
-            ActivityId.of(cmd.getActivityId())
+            ActivityId.of(cmd.getActivityId()),
+            TaskOrder.laterWave(resolvedSequence, resolvedPreviousTaskId)
         );
         task.setTarget(cmd.getTarget());
         task.setStartTime(cmd.getStartTime());
@@ -94,13 +127,6 @@ public class TaskAppService {
             ? net.hwyz.iov.cloud.iov.ota.api.vo.enums.UpgradeMode.valOf(Integer.parseInt(cmd.getUpgradeMode())) : null);
         task.setDescription(cmd.getDescription());
 
-        // CR-015: 多任务放量 - 波次序与前一任务引用
-        task.setSequenceNo(cmd.getSequenceNo() != null ? cmd.getSequenceNo() : 0);
-        task.setPreviousTaskId(cmd.getPreviousTaskId());
-        if (cmd.getPreviousTaskId() != null) {
-            validatePreviousTask(cmd.getActivityId(), cmd.getPreviousTaskId());
-        }
-        
         if (cmd.getRestrictions() != null) {
             task.loadRestrictionsAndStrategies(
                 taskAssembler.toRestrictions(cmd.getRestrictions()),
@@ -108,6 +134,7 @@ public class TaskAppService {
             );
         }
 
+        // 自动排号、前序查询、Task 写入与创建审计在同一数据库事务内完成
         taskRepository.save(task);
 
         // 保存安装条件
@@ -121,10 +148,14 @@ public class TaskAppService {
             }
         }
 
+        log.info("任务[{}]创建完成：activityId[{}] phase[{}] sequenceNo[{}] previousTaskId[{}] relationSource[{}]",
+                task.getId().getValue(), cmd.getActivityId(), phase.name(), resolvedSequence, resolvedPreviousTaskId,
+                cmd.getPreviousTaskId() != null ? "EXPLICIT" : "AUTO");
+
         eventPublisher.publishAll(task.getPendingEvents());
         task.clearPendingEvents();
         
-        return taskAssembler.toResult(task);
+        return enrichTaskResult(taskAssembler.toResult(task));
     }
 
     @Transactional
@@ -465,6 +496,12 @@ public class TaskAppService {
     }
 
     public int deleteTaskByIds(Long[] ids) {
+        // IOV-OTA-DSN-CR-017：被后续任务引用为前序的 Task 只能取消，不得删除并重排
+        for (Long id : ids) {
+            if (taskRepository.isReferencedAsPrevious(id)) {
+                throw new IllegalStateException("任务[" + id + "]已被后续任务引用为前序，只能取消，不能删除");
+            }
+        }
         List<TaskId> taskIdList = List.of(ids).stream()
             .map(TaskId::of)
             .collect(Collectors.toList());
@@ -477,14 +514,110 @@ public class TaskAppService {
     }
 
     /**
-     * 校验前序任务与当前任务属于同一升级活动（CR-015）
+     * 解析任务类型：兼容数字字符串（"1"/"2"）与枚举名（"NORMAL"/"LIGHT"），非法值回落 NORMAL
      */
-    private void validatePreviousTask(Long activityId, Long previousTaskId) {
-        Task prev = taskRepository.getById(TaskId.of(previousTaskId))
-                .orElseThrow(() -> new TaskNotExistException(previousTaskId));
-        if (!prev.getActivityId().getValue().equals(activityId)) {
-            throw new IllegalStateException("前序任务[" + previousTaskId + "]不属于同一升级活动，无法作为放行依据");
+    private TaskType parseTaskType(String type) {
+        try {
+            return TaskType.valOf(Integer.parseInt(type));
+        } catch (NumberFormatException e) {
+            try {
+                return TaskType.valueOf(type);
+            } catch (IllegalArgumentException ex) {
+                log.warn("无法识别的任务类型[{}]，回落 NORMAL", type);
+                return TaskType.NORMAL;
+            }
         }
+    }
+
+    /**
+     * 计算 (activityId, phase) 作用域内下一个可分配波次序（IOV-OTA-DSN-CR-017 §3.2）
+     * <p>expectedSequence = COALESCE(MAX(sequence_no), -1) + 1；首个 Task 得到 0。</p>
+     */
+    private long resolveExpectedSequence(Long activityId, TaskPhase phase) {
+        Long maxSeq = taskRepository.findMaxSequence(activityId, phase);
+        return (maxSeq == null ? -1L : maxSeq) + 1L;
+    }
+
+    /**
+     * 解析前序任务ID（IOV-OTA-DSN-CR-017 §3.3）
+     * <p>未显式提供时：sequence=0 落 NULL（phase 首波）；sequence&gt;0 自动绑定同作用域 sequence-1 的唯一 Task；
+     * 候选缺失或歧义 fail-closed。显式提供时校验结构合法性并覆盖自动候选。</p>
+     */
+    private Long resolvePreviousTaskId(TaskCreateCmd cmd, TaskPhase phase, long resolvedSequence, Long newTaskId) {
+        if (cmd.getPreviousTaskId() != null) {
+            Task prev = taskRepository.getById(TaskId.of(cmd.getPreviousTaskId()))
+                    .orElseThrow(() -> TaskOrderException.previousNotFound(cmd.getPreviousTaskId()));
+            validateExplicitPrevious(prev, cmd.getActivityId(), phase, resolvedSequence, newTaskId);
+            return prev.getId().getValue();
+        }
+        if (resolvedSequence == 0) {
+            return null;
+        }
+        // 自动推导：同一 (activityId, phase) 且 sequenceNo = resolvedSequence - 1 的唯一 Task
+        List<Task> candidates = taskRepository.findByActivityPhaseSequence(
+                cmd.getActivityId(), phase, resolvedSequence - 1);
+        if (candidates.isEmpty()) {
+            throw TaskOrderException.previousMissing(cmd.getActivityId(), phase.name(), resolvedSequence - 1);
+        }
+        if (candidates.size() > 1) {
+            throw TaskOrderException.previousAmbiguous(cmd.getActivityId(), phase.name(), resolvedSequence - 1, candidates.size());
+        }
+        return candidates.get(0).getId().getValue();
+    }
+
+    /**
+     * 显式前序校验（IOV-OTA-DSN-CR-017 §3.3）
+     * <p>前序必须存在、不得指向自身、属于同一 Activity；同 phase 时 sequence 必须小于当前；
+     * 跨 phase 时必须满足 US-054 阶段顺序，且不得借此绕过跳阶审批。</p>
+     */
+    private void validateExplicitPrevious(Task prev, Long activityId, TaskPhase phase,
+                                          long resolvedSequence, Long newTaskId) {
+        if (prev.getId().getValue().equals(newTaskId)) {
+            throw TaskOrderException.previousScopeMismatch("前序任务不能指向自身");
+        }
+        if (!prev.getActivityId().getValue().equals(activityId)) {
+            throw TaskOrderException.previousScopeMismatch(
+                    "前序任务[" + prev.getId().getValue() + "]不属于同一升级活动，无法作为放行依据");
+        }
+        if (prev.getPhase() == phase) {
+            int prevSeq = prev.getSequenceNo() != null ? prev.getSequenceNo() : -1;
+            if (prevSeq >= resolvedSequence) {
+                throw TaskOrderException.previousScopeMismatch(
+                        "同阶段前序任务序号[" + prevSeq + "]必须小于当前任务序号[" + resolvedSequence + "]");
+            }
+        } else {
+            // 跨 phase：必须满足 US-054 阶段顺序（前序阶段先于当前阶段）
+            if (prev.getPhase().getValue() >= phase.getValue()) {
+                throw TaskOrderException.previousScopeMismatch(
+                        "跨阶段前序任务[" + prev.getId().getValue() + "]阶段[" + prev.getPhase().name()
+                                + "]不满足 US-054 阶段顺序，禁止作为前序");
+            }
+        }
+    }
+
+    /**
+     * 补充任务只读展示字段（IOV-OTA-DSN-CR-017 §6.2）
+     * <p>previousTaskName / previousPhase / previousReportState / releaseGateState；
+     * 历史数据 previousTaskId 为 NULL 时保持只读展示原值，不写回、不猜测。</p>
+     */
+    private TaskResult enrichTaskResult(TaskResult result) {
+        if (result.getTaskId() != null) {
+            Optional<TaskReleaseGate> gate = taskReleaseGateRepository.getByNextTaskId(result.getTaskId());
+            if (gate != null && gate.isPresent() && gate.get().getGateState() != null) {
+                result.setReleaseGateState(gate.get().getGateState().getValue());
+            }
+        }
+        if (result.getPreviousTaskId() != null) {
+            Optional<Task> prevOpt = taskRepository.getById(TaskId.of(result.getPreviousTaskId()));
+            if (prevOpt != null && prevOpt.isPresent()) {
+                Task prev = prevOpt.get();
+                result.setPreviousTaskName(prev.getName());
+                result.setPreviousPhase(prev.getPhase() != null ? prev.getPhase().name() : null);
+                Optional<TaskReport> reportOpt = taskReportRepository.findLatestByTaskId(prev.getId().getValue());
+                result.setPreviousReportState(reportOpt != null && reportOpt.isPresent() ? "REPORTED" : "NONE");
+            }
+        }
+        return result;
     }
 
     /**

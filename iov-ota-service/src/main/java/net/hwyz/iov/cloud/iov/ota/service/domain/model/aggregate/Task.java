@@ -73,6 +73,18 @@ public class Task {
         task.pendingEvents.add(new TaskCreatedEvent(id, name, type));
         return task;
     }
+
+    /**
+     * 创建任务并应用已解析的波次顺序（IOV-OTA-DSN-CR-017）
+     * <p>sequenceNo / previousTaskId 由 Task 创建应用服务在 Activity + Phase 作用域内解析完成，
+     * 领域对象只接收解析后的 {@link TaskOrder}，不得在领域内部读取数据库或静默默认 0／NULL。</p>
+     */
+    public static Task create(TaskId id, String name, TaskType type, ActivityId activityId, TaskOrder order) {
+        Task task = create(id, name, type, activityId);
+        task.sequenceNo = (int) order.sequenceNo();
+        task.previousTaskId = order.previousTaskId();
+        return task;
+    }
     
     private Task(TaskId id) {
         this.id = id;

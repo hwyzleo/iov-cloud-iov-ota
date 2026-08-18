@@ -45,14 +45,34 @@ public class TaskMpt extends BaseRequest {
     private Long activityId;
 
     /**
-     * 活动内放量波次序（CR-015，同一活动下唯一）
+     * 活动内放量波次序（CR-015，同一活动下唯一；服务端分配，前端只读展示）
      */
     private Integer sequenceNo;
 
     /**
-     * 前序任务ID（CR-015，多任务放行门禁软引用）
+     * 前序任务ID（CR-015，多任务放行门禁软引用；服务端推导，前端只读展示）
      */
     private Long previousTaskId;
+
+    /**
+     * 前序任务名称（IOV-OTA-DSN-CR-017 §6.2 只读展示）
+     */
+    private String previousTaskName;
+
+    /**
+     * 前序任务阶段（IOV-OTA-DSN-CR-017 §6.2 只读展示）
+     */
+    private String previousPhase;
+
+    /**
+     * 前序任务正式报告状态：REPORTED / NONE（IOV-OTA-DSN-CR-017 §6.2 只读展示）
+     */
+    private String previousReportState;
+
+    /**
+     * 当前任务放行门禁状态：PASS / FAIL / PENDING（IOV-OTA-DSN-CR-017 §6.2 只读展示）
+     */
+    private String releaseGateState;
 
     /**
      * 目标定义（结构化JSON），支持三种模式：

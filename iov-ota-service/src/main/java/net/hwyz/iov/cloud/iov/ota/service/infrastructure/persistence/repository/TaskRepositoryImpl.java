@@ -3,6 +3,8 @@ package net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.repository
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskState;
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskPhase;
+import net.hwyz.iov.cloud.iov.ota.service.common.exception.ActivityNotExistException;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.aggregate.Task;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.ActivityId;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.TaskId;
@@ -102,6 +104,41 @@ public class TaskRepositoryImpl implements TaskRepository {
                 return taskPoAssembler.fromPo(po, restrictionPoList, strategyPoList);
             })
             .collect(Collectors.toList());
+    }
+
+    @Override
+    public void lockActivity(Long activityId) {
+        Long id = taskMapper.selectActivityIdForUpdate(activityId);
+        if (id == null) {
+            throw new ActivityNotExistException(activityId);
+        }
+        log.debug("已锁定升级活动[{}]（Activity 行锁）", activityId);
+    }
+
+    @Override
+    public Long findMaxSequence(Long activityId, TaskPhase phase) {
+        return taskMapper.selectMaxSequence(activityId, phase.getValue());
+    }
+
+    @Override
+    public List<Task> findByActivityPhaseSequence(Long activityId, TaskPhase phase, Long sequenceNo) {
+        return taskMapper.selectByActivityPhaseSequence(activityId, phase.getValue(), sequenceNo).stream()
+            .map(po -> {
+                List<TaskRestrictionPo> restrictionPoList = taskRestrictionMapper.selectPoByTaskId(po.getId());
+                List<TaskStrategyPo> strategyPoList = taskStrategyMapper.selectPoByTaskId(po.getId());
+                return taskPoAssembler.fromPo(po, restrictionPoList, strategyPoList);
+            })
+            .collect(Collectors.toList());
+    }
+
+    @Override
+    public boolean existsByActivityPhaseSequence(Long activityId, TaskPhase phase, Long sequenceNo) {
+        return taskMapper.countByActivityPhaseSequence(activityId, phase.getValue(), sequenceNo) > 0;
+    }
+
+    @Override
+    public boolean isReferencedAsPrevious(Long taskId) {
+        return taskMapper.countByPreviousTaskId(taskId) > 0;
     }
 
     @Override

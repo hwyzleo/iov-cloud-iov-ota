@@ -84,6 +84,10 @@ public class TaskMptAssembler {
         vo.setActivityId(result.getActivityId());
         vo.setSequenceNo(result.getSequenceNo());
         vo.setPreviousTaskId(result.getPreviousTaskId());
+        vo.setPreviousTaskName(result.getPreviousTaskName());
+        vo.setPreviousPhase(result.getPreviousPhase());
+        vo.setPreviousReportState(result.getPreviousReportState());
+        vo.setReleaseGateState(result.getReleaseGateState());
         vo.setTarget(result.getTarget());
         vo.setStartTime(toDate(result.getStartTime()));
         vo.setEndTime(toDate(result.getEndTime()));
@@ -122,6 +126,17 @@ public class TaskMptAssembler {
         taskMpt.setState(taskPo.getState());
         taskMpt.setCreateTime(taskPo.getCreateTime());
 
+        attachExtras(taskMpt, restrictions, strategies, installConditions, conditionTypeMap);
+
+        return taskMpt;
+    }
+
+    /**
+     * 在基础 VO 上附加子实体列表（IOV-OTA-DSN-CR-017）
+     * <p>用于详情查询：保留服务端派生的只读展示字段，同时挂载限制/策略/安装条件列表。</p>
+     */
+    public void attachExtras(TaskMpt taskMpt, List<TaskRestrictionPo> restrictions, List<TaskStrategyPo> strategies,
+                             List<TaskInstallCondition> installConditions, Map<String, InstallConditionType> conditionTypeMap) {
         if (restrictions != null) {
             taskMpt.setRestrictions(restrictions.stream()
                 .map(po -> TaskRestrictionMpt.builder()
@@ -159,8 +174,6 @@ public class TaskMptAssembler {
                     .build())
                 .collect(Collectors.toList()));
         }
-
-        return taskMpt;
     }
 
     public TaskPo toPo(TaskMpt taskMpt) {

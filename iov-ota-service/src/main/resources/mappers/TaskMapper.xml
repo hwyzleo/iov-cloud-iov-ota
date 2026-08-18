@@ -255,4 +255,49 @@
           AND t.state = #{expectedState}
           AND t.row_version = #{expectedRowVersion}
     </update>
+
+    <!-- 锁定 Activity 行（IOV-OTA-DSN-CR-017：Task 创建事务内以 Activity 粒度串行化） -->
+    <select id="selectActivityIdForUpdate" resultType="Long">
+        SELECT id
+        FROM tb_activity
+        WHERE id = #{activityId}
+        FOR UPDATE
+    </select>
+
+    <!-- 查询 (activityId, phase) 作用域内最大波次序（IOV-OTA-DSN-CR-017）
+         包含已取消/已取代/软删除但仍保留审计的历史序号，防止序号复用 -->
+    <select id="selectMaxSequence" resultType="Long">
+        SELECT MAX(t.sequence_no)
+        FROM tb_task t
+        WHERE t.activity_id = #{activityId}
+          AND t.phase = #{phase}
+    </select>
+
+    <!-- 按 (activityId, phase, sequenceNo) 查询候选（IOV-OTA-DSN-CR-017 前序推导） -->
+    <select id="selectByActivityPhaseSequence" parameterType="map" resultMap="baseResultMap">
+        SELECT <include refid="baseColumnList"/>
+        FROM tb_task t
+        WHERE t.activity_id = #{activityId}
+          AND t.phase = #{phase}
+          AND t.sequence_no = #{sequenceNo}
+          AND t.row_valid = 1
+        ORDER BY t.id ASC
+    </select>
+
+    <!-- 判断 (activityId, phase, sequenceNo) 是否已存在（IOV-OTA-DSN-CR-017） -->
+    <select id="countByActivityPhaseSequence" resultType="int">
+        SELECT COUNT(*)
+        FROM tb_task t
+        WHERE t.activity_id = #{activityId}
+          AND t.phase = #{phase}
+          AND t.sequence_no = #{sequenceNo}
+    </select>
+
+    <!-- 统计被后续任务引用为前序的数量（IOV-OTA-DSN-CR-017 删除守卫） -->
+    <select id="countByPreviousTaskId" resultType="int">
+        SELECT COUNT(*)
+        FROM tb_task t
+        WHERE t.previous_task_id = #{previousTaskId}
+          AND t.row_valid = 1
+    </select>
 </mapper>

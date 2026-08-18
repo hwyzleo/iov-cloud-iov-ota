@@ -73,11 +73,39 @@ class TaskReleaseGateServiceTest {
     }
 
     @Test
-    @DisplayName("无前序任务 -> 直接放行 PASS")
-    void noPreviousTask_pass() {
+    @DisplayName("VALIDATION 阶段首波（seq=0 且无前序）-> 按既有首阶段规则放行 PASS")
+    void validationFirstWave_pass() {
+        nextTask.setSequenceNo(0);
         nextTask.setPreviousTaskId(null);
+        nextTask.setPhase(TaskPhase.VALIDATION);
         when(taskRepository.getById(any())).thenReturn(Optional.of(nextTask));
         assertEquals(ReleaseGateState.PASS, service.checkGateForRelease(2L));
+    }
+
+    @Test
+    @DisplayName("后续波次缺失前序关系（seq>0 且 previousTaskId 为空）-> fail-safe 阻断")
+    void laterWaveMissingRelation_blocked() {
+        nextTask.setSequenceNo(2);
+        nextTask.setPreviousTaskId(null);
+        when(taskRepository.getById(any())).thenReturn(Optional.of(nextTask));
+
+        TaskReleaseGateException ex = assertThrows(TaskReleaseGateException.class,
+                () -> service.checkGateForRelease(2L));
+        assertTrue(ex.getMessage().contains("前序任务关系"));
+    }
+
+    @Test
+    @DisplayName("CANARY 首波（seq=0 且无前序）但前序阶段无任务 -> 按 US-054 阻断")
+    void canaryFirstWaveWithoutPrevPhase_blocked() {
+        nextTask.setSequenceNo(0);
+        nextTask.setPreviousTaskId(null);
+        nextTask.setPhase(TaskPhase.CANARY);
+        when(taskRepository.getById(any())).thenReturn(Optional.of(nextTask));
+        when(taskRepository.findByActivityId(any())).thenReturn(java.util.List.of());
+
+        TaskReleaseGateException ex = assertThrows(TaskReleaseGateException.class,
+                () -> service.checkGateForRelease(2L));
+        assertTrue(ex.getMessage().contains("前序阶段"));
     }
 
     @Test
@@ -167,7 +195,8 @@ class TaskReleaseGateServiceTest {
     @Test
     @DisplayName("已存在 PASS 门禁（含人工放行）-> 直接复用放行")
     void existingPassGate_reuse() {
-        when(taskRepository.getById(any())).thenReturn(Optional.of(nextTask));
+        when(taskRepository.getById(TaskId.of(2L))).thenReturn(Optional.of(nextTask));
+        when(taskRepository.getById(TaskId.of(1L))).thenReturn(Optional.of(prevTask));
         TaskReleaseGate gate = TaskReleaseGate.builder()
                 .id(10L).activityId(100L).previousTaskId(1L).nextTaskId(2L)
                 .gateType(TaskReleaseGate.ReleaseGateType.SAME_PHASE)
