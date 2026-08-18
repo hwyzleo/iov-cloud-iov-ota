@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @RestController
 @RequiredArgsConstructor
-@RequestMapping(value = "/api/mpt/install-condition-type/v1")
+@RequestMapping(value = "/api/mpt/installConditionType/v1")
 public class MptInstallConditionTypeController {
 
     private final InstallConditionTypeRepository installConditionTypeRepository;
