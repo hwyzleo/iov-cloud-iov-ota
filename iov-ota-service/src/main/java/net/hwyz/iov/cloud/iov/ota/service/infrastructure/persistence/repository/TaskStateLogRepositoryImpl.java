@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -102,6 +103,9 @@ public class TaskStateLogRepositoryImpl implements TaskStateLogRepository {
                 .reason(domain.getReason())
                 .decidedAt(domain.getDecidedAt() != null ? LocalDateTime.ofInstant(domain.getDecidedAt(), ZoneId.systemDefault()) : null)
                 .description(domain.getDescription())
+                .createTime(new Date())
+                .modifyTime(new Date())
+                .rowValid(true)
                 .build();
     }
 }

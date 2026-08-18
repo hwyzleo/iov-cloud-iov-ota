@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -113,6 +114,9 @@ public class TaskVehicleRetryLogRepositoryImpl implements TaskVehicleRetryLogRep
                 .reason(domain.getReason())
                 .retriedAt(domain.getRetriedAt() != null ? LocalDateTime.ofInstant(domain.getRetriedAt(), ZoneId.systemDefault()) : null)
                 .description(domain.getDescription())
+                .createTime(new Date())
+                .modifyTime(new Date())
+                .rowValid(true)
                 .build();
     }
 }

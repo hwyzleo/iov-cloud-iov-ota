@@ -100,6 +100,9 @@ public class TaskMetricRepositoryImpl implements TaskMetricRepository {
                 .gateThreshold(domain.getGateThreshold())
                 .gateState(domain.getGateState())
                 .statTime(domain.getStatTime() != null ? Date.from(domain.getStatTime()) : new Date())
+                .createTime(new Date())
+                .modifyTime(new Date())
+                .rowValid(true)
                 .build();
     }
 }

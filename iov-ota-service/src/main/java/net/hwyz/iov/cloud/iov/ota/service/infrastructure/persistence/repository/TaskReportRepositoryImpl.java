@@ -93,6 +93,9 @@ public class TaskReportRepositoryImpl implements TaskReportRepository {
                 .successRate(domain.getSuccessRate())
                 .failCaseDist(domain.getFailCaseDist())
                 .genTime(domain.getGenTime() != null ? Date.from(domain.getGenTime()) : new Date())
+                .createTime(new Date())
+                .modifyTime(new Date())
+                .rowValid(true)
                 .build();
     }
 }

@@ -10,6 +10,7 @@ import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskRele
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -130,6 +131,9 @@ public class TaskReleaseGateRepositoryImpl implements TaskReleaseGateRepository 
                 .decidedBy(domain.getDecidedBy())
                 .decidedAt(domain.getDecidedAt() != null ? LocalDateTime.ofInstant(domain.getDecidedAt(), java.time.ZoneId.systemDefault()) : null)
                 .description(domain.getDescription())
+                .createTime(new Date())
+                .modifyTime(new Date())
+                .rowValid(true)
                 .build();
     }
 }
