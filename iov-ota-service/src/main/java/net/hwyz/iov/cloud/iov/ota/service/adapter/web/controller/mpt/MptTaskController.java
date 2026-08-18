@@ -23,11 +23,13 @@ import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.TaskMetricResul
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.TaskReportResult;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.TaskReleaseGateResult;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.TaskStateLogResult;
+import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.TaskConsentQueryResult;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.TaskAppService;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.TaskMetricQueryService;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.TaskReportAppService;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.TaskReleaseGateService;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.OperationAuditQueryService;
+import net.hwyz.iov.cloud.iov.ota.service.application.service.TaskConsentQueryService;
 import net.hwyz.iov.cloud.iov.ota.service.domain.service.ApprovalDomainService;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskApproval;
 import net.hwyz.iov.cloud.iov.ota.api.vo.TaskApprovalMpt;
@@ -74,6 +76,7 @@ public class MptTaskController extends BaseController {
     private final TaskReportAppService taskReportAppService;
     private final TaskReleaseGateService taskReleaseGateService;
     private final OperationAuditQueryService operationAuditQueryService;
+    private final TaskConsentQueryService taskConsentQueryService;
 
     @RequiresPermissions("ota:fota:task:list")
     @GetMapping(value = "/list")
@@ -355,5 +358,22 @@ public class MptTaskController extends BaseController {
         log.info("管理后台用户[{}]人工放行升级任务[{}]的门禁，审批引用[{}]", SecurityUtils.getUsername(), taskId, approvalRef);
         return ApiResponse.ok(taskReleaseGateService.overrideGateForNextTask(
                 taskId, SecurityUtils.getUsername(), approvalRef, reason));
+    }
+
+    /**
+     * 任务授权汇总与车辆分页（CR-016 §6/§8、US-102～105）
+     */
+    @RequiresPermissions("ota:fota:task:query")
+    @GetMapping(value = "/{taskId}/consents")
+    public ApiResponse<TaskConsentQueryResult> consents(
+            @PathVariable Long taskId,
+            @RequestParam(required = false) String state,
+            @RequestParam(required = false) String vin,
+            @RequestParam(required = false) Date beginTime,
+            @RequestParam(required = false) Date endTime) {
+        log.info("管理后台用户[{}]查询升级任务[{}]授权汇总", SecurityUtils.getUsername(), taskId);
+        startPage();
+        return ApiResponse.ok(taskConsentQueryService.queryTaskConsents(
+                taskId, state, vin, beginTime, endTime));
     }
 }

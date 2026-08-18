@@ -46,7 +46,15 @@ public class VehicleTaskConverter {
                 po.getPackageCacheAction(),
                 po.getActiveExecutionId() != null ? ExecutionId.of(po.getActiveExecutionId()) : null,
                 po.getLastAttemptNo() != null ? po.getLastAttemptNo() : 0,
-                VehicleTaskStatus.valOf(po.getVtStateBeforePause())
+                VehicleTaskStatus.valOf(po.getVtStateBeforePause()),
+                po.getConsentRequired() != null && po.getConsentRequired() == 1,
+                po.getConsentArticleId(),
+                po.getConsentArticleVersion(),
+                po.getConsentArticleHash(),
+                po.getConsentScopeDigest(),
+                po.getCurrentConsentId(),
+                toInstant(po.getConsentUpdatedAt()),
+                po.getRowVersion() != null ? po.getRowVersion().longValue() : 0L
         );
     }
 
@@ -69,6 +77,14 @@ public class VehicleTaskConverter {
         po.setActiveExecutionId(vt.getActiveExecutionId() != null ? vt.getActiveExecutionId().getValue() : null);
         po.setLastAttemptNo(vt.getLastAttemptNo());
         po.setVtStateBeforePause(vt.getStateBeforePause() != null ? vt.getStateBeforePause().getValue() : null);
+        po.setConsentRequired(vt.isConsentRequired() ? 1 : 0);
+        po.setConsentArticleId(vt.getConsentArticleId());
+        po.setConsentArticleVersion(vt.getConsentArticleVersion());
+        po.setConsentArticleHash(vt.getConsentArticleHash());
+        po.setConsentScopeDigest(vt.getConsentScopeDigest());
+        po.setCurrentConsentId(vt.getCurrentConsentId());
+        po.setConsentUpdatedAt(toDate(vt.getConsentUpdatedAt()));
+        po.setRowVersion(Math.toIntExact(vt.getRowVersion()));
         return po;
     }
 

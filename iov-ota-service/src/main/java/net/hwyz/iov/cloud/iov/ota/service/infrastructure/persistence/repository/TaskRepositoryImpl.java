@@ -16,7 +16,6 @@ import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.Task
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskInstallConditionMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskMetricMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskReportMapper;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.UserConsentMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.UpgradeLogMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskStateLogMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskApprovalMapper;
@@ -46,7 +45,6 @@ public class TaskRepositoryImpl implements TaskRepository {
     private final TaskInstallConditionMapper taskInstallConditionMapper;
     private final TaskMetricMapper taskMetricMapper;
     private final TaskReportMapper taskReportMapper;
-    private final UserConsentMapper userConsentMapper;
     private final UpgradeLogMapper upgradeLogMapper;
     private final TaskStateLogMapper taskStateLogMapper;
     private final TaskApprovalMapper taskApprovalMapper;
@@ -230,9 +228,6 @@ public class TaskRepositoryImpl implements TaskRepository {
             taskReportMapper.delete(
                 new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskReportPo>()
                     .eq(net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskReportPo::getTaskId, taskId));
-            userConsentMapper.delete(
-                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.UserConsentPo>()
-                    .eq(net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.UserConsentPo::getTaskId, taskId));
             upgradeLogMapper.delete(
                 new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.UpgradeLogPo>()
                     .eq(net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.UpgradeLogPo::getTaskId, taskId));

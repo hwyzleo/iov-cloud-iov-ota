@@ -23,6 +23,9 @@ import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.ExecutionEventP
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.TaskVehicleRetryLogResult;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.UpgradeLogResult;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.TaskVehicleProcessQueryService;
+import net.hwyz.iov.cloud.iov.ota.service.application.service.VehicleTaskConsentQueryService;
+import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.VehicleTaskConsentResult;
+import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.VehicleTaskConsentCurrentResult;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskVehiclePo;
 import org.springframework.web.bind.annotation.*;
@@ -45,6 +48,7 @@ public class MptTaskVehicleController extends BaseController {
     private final ActivityAppService activityAppService;
     private final TaskVehicleAppService taskVehicleAppService;
     private final TaskVehicleProcessQueryService taskVehicleProcessQueryService;
+    private final VehicleTaskConsentQueryService vehicleTaskConsentQueryService;
 
     /**
      * 分页查询车辆升级任务
@@ -171,5 +175,27 @@ taskVehicleMptList.forEach(taskVehicleMpt -> {
         List<UpgradeLogResult> list = taskVehicleProcessQueryService
                 .listUpgradeLogs(taskVehicleId, beginTime, endTime, uploadState);
         return ApiResponse.ok(getPageResult(list));
+    }
+
+    /**
+     * 单 VehicleTask 的不可变授权历史（CR-016 §6、US-102～105）
+     */
+    @RequiresPermissions("ota:fota:taskVehicle:query")
+    @GetMapping(value = "/{taskVehicleId}/consents")
+    public ApiResponse<PageResult<VehicleTaskConsentResult>> consents(@PathVariable Long taskVehicleId) {
+        log.info("管理后台用户[{}]查询车辆升级任务[{}]授权历史", SecurityUtils.getUsername(), taskVehicleId);
+        startPage();
+        List<VehicleTaskConsentResult> list = vehicleTaskConsentQueryService.listHistory(taskVehicleId);
+        return ApiResponse.ok(getPageResult(list));
+    }
+
+    /**
+     * 单 VehicleTask 当前权威授权状态（CR-016 §6、US-102～105）
+     */
+    @RequiresPermissions("ota:fota:taskVehicle:query")
+    @GetMapping(value = "/{taskVehicleId}/consents/current")
+    public ApiResponse<VehicleTaskConsentCurrentResult> currentConsent(@PathVariable Long taskVehicleId) {
+        log.info("管理后台用户[{}]查询车辆升级任务[{}]当前授权状态", SecurityUtils.getUsername(), taskVehicleId);
+        return ApiResponse.ok(vehicleTaskConsentQueryService.getCurrent(taskVehicleId));
     }
 }

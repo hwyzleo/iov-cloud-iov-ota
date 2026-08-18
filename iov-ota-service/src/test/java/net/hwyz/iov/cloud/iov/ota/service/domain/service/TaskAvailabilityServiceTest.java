@@ -1,6 +1,7 @@
 package net.hwyz.iov.cloud.iov.ota.service.domain.service;
 
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.AvailabilityStatus;
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.ConsentResult;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskState;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskType;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.VehicleTaskStatus;
@@ -166,7 +167,7 @@ class TaskAvailabilityServiceTest {
         // 通过状态机推进到目标状态
         vt.markVisible(now);
         vt.enterConsentPending();
-        vt.grantConsent(false); // READY_TO_INSTALL
+        vt.applyConsent(ConsentResult.GRANTED, 1L, "scope", now, false); // READY_TO_INSTALL
         if (status == VehicleTaskStatus.EXECUTING) {
             vt.attachExecution(
                     net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.ExecutionId.of(1L), 1);

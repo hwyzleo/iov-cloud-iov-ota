@@ -157,10 +157,52 @@ public class TaskVehiclePo extends BasePo {
     private String downloadReadyState;
 
     /**
-     * 授权状态（CR-012）
+     * 授权状态（CR-012/CR-016）
      */
     @TableField("consent_state")
     private String consentState;
+
+    /**
+     * 是否需授权，发布时冻结（CR-016）
+     */
+    @TableField("consent_required")
+    private Integer consentRequired;
+
+    /**
+     * 发布冻结条款身份引用（CR-016）
+     */
+    @TableField("consent_article_id")
+    private Long consentArticleId;
+
+    /**
+     * 发布冻结条款展示版本（CR-016）
+     */
+    @TableField("consent_article_version")
+    private String consentArticleVersion;
+
+    /**
+     * 发布冻结条款权威摘要（CR-016）
+     */
+    @TableField("consent_article_hash")
+    private String consentArticleHash;
+
+    /**
+     * 当前授权范围权威摘要（CR-016）
+     */
+    @TableField("consent_scope_digest")
+    private String consentScopeDigest;
+
+    /**
+     * 当前权威授权记录ID（CR-016）
+     */
+    @TableField("current_consent_id")
+    private Long currentConsentId;
+
+    /**
+     * 当前授权状态最后推进时间（CR-016）
+     */
+    @TableField("consent_updated_at")
+    private java.util.Date consentUpdatedAt;
 
     /**
      * 发布时间快照（CR-012）

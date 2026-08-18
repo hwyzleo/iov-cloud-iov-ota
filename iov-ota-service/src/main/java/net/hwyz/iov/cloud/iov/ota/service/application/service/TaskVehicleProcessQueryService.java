@@ -271,14 +271,19 @@ public class TaskVehicleProcessQueryService {
             return null;
         }
         return ConsentProcessSummary.builder()
-                .consentState(consent.getConsentState())
-                .effectiveState(consent.getEffectiveState())
+                .consentResult(consent.getConsentResult())
                 .receiptId(consent.getConsentReceiptId())
-                .termsId(consent.getTermsId())
-                .termsHash(consent.getTermsHash())
-                .accepted(consent.getAccepted() != null && consent.getAccepted() == 1)
-                .revokedTime(toInstant(consent.getRevokedTime()))
-                .reconsentRequired(consent.getReconsentRequired() != null && consent.getReconsentRequired() == 1)
+                .taskRevision(consent.getTaskRevision())
+                .articleId(consent.getArticleId())
+                .articleVersion(consent.getArticleVersion())
+                .articleHash(consent.getArticleHash())
+                .scopeDigest(consent.getConsentScopeDigest())
+                .channel(consent.getChannel())
+                .reportedAt(toInstant(consent.getReportedAt()))
+                .receivedAt(toInstant(consent.getReceivedAt()))
+                .expireAt(toInstant(consent.getExpireAt()))
+                .supersedesConsentId(consent.getSupersedesConsentId())
+                .sourceModel(consent.getSourceModel())
                 .build();
     }
 

@@ -1,5 +1,6 @@
 package net.hwyz.iov.cloud.iov.ota.service.domain.model.aggregate;
 
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.ConsentResult;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.ConsentState;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.DownloadReadyState;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.VehicleTaskStatus;
@@ -69,7 +70,7 @@ class VehicleTaskTest {
         vehicleTask.enterConsentPending();
         assertEquals(VehicleTaskStatus.CONSENT_PENDING, vehicleTask.getStatus());
 
-        vehicleTask.grantConsent(true);
+        vehicleTask.applyConsent(ConsentResult.GRANTED, 1L, "scope", now, true);
         assertEquals(VehicleTaskStatus.DOWNLOAD_PENDING, vehicleTask.getStatus());
         assertEquals(ConsentState.GRANTED, vehicleTask.getConsentState());
 
@@ -87,7 +88,7 @@ class VehicleTaskTest {
     void noDownloadFlow_grantConsentDirectlyReady() {
         vehicleTask.markVisible(now);
         vehicleTask.enterConsentPending();
-        vehicleTask.grantConsent(false);
+        vehicleTask.applyConsent(ConsentResult.GRANTED, 1L, "scope", now, false);
         assertEquals(VehicleTaskStatus.READY_TO_INSTALL, vehicleTask.getStatus());
         assertEquals(DownloadReadyState.VERIFIED, vehicleTask.getDownloadReadyState());
     }
@@ -187,7 +188,7 @@ class VehicleTaskTest {
     void upgradeRevision_shouldIncrementRevision() {
         TaskRevision original = vehicleTask.getTaskRevision();
         TaskRevision next = original.next();
-        vehicleTask.upgradeRevision(next, SnapshotDigest.of("newDigest"));
+        vehicleTask.upgradeRevision(next, SnapshotDigest.of("newDigest"), now);
         assertEquals(next.getValue(), vehicleTask.getTaskRevision().getValue());
         assertEquals("newDigest", vehicleTask.getSnapshotDigest().getValue());
     }
@@ -196,12 +197,12 @@ class VehicleTaskTest {
     @DisplayName("upgradeRevision 非递增版本号抛异常")
     void upgradeRevision_notIncrement_throwsException() {
         assertThrows(VehicleTaskStateException.class,
-                () -> vehicleTask.upgradeRevision(TaskRevision.of(1L), SnapshotDigest.of("x")));
+                () -> vehicleTask.upgradeRevision(TaskRevision.of(1L), SnapshotDigest.of("x"), now));
     }
 
     private void prepareReadyToInstall() {
         vehicleTask.markVisible(now);
         vehicleTask.enterConsentPending();
-        vehicleTask.grantConsent(false);
+        vehicleTask.applyConsent(ConsentResult.GRANTED, 1L, "scope", now, false);
     }
 }

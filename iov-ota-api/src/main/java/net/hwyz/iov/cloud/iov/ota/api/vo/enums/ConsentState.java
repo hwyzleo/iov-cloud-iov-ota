@@ -4,9 +4,10 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 /**
- * 用户授权状态枚举类（CR-012 §2.2、§5.3）
+ * 用户授权状态枚举类（CR-016 §3.1、§4）
  *
- * <p>accepted 与 effectiveConsentStatus 分离：receipt 是否被接受 vs 当前有效授权状态。
+ * <p>VehicleTask 当前权威授权状态。accepted 与 effectiveConsentStatus 分离：
+ * 有效凭据必须是 GRANTED 且绑定任务修订、条款 hash 与 scope digest。
  *
  * @author hwyz_leo
  */
@@ -17,9 +18,10 @@ public enum ConsentState {
     NOT_REQUIRED("无需授权"),
     PENDING("待授权"),
     GRANTED("已授权"),
-    DENIED("已拒绝"),
+    REJECTED("已拒绝"),
     REVOKED("已撤回"),
-    EXPIRED("已失效");
+    EXPIRED("已失效"),
+    INVALIDATED("已失效（修订/条款/范围变更）");
 
     public final String label;
     public final String value = name();

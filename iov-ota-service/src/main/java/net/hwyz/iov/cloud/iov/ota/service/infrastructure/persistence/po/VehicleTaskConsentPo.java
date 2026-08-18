@@ -11,7 +11,9 @@ import net.hwyz.iov.cloud.framework.mysql.po.BasePo;
 import java.util.Date;
 
 /**
- * 车辆任务授权凭据 PO（CR-012 §3、§5.3）
+ * 车辆任务授权唯一事实表 PO（CR-016 §3.2）
+ *
+ * <p>追加历史记录，不覆盖此前同意/拒绝/撤回事实；当前状态由 tb_task_vehicle 强一致保存。
  *
  * @author hwyz_leo
  */
@@ -31,30 +33,60 @@ public class VehicleTaskConsentPo extends BasePo {
     @TableField("vehicle_task_id")
     private Long vehicleTaskId;
 
+    @TableField("task_id")
+    private Long taskId;
+
+    @TableField("vin")
+    private String vin;
+
+    @TableField("task_revision")
+    private Long taskRevision;
+
+    @TableField("consent_result")
+    private String consentResult;
+
     @TableField("consent_receipt_id")
     private String consentReceiptId;
 
-    @TableField("terms_id")
-    private Long termsId;
+    @TableField("supersedes_consent_id")
+    private Long supersedesConsentId;
 
-    @TableField("terms_hash")
-    private String termsHash;
+    @TableField("article_id")
+    private Long articleId;
+
+    @TableField("article_version")
+    private String articleVersion;
+
+    @TableField("article_hash")
+    private String articleHash;
 
     @TableField("consent_scope_digest")
     private String consentScopeDigest;
 
-    @TableField("consent_state")
-    private String consentState;
+    @TableField("channel")
+    private String channel;
 
-    @TableField("accepted")
-    private Integer accepted;
+    @TableField("subject_ref")
+    private String subjectRef;
 
-    @TableField("effective_state")
-    private String effectiveState;
+    @TableField("reported_at")
+    private Date reportedAt;
 
-    @TableField("revoked_time")
-    private Date revokedTime;
+    @TableField("received_at")
+    private Date receivedAt;
 
-    @TableField("reconsent_required")
-    private Integer reconsentRequired;
+    @TableField("expire_at")
+    private Date expireAt;
+
+    @TableField("message_id")
+    private String messageId;
+
+    @TableField("idempotency_key")
+    private String idempotencyKey;
+
+    @TableField("request_digest")
+    private String requestDigest;
+
+    @TableField("source_model")
+    private String sourceModel;
 }

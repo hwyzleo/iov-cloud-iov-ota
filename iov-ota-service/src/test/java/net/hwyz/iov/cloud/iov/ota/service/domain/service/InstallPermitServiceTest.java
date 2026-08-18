@@ -1,5 +1,6 @@
 package net.hwyz.iov.cloud.iov.ota.service.domain.service;
 
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.ConsentResult;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskType;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.VehicleTaskStatus;
 import net.hwyz.iov.cloud.iov.ota.service.domain.exception.ExecutionStateException;
@@ -72,6 +73,7 @@ class InstallPermitServiceTest {
                 .conditionSetVersion("COND_V1")
                 .validUntil(validUntil)
                 .consentRequired(false)
+                .consentPermitted(true)
                 .allPackageStageResultsSucceeded(true)
                 .build();
 
@@ -92,6 +94,7 @@ class InstallPermitServiceTest {
 
         InstallPermitService.InstallPermitRequest request = InstallPermitService.InstallPermitRequest.builder()
                 .consentRequired(false)
+                .consentPermitted(true)
                 .allPackageStageResultsSucceeded(true)
                 .validUntil(validUntil)
                 .build();
@@ -108,6 +111,7 @@ class InstallPermitServiceTest {
 
         InstallPermitService.InstallPermitRequest request = InstallPermitService.InstallPermitRequest.builder()
                 .consentRequired(false)
+                .consentPermitted(true)
                 .allPackageStageResultsSucceeded(true)
                 .validUntil(validUntil)
                 .build();
@@ -126,6 +130,7 @@ class InstallPermitServiceTest {
 
         InstallPermitService.InstallPermitRequest request = InstallPermitService.InstallPermitRequest.builder()
                 .consentRequired(false)
+                .consentPermitted(true)
                 .allPackageStageResultsSucceeded(true)
                 .validUntil(validUntil)
                 .build();
@@ -143,6 +148,7 @@ class InstallPermitServiceTest {
 
         InstallPermitService.InstallPermitRequest request = InstallPermitService.InstallPermitRequest.builder()
                 .consentRequired(true)
+                .consentPermitted(false)
                 .allPackageStageResultsSucceeded(true)
                 .validUntil(validUntil)
                 .build();
@@ -159,6 +165,7 @@ class InstallPermitServiceTest {
 
         InstallPermitService.InstallPermitRequest request = InstallPermitService.InstallPermitRequest.builder()
                 .consentRequired(false)
+                .consentPermitted(true)
                 .allPackageStageResultsSucceeded(false)
                 .validUntil(validUntil)
                 .build();
@@ -175,6 +182,7 @@ class InstallPermitServiceTest {
 
         InstallPermitService.InstallPermitRequest request = InstallPermitService.InstallPermitRequest.builder()
                 .consentRequired(false)
+                .consentPermitted(true)
                 .allPackageStageResultsSucceeded(true)
                 .expectedPackageManifestDigest(SnapshotDigest.of("different-digest"))
                 .validUntil(validUntil)
@@ -194,6 +202,7 @@ class InstallPermitServiceTest {
 
         InstallPermitService.InstallPermitRequest request = InstallPermitService.InstallPermitRequest.builder()
                 .consentRequired(false)
+                .consentPermitted(true)
                 .allPackageStageResultsSucceeded(true)
                 .validUntil(validUntil)
                 .build();
@@ -223,7 +232,7 @@ class InstallPermitServiceTest {
                 releaseAt, startTime, endTime);
         vt.markVisible(now);
         vt.enterConsentPending();
-        vt.grantConsent(false);
+        vt.applyConsent(ConsentResult.GRANTED, 1L, "scope", now, false);
         assertEquals(VehicleTaskStatus.READY_TO_INSTALL, vt.getStatus());
         return vt;
     }

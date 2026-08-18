@@ -46,7 +46,11 @@ public class ConsentPayloadHandler extends AbstractFotaPayloadHandler<ConsentRep
 
     @Override
     public String businessKey(FotaMessageMetadata metadata, ConsentReport payload) {
-        return metadata.vin() + ":" + (payload.hasConsentReceiptId() ? payload.getConsentReceiptId() : payload.getConsentStatus());
+        // 幂等身份优先取 Envelope idempotencyKey / messageId（CR-016 §3.2/§5）
+        if (metadata.idempotencyKey() != null && !metadata.idempotencyKey().isBlank()) {
+            return metadata.vin() + ":" + metadata.idempotencyKey();
+        }
+        return metadata.vin() + ":" + metadata.messageId();
     }
 
     @Override

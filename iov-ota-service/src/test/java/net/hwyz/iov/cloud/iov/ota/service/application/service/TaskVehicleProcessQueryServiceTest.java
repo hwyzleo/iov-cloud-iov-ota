@@ -110,8 +110,11 @@ class TaskVehicleProcessQueryServiceTest {
 
         // 授权
         VehicleTaskConsentPo consent = VehicleTaskConsentPo.builder()
-                .vehicleTaskId(10L).consentState("CONSENTED").effectiveState("GRANTED")
-                .consentReceiptId("RCPT-1").termsId(3L).termsHash("T-HASH").accepted(1).reconsentRequired(0)
+                .vehicleTaskId(10L).taskId(100L).vin("LSV0000000000000001").taskRevision(1L)
+                .consentResult("GRANTED").consentReceiptId("RCPT-1")
+                .articleId(3L).articleVersion("v1").articleHash("T-HASH")
+                .consentScopeDigest("SCOPE-1").channel("TBOX").sourceModel("NATIVE")
+                .receivedAt(Date.from(Instant.parse("2026-08-01T01:00:00Z")))
                 .build();
         when(vehicleTaskConsentMapper.selectList(any())).thenReturn(List.of(consent));
 
@@ -179,7 +182,7 @@ class TaskVehicleProcessQueryServiceTest {
 
         // 授权
         assertEquals("RCPT-1", result.getConsentSummary().getReceiptId());
-        assertTrue(result.getConsentSummary().getAccepted());
+        assertEquals("GRANTED", result.getConsentSummary().getConsentResult());
 
         // 包
         assertEquals(1, result.getPackageStages().size());

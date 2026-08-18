@@ -1,5 +1,6 @@
 package net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.converter;
 
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.ConsentResult;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.ConsentState;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.DownloadReadyState;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.VehicleTaskStatus;
@@ -40,7 +41,7 @@ class VehicleTaskConverterTest {
                 releaseAt, startTime, endTime);
         vt.markVisible(Instant.now());
         vt.enterConsentPending();
-        vt.grantConsent(false);
+        vt.applyConsent(ConsentResult.GRANTED, 1L, "scope", Instant.now(), false);
         vt.setConsentState(ConsentState.GRANTED);
         vt.setLocalDisposition("DEFER");
         vt.setPackageCacheAction("KEEP");
@@ -108,7 +109,7 @@ class VehicleTaskConverterTest {
                 Instant.now().minusSeconds(60), Instant.now(), Instant.now().plusSeconds(3600));
         original.markVisible(Instant.now());
         original.enterConsentPending();
-        original.grantConsent(true);
+        original.applyConsent(ConsentResult.GRANTED, 1L, "scope", Instant.now(), true);
         original.startDownload();
         original.markDownloadReady();
 

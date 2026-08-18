@@ -43,7 +43,6 @@ class TaskRepositoryImplTest {
     @Mock private TaskInstallConditionMapper taskInstallConditionMapper;
     @Mock private TaskMetricMapper taskMetricMapper;
     @Mock private TaskReportMapper taskReportMapper;
-    @Mock private UserConsentMapper userConsentMapper;
     @Mock private UpgradeLogMapper upgradeLogMapper;
     @Mock private TaskStateLogMapper taskStateLogMapper;
     @Mock private TaskApprovalMapper taskApprovalMapper;

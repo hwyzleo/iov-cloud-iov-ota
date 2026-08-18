@@ -4,7 +4,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.hwyz.iov.cloud.iov.ota.api.vo.enums.ConsentState;
 import net.hwyz.iov.cloud.iov.ota.service.domain.exception.ExecutionStateException;
 import net.hwyz.iov.cloud.iov.ota.service.domain.gateway.PermitTokenSigner;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.aggregate.Execution;
@@ -78,8 +77,8 @@ public class InstallPermitService {
                     + "]不在就绪状态族，不可申请安装许可");
         }
 
-        // 4. 授权有效
-        if (request.consentRequired && vehicleTask.getConsentState() != ConsentState.GRANTED) {
+        // 4. 授权有效（统一 ConsentPolicy 判定，CR-016 §4）
+        if (request.consentRequired && !request.consentPermitted) {
             throw new ExecutionStateException("授权未通过，不可申请安装许可");
         }
 
@@ -148,8 +147,10 @@ public class InstallPermitService {
         private final String timeoutPolicy;
         /** 控制策略（冻结，JSON） */
         private final String controlPolicy;
-        /** 是否需要授权 */
+        /** 是否需要授权（发布冻结） */
         private final boolean consentRequired;
+        /** 统一 ConsentPolicy 有效授权判定结果（由调用方计算） */
+        private final boolean consentPermitted;
         /** 全部必需包阶段结果是否成功 */
         private final boolean allPackageStageResultsSucceeded;
     }

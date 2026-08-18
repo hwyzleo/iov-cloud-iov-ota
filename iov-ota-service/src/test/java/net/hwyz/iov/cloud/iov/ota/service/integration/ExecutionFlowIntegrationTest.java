@@ -1,5 +1,6 @@
 package net.hwyz.iov.cloud.iov.ota.service.integration;
 
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.ConsentResult;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.ExecutionStatus;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskState;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskType;
@@ -25,6 +26,8 @@ import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.TaskId;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.TaskRevision;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.VehicleTaskId;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.Vin;
+import net.hwyz.iov.cloud.iov.ota.service.domain.repository.VehicleTaskConsentRepository;
+import net.hwyz.iov.cloud.iov.ota.service.domain.service.ConsentPolicy;
 import net.hwyz.iov.cloud.iov.ota.service.domain.service.InstallPermitService;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ExecutionControlAckMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ExecutionControlMapper;
@@ -70,6 +73,7 @@ class ExecutionFlowIntegrationTest {
     @Mock private ExecutionEventMapper executionEventMapper;
     @Mock private ExecutionControlMapper executionControlMapper;
     @Mock private ExecutionControlAckMapper executionControlAckMapper;
+    @Mock private VehicleTaskConsentRepository vehicleTaskConsentRepository;
 
     private InMemoryVehicleTaskRepository vehicleTaskRepository;
     private InMemoryExecutionRepository executionRepository;
@@ -106,10 +110,13 @@ class ExecutionFlowIntegrationTest {
 
         // 领域服务
         InstallPermitService installPermitService = new InstallPermitService(new LocalPermitTokenSigner());
+        ConsentPolicy consentPolicy = new ConsentPolicy();
+        when(vehicleTaskConsentRepository.findCurrentByVehicleTaskId(any())).thenReturn(java.util.Optional.empty());
 
         // 应用服务
         executionAppService = new ExecutionAppService(vehicleTaskRepository, executionRepository,
-                taskRepository, installPermitService, outboxRepository, executionEcuResultMapper);
+                taskRepository, installPermitService, consentPolicy, vehicleTaskConsentRepository,
+                outboxRepository, executionEcuResultMapper);
         executionEventAppService = new ExecutionEventAppService(executionRepository,
                 executionEventMapper, executionControlMapper, executionControlAckMapper);
         recoveryAppService = new RecoveryAppService(vehicleTaskRepository, executionRepository,
@@ -285,7 +292,7 @@ class ExecutionFlowIntegrationTest {
                 now.minusSeconds(120), startTime, endTime);
         vt.markVisible(now);
         vt.enterConsentPending();
-        vt.grantConsent(false);
+        vt.applyConsent(ConsentResult.GRANTED, 1L, "scope", now, false);
         assertEquals(VehicleTaskStatus.READY_TO_INSTALL, vt.getStatus());
         return vt;
     }

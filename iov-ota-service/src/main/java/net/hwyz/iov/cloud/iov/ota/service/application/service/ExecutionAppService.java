@@ -20,7 +20,9 @@ import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.TaskId;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.VehicleTaskId;
 import net.hwyz.iov.cloud.iov.ota.service.domain.repository.ExecutionRepository;
 import net.hwyz.iov.cloud.iov.ota.service.domain.repository.TaskRepository;
+import net.hwyz.iov.cloud.iov.ota.service.domain.repository.VehicleTaskConsentRepository;
 import net.hwyz.iov.cloud.iov.ota.service.domain.repository.VehicleTaskRepository;
+import net.hwyz.iov.cloud.iov.ota.service.domain.service.ConsentPolicy;
 import net.hwyz.iov.cloud.iov.ota.service.domain.service.InstallPermitService;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ExecutionEcuResultMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ExecutionEcuResultPo;
@@ -47,6 +49,8 @@ public class ExecutionAppService {
     private final ExecutionRepository executionRepository;
     private final TaskRepository taskRepository;
     private final InstallPermitService installPermitService;
+    private final ConsentPolicy consentPolicy;
+    private final VehicleTaskConsentRepository vehicleTaskConsentRepository;
     private final OutboxRepository outboxRepository;
     private final ExecutionEcuResultMapper executionEcuResultMapper;
 
@@ -71,6 +75,13 @@ public class ExecutionAppService {
         ExecutionId executionId = ExecutionId.of(generateId());
         Instant validUntil = Instant.now().plusSeconds(1800);
 
+        // 授权门禁：统一 ConsentPolicy 判定（CR-016 §4）
+        boolean consentRequired = vehicleTask.isConsentRequired();
+        boolean consentPermitted = !consentRequired || consentPolicy.isPermitted(
+                vehicleTask,
+                vehicleTaskConsentRepository.findCurrentByVehicleTaskId(vehicleTask.getId().getValue()).orElse(null),
+                Instant.now());
+
         InstallPermitService.InstallPermitRequest request = InstallPermitService.InstallPermitRequest.builder()
                 .installPlanVersion(cmd.getInstallPlanVersion())
                 .packageManifestDigest(cmd.getPackageManifestDigest() != null
@@ -82,7 +93,8 @@ public class ExecutionAppService {
                 .offlinePolicy(cmd.getOfflinePolicy())
                 .timeoutPolicy(cmd.getTimeoutPolicy())
                 .controlPolicy(cmd.getControlPolicy())
-                .consentRequired(false)
+                .consentRequired(consentRequired)
+                .consentPermitted(consentPermitted)
                 .allPackageStageResultsSucceeded(true)
                 .build();
 
