@@ -7,6 +7,7 @@ import net.hwyz.iov.cloud.iov.ota.api.vo.enums.VehicleTaskStatus;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.cmd.ExecutionCreateCmd;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.cmd.ExecutionFinalizeCmd;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.cmd.EcuResultCmd;
+import net.hwyz.iov.cloud.iov.ota.service.application.dto.cmd.SoftwareUnitResultCmd;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.ExecutionCreateResult;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.ExecutionFinalizeResult;
 import net.hwyz.iov.cloud.iov.ota.service.domain.gateway.OutboxRepository;
@@ -25,7 +26,9 @@ import net.hwyz.iov.cloud.iov.ota.service.domain.repository.VehicleTaskRepositor
 import net.hwyz.iov.cloud.iov.ota.service.domain.service.ConsentPolicy;
 import net.hwyz.iov.cloud.iov.ota.service.domain.service.InstallPermitService;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ExecutionEcuResultMapper;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ExecutionEcuSoftwareUnitMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ExecutionEcuResultPo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ExecutionEcuSoftwareUnitPo;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,6 +56,7 @@ public class ExecutionAppService {
     private final VehicleTaskConsentRepository vehicleTaskConsentRepository;
     private final OutboxRepository outboxRepository;
     private final ExecutionEcuResultMapper executionEcuResultMapper;
+    private final ExecutionEcuSoftwareUnitMapper executionEcuSoftwareUnitMapper;
 
     /** 简易 ID 生成器（TODO: 替换为雪花算法或 DB 序列） */
     private final AtomicLong idSeed = new AtomicLong(System.currentTimeMillis() / 1000);
@@ -149,18 +153,39 @@ public class ExecutionAppService {
         ExecutionStatus finalStatus = ExecutionStatus.valOf(cmd.getFinalStatus());
         execution.finalize(finalStatus);
 
-        // 保存 ECU 结果
+        // 保存 ECU 结果（CR-019：ECU 聚合行 + per-Target/Slot 软件单元子表）
         if (cmd.getEcuResults() != null) {
             for (EcuResultCmd ecu : cmd.getEcuResults()) {
                 ExecutionEcuResultPo ecuPo = ExecutionEcuResultPo.builder()
                         .executionId(cmd.getExecutionId())
                         .ecuId(ecu.getEcuId())
+                        .softwareModel(ecu.getSoftwareModel())
                         .targetSoftwareVersion(ecu.getTargetSoftwareVersion())
                         .actualSoftwareVersion(ecu.getActualSoftwareVersion())
                         .result(ecu.getResult())
                         .failReason(ecu.getFailReason())
                         .build();
                 executionEcuResultMapper.insert(ecuPo);
+                if (ecu.getSoftwareUnitResults() != null) {
+                    for (SoftwareUnitResultCmd unit : ecu.getSoftwareUnitResults()) {
+                        ExecutionEcuSoftwareUnitPo unitPo = ExecutionEcuSoftwareUnitPo.builder()
+                                .ecuResultId(ecuPo.getId())
+                                .executionId(cmd.getExecutionId())
+                                .ecuId(ecu.getEcuId())
+                                .softwareTargetCode(unit.getSoftwareTargetCode())
+                                .sourceVersion(unit.getSourceVersion())
+                                .targetVersion(unit.getTargetVersion())
+                                .actualVersion(unit.getActualVersion())
+                                .slot(unit.getSlot())
+                                .active(unit.getActive())
+                                .result(unit.getResult())
+                                .failureStage(unit.getFailureStage())
+                                .rollbackResult(unit.getRollbackResult())
+                                .packageId(unit.getPackageId())
+                                .build();
+                        executionEcuSoftwareUnitMapper.insert(unitPo);
+                    }
+                }
             }
         }
 

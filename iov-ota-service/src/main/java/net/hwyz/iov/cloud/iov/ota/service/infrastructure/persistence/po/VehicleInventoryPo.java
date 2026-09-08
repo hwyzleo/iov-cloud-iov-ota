@@ -40,6 +40,18 @@ public class VehicleInventoryPo extends BasePo {
     @TableField("algorithm")
     private String algorithm;
 
+    /** canonicalization 版本（v1/v2） */
+    @TableField("canonicalization_version")
+    private Integer canonicalizationVersion;
+
+    /** canonicalization-v2 摘要（SHA-256 bytes） */
+    @TableField("canonical_digest")
+    private byte[] canonicalDigest;
+
+    /** 车端清单采集时间（source_collected_at，与服务端 accepted_time 分列） */
+    @TableField("source_collected_at")
+    private Date sourceCollectedAt;
+
     @TableField("accepted_time")
     private Date acceptedTime;
 }

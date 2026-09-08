@@ -16,4 +16,7 @@ public interface VehicleInventoryMapper extends BaseMapper<VehicleInventoryPo> {
 
     @Select("SELECT * FROM tb_vehicle_inventory WHERE vin = #{vin} AND row_valid = 1 ORDER BY inventory_revision DESC LIMIT 1")
     VehicleInventoryPo selectLatestByVin(@Param("vin") String vin);
+
+    @Select("SELECT * FROM tb_vehicle_inventory WHERE vin = #{vin} AND inventory_revision = #{revision} AND row_valid = 1 LIMIT 1")
+    VehicleInventoryPo selectByVinAndRevision(@Param("vin") String vin, @Param("revision") Long revision);
 }

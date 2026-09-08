@@ -27,6 +27,9 @@ public class OtaKafkaProperties {
     /** 死信 */
     private Dlq dlq = new Dlq();
 
+    /** OTA→VMD 云服务事件（CR-019 §7） */
+    private CloudEvents cloudEvents = new CloudEvents();
+
     @Data
     public static class Inbound {
         /** 是否启用上行消费 */
@@ -71,5 +74,23 @@ public class OtaKafkaProperties {
     public static class Dlq {
         /** 死信/隔离 topic（对齐车云接入契约上行死信 iov.vagw.up.fota.dlq） */
         private String topic = "iov.vagw.up.fota.dlq";
+    }
+
+    @Data
+    public static class CloudEvents {
+        /** 是否启用云服务事件发布 */
+        private boolean enabled = true;
+        /** 观测事件 topic（OTA→VMD，Key=VIN） */
+        private String observedTopic = "ota.vehicle-software-inventory.observed";
+        /** 观测事件 DLQ */
+        private String observedDlqTopic = "ota.vehicle-software-inventory.observed.dlq";
+        /** 最大重试次数（超过转死信） */
+        private int maxRetry = 5;
+        /** 退避基础秒数（指数退避） */
+        private long backoffBaseSeconds = 1;
+        /** 每批拉取条数 */
+        private int batchSize = 100;
+        /** 轮询间隔（毫秒） */
+        private long pollIntervalMs = 2000;
     }
 }

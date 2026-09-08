@@ -4,6 +4,13 @@ server:
 mybatis-plus:
   type-aliases-package: net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po
 
+# FW-KAFKA Topic Provisioning 框架级开关（对齐 MDM-DSN-CR-034 模式）
+# 激活 KafkaTopicProvisioningAutoConfiguration：存在性检查 + 幂等创建 OTA 发送 Topic
+iov:
+  kafka:
+    topic-provisioning:
+      enabled: ${IOV_KAFKA_TOPIC_PROVISIONING_ENABLED:true}
+
 # ============================================================
 # CR-013: OTA Kafka 消息化（车外 MQTT、云内 Kafka）
 # 物理 Topic/分区/保留期由车云接入契约治理（VAGW 为车云接入契约 owner，见 FotaRouteConfig）；
@@ -17,6 +24,11 @@ ota:
       topics: ${OTA_KAFKA_INBOUND_TOPICS:iov.vagw.up.fota}
       group-id: ${OTA_KAFKA_GROUP_ID:iov-cloud-iov-ota}
       concurrency: ${OTA_KAFKA_INBOUND_CONCURRENCY:3}
+    topic-provisioning:
+      # 对齐 FW-KAFKA（MDM-DSN-CR-034 模式）：OTA 作为 Producer 的 Topic 由框架检查并幂等创建
+      enabled: ${OTA_KAFKA_TOPIC_PROVISIONING_ENABLED:true}
+      partitions: ${OTA_KAFKA_TOPIC_PROVISIONING_PARTITIONS:3}
+      replication-factor: ${OTA_KAFKA_TOPIC_PROVISIONING_REPLICATION_FACTOR:1}
     outbound:
       enabled: true
       topic: ${OTA_KAFKA_OUTBOUND_TOPIC:iov.vagw.down.fota}
@@ -31,3 +43,11 @@ ota:
       concurrency: ${OTA_KAFKA_DELIVERY_CONCURRENCY:2}
     dlq:
       topic: ${OTA_KAFKA_DLQ_TOPIC:iov.vagw.up.fota.dlq}
+    cloud-events:
+      enabled: ${OTA_CLOUD_EVENTS_ENABLED:true}
+      observed-topic: ${OTA_CLOUD_EVENTS_OBSERVED_TOPIC:ota.vehicle-software-inventory.observed}
+      observed-dlq-topic: ${OTA_CLOUD_EVENTS_OBSERVED_DLQ_TOPIC:ota.vehicle-software-inventory.observed.dlq}
+      max-retry: ${OTA_CLOUD_EVENTS_MAX_RETRY:5}
+      backoff-base-seconds: ${OTA_CLOUD_EVENTS_BACKOFF_BASE:1}
+      batch-size: ${OTA_CLOUD_EVENTS_BATCH_SIZE:100}
+      poll-interval-ms: ${OTA_CLOUD_EVENTS_POLL_INTERVAL:2000}

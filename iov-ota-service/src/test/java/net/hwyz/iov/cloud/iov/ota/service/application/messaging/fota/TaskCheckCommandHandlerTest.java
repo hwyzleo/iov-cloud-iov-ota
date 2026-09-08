@@ -11,9 +11,11 @@ import vehicle.common.v1.Envelope.MessageKind;
 import vehicle.fota.v1.Task.TaskCheckRequest;
 import vehicle.fota.v1.Task.TaskCheckResponse;
 import vehicle.fota.v1.Types.Digest;
+import vehicle.fota.v1.Types.EcuSoftwareModel;
 import vehicle.fota.v1.Types.EcuVersion;
 import vehicle.fota.v1.Types.InventoryDisposition;
 import vehicle.fota.v1.Types.InventoryMode;
+import vehicle.fota.v1.Types.SoftwareUnitVersion;
 
 import java.util.List;
 
@@ -81,8 +83,7 @@ class TaskCheckCommandHandlerTest {
 
     @Test
     @DisplayName("DIGEST 模式摘要映射")
-    void digest_maps_digest_fields() {
-        TaskCheckRequest req = TaskCheckRequest.newBuilder()
+    void digest_maps_digest_fields() {        TaskCheckRequest req = TaskCheckRequest.newBuilder()
                 .setInventoryMode(InventoryMode.INVENTORY_MODE_DIGEST)
                 .setInventoryRevision(3L)
                 .setEcuListDigest(Digest.newBuilder().setAlgorithm("sha256").setValueHex("abc123").build())
@@ -98,6 +99,45 @@ class TaskCheckCommandHandlerTest {
         assertEquals("sha256", cmd.getDigestAlgorithm());
         assertEquals("abc123", cmd.getInventoryDigest());
         assertEquals(InventoryDisposition.INVENTORY_DISPOSITION_DIGEST_MISMATCH, resp.getInventoryDisposition());
+    }
+
+    @Test
+    @DisplayName("MULTI_TARGET FULL 清单 → software_units 映射 + canonicalization 版本传递")
+    void multi_target_maps_software_units() {
+        TaskCheckRequest req = TaskCheckRequest.newBuilder()
+                .setInventoryMode(InventoryMode.INVENTORY_MODE_FULL)
+                .setInventoryRevision(2L)
+                .setInventoryCanonicalizationVersion(2)
+                .addEcuList(EcuVersion.newBuilder()
+                        .setEcuId("ECU1")
+                        .setSoftwareModel(EcuSoftwareModel.ECU_SOFTWARE_MODEL_MULTI_TARGET)
+                        .addSoftwareUnits(SoftwareUnitVersion.newBuilder()
+                                .setSoftwareTargetCode("BOOT").setSoftwarePartNumber("SPN-B").setSwVersion("V1.0"))
+                        .addSoftwareUnits(SoftwareUnitVersion.newBuilder()
+                                .setSoftwareTargetCode("APP").setSoftwarePartNumber("SPN-A").setSwVersion("V2.0")
+                                .setSlot("A").setActive(true)))
+                .build();
+        when(appService.detect(any())).thenReturn(DetectionResult.builder()
+                .inventoryDisposition("ACCEPTED")
+                .inventoryModel("MULTI_TARGET")
+                .canonicalizationVersion(2)
+                .availabilityStatus("NONE")
+                .downloadAllowed(false)
+                .installRequestAllowed(false)
+                .build());
+
+        TaskCheckResponse resp = handler.handle(md, req);
+
+        DetectionCmd cmd = argumentCaptor();
+        assertEquals(2, cmd.getCanonicalizationVersion());
+        assertEquals(1, cmd.getInventoryItems().size());
+        assertEquals("MULTI_TARGET", cmd.getInventoryItems().get(0).getSoftwareModel());
+        assertEquals(2, cmd.getInventoryItems().get(0).getSoftwareUnits().size());
+        assertEquals("BOOT", cmd.getInventoryItems().get(0).getSoftwareUnits().get(0).getSoftwareTargetCode());
+        assertEquals("A", cmd.getInventoryItems().get(0).getSoftwareUnits().get(1).getSlot());
+        // 响应携带 supported models / canonicalization versions
+        assertTrue(resp.getSupportedEcuSoftwareModelsCount() >= 2);
+        assertTrue(resp.getSupportedInventoryCanonicalizationVersionsList().contains(2));
     }
 
     private DetectionCmd argumentCaptor() {

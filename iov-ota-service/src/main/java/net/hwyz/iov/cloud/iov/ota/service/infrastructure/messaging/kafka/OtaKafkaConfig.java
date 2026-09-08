@@ -1,5 +1,7 @@
 package net.hwyz.iov.cloud.iov.ota.service.infrastructure.messaging.kafka;
 
+import org.apache.kafka.clients.admin.Admin;
+import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -16,18 +18,30 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * OTA Kafka 装配配置（CR-014）
+ * OTA Kafka 装配配置（CR-014 / CR-019）
  *
  * <p>提供 FOTA 业务 topic 专用 {@link ConcurrentKafkaListenerContainerFactory}：
  * Key=String、Value=byte[]（完整序列化 VehicleMessageEnvelope / GatewayDeliveryStatus bytes）、
  * AckMode.MANUAL + 关闭自动提交，保证「Kafka offset 提交 ≠ 业务成功」，
  * 业务成功后才由消费者显式提交 offset。Kafka Header 仅用于观测。
  *
+ * <p>CR-019：显式提供 {@link Admin}（FW-KAFKA Topic Provisioning 使用，对齐
+ * MDM-DSN-CR-034 模式，避免与 Spring Boot KafkaAutoConfiguration 的 kafkaAdmin
+ * Bean 名冲突）。运行 Principal 需具备 DescribeTopics / CreateTopics 权限。
+ *
  * @author hwyz_leo
  */
 @Configuration
 @EnableConfigurationProperties(OtaKafkaProperties.class)
 public class OtaKafkaConfig {
+
+    /**
+     * Kafka Admin 客户端（FW-KAFKA Topic Provisioning 使用），应用关闭时释放资源。
+     */
+    @Bean(destroyMethod = "close")
+    public Admin kafkaAdminClient(KafkaProperties properties) {
+        return AdminClient.create(properties.buildAdminProperties());
+    }
 
     /**
      * FOTA 上行/投递监听容器工厂（Key=String, Value=byte[], MANUAL ack）。

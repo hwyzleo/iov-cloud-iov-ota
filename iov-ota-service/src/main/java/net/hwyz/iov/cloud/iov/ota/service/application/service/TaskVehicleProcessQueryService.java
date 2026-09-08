@@ -40,6 +40,8 @@ public class TaskVehicleProcessQueryService {
     private final ExecutionControlMapper executionControlMapper;
     private final ExecutionControlAckMapper executionControlAckMapper;
     private final ExecutionEcuResultMapper executionEcuResultMapper;
+    private final ExecutionEcuSoftwareUnitMapper executionEcuSoftwareUnitMapper;
+    private final VehicleInventorySoftwareUnitMapper vehicleInventorySoftwareUnitMapper;
     private final UpgradeLogMapper upgradeLogMapper;
     private final TaskVehicleRetryLogMapper taskVehicleRetryLogMapper;
     private final GatewayDeliveryObservationMapper gatewayDeliveryObservationMapper;
@@ -251,13 +253,51 @@ public class TaskVehicleProcessQueryService {
         }
         int ecuCount = Math.toIntExact(vehicleInventoryItemMapper.selectCount(
                 new QueryWrapper<VehicleInventoryItemPo>().eq("inventory_id", inventory.getId())));
+        // CR-019：ECU → SoftwareUnit 明细
+        List<VehicleInventoryItemPo> itemPos = vehicleInventoryItemMapper
+                .selectByInventoryId(inventory.getId());
+        List<InventoryProcessSummary.EcuInventorySummary> ecuList = itemPos.stream()
+                .map(item -> {
+                    List<VehicleInventorySoftwareUnitPo> unitPos =
+                            vehicleInventorySoftwareUnitMapper.selectByInventoryItemId(item.getId());
+                    List<InventoryProcessSummary.SoftwareUnitSummary> units = unitPos.stream()
+                            .map(u -> InventoryProcessSummary.SoftwareUnitSummary.builder()
+                                    .softwareTargetCode(u.getSoftwareTargetCode())
+                                    .softwarePartNumber(u.getSoftwarePartNumber())
+                                    .swVersion(u.getSwVersion())
+                                    .slot(u.getSlot())
+                                    .active(u.getActive())
+                                    .digest(u.getDigest())
+                                    .build())
+                            .toList();
+                    return InventoryProcessSummary.EcuInventorySummary.builder()
+                            .ecuId(item.getEcuId())
+                            .hardwarePn(item.getHardwarePn())
+                            .hardwareVersion(item.getHardwareVersion())
+                            .softwareModel(item.getSoftwareModel())
+                            .softwareUnits(units)
+                            .build();
+                })
+                .toList();
         return InventoryProcessSummary.builder()
                 .inventoryRevision(inventory.getInventoryRevision())
                 .digest(inventory.getDigest())
                 .algorithm(inventory.getAlgorithm())
                 .acceptedTime(toInstant(inventory.getAcceptedTime()))
                 .ecuCount(ecuCount)
+                .inventoryModel(deriveModel(itemPos))
+                .canonicalizationVersion(inventory.getCanonicalizationVersion())
+                .canonicalDigestHex(inventory.getCanonicalDigest() == null ? null
+                        : java.util.HexFormat.of().formatHex(inventory.getCanonicalDigest()))
+                .sourceCollectedAt(toInstant(inventory.getSourceCollectedAt()))
+                .ecuList(ecuList)
                 .build();
+    }
+
+    private static String deriveModel(List<VehicleInventoryItemPo> itemPos) {
+        boolean multi = itemPos.stream()
+                .anyMatch(i -> "MULTI_TARGET".equals(i.getSoftwareModel()));
+        return multi ? "MULTI_TARGET" : "SINGLE_IMAGE";
     }
 
     private ConsentProcessSummary buildConsent(Long taskVehicleId) {
@@ -387,13 +427,34 @@ public class TaskVehicleProcessQueryService {
         return executionEcuResultMapper.selectList(
                         new QueryWrapper<ExecutionEcuResultPo>().in("execution_id", execDbIds))
                 .stream()
-                .map(r -> EcuResultProcessView.builder()
-                        .ecuId(r.getEcuId())
-                        .targetSoftwareVersion(r.getTargetSoftwareVersion())
-                        .actualSoftwareVersion(r.getActualSoftwareVersion())
-                        .result(r.getResult())
-                        .failReason(r.getFailReason())
-                        .build())
+                .map(r -> {
+                    // CR-019：per-Target/Slot 软件单元结果
+                    List<ExecutionEcuSoftwareUnitPo> unitPos =
+                            executionEcuSoftwareUnitMapper.selectByEcuResultId(r.getId());
+                    List<EcuResultProcessView.SoftwareUnitResultView> units = unitPos.stream()
+                            .map(u -> EcuResultProcessView.SoftwareUnitResultView.builder()
+                                    .softwareTargetCode(u.getSoftwareTargetCode())
+                                    .sourceVersion(u.getSourceVersion())
+                                    .targetVersion(u.getTargetVersion())
+                                    .actualVersion(u.getActualVersion())
+                                    .slot(u.getSlot())
+                                    .active(u.getActive())
+                                    .result(u.getResult())
+                                    .failureStage(u.getFailureStage())
+                                    .rollbackResult(u.getRollbackResult())
+                                    .packageId(u.getPackageId())
+                                    .build())
+                            .toList();
+                    return EcuResultProcessView.builder()
+                            .ecuId(r.getEcuId())
+                            .softwareModel(r.getSoftwareModel())
+                            .targetSoftwareVersion(r.getTargetSoftwareVersion())
+                            .actualSoftwareVersion(r.getActualSoftwareVersion())
+                            .result(r.getResult())
+                            .failReason(r.getFailReason())
+                            .softwareUnitResults(units)
+                            .build();
+                })
                 .collect(Collectors.toList());
     }
 

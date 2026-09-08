@@ -32,6 +32,7 @@ import net.hwyz.iov.cloud.iov.ota.service.domain.service.InstallPermitService;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ExecutionControlAckMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ExecutionControlMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ExecutionEcuResultMapper;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ExecutionEcuSoftwareUnitMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ExecutionEventMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ExecutionEventPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.security.LocalPermitTokenSigner;
@@ -70,6 +71,7 @@ import static org.mockito.Mockito.when;
 class ExecutionFlowIntegrationTest {
 
     @Mock private ExecutionEcuResultMapper executionEcuResultMapper;
+    @Mock private ExecutionEcuSoftwareUnitMapper executionEcuSoftwareUnitMapper;
     @Mock private ExecutionEventMapper executionEventMapper;
     @Mock private ExecutionControlMapper executionControlMapper;
     @Mock private ExecutionControlAckMapper executionControlAckMapper;
@@ -116,7 +118,7 @@ class ExecutionFlowIntegrationTest {
         // 应用服务
         executionAppService = new ExecutionAppService(vehicleTaskRepository, executionRepository,
                 taskRepository, installPermitService, consentPolicy, vehicleTaskConsentRepository,
-                outboxRepository, executionEcuResultMapper);
+                outboxRepository, executionEcuResultMapper, executionEcuSoftwareUnitMapper);
         executionEventAppService = new ExecutionEventAppService(executionRepository,
                 executionEventMapper, executionControlMapper, executionControlAckMapper);
         recoveryAppService = new RecoveryAppService(vehicleTaskRepository, executionRepository,

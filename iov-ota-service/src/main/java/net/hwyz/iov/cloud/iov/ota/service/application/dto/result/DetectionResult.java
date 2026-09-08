@@ -34,6 +34,15 @@ public class DetectionResult {
     /** 是否允许申请安装 */
     private boolean installRequestAllowed;
 
+    /** 已接受清单的 inventory model（SINGLE_IMAGE/MULTI_TARGET） */
+    private String inventoryModel;
+
+    /** 已接受清单的 canonicalization 版本 */
+    private Integer canonicalizationVersion;
+
+    /** 已接受清单的 canonical digest（小写 hex，v2 时非空） */
+    private String canonicalDigestHex;
+
     /** 匹配的车辆任务列表 */
     private List<MatchedVehicleTask> matchedTasks;
 

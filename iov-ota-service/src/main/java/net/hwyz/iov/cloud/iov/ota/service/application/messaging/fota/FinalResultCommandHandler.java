@@ -3,6 +3,7 @@ package net.hwyz.iov.cloud.iov.ota.service.application.messaging.fota;
 import lombok.RequiredArgsConstructor;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.cmd.EcuResultCmd;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.cmd.ExecutionFinalizeCmd;
+import net.hwyz.iov.cloud.iov.ota.service.application.dto.cmd.SoftwareUnitResultCmd;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.ExecutionFinalizeResult;
 import net.hwyz.iov.cloud.iov.ota.service.application.messaging.FotaMessageMetadata;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.ExecutionAppService;
@@ -10,9 +11,11 @@ import org.springframework.stereotype.Component;
 import vehicle.fota.v1.Execution.EcuResult;
 import vehicle.fota.v1.Execution.FinalResultReport;
 import vehicle.fota.v1.Execution.FinalResultResponse;
+import vehicle.fota.v1.Execution.SoftwareUnitResult;
 import vehicle.fota.v1.Types.Result;
 import vehicle.fota.v1.Types.SequenceRange;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -60,14 +63,48 @@ public class FinalResultCommandHandler {
     }
 
     private static EcuResultCmd toEcuResultCmd(EcuResult ecu) {
+        List<SoftwareUnitResultCmd> units = new ArrayList<>();
+        if (ecu.getSoftwareUnitResultsCount() > 0) {
+            for (SoftwareUnitResult u : ecu.getSoftwareUnitResultsList()) {
+                units.add(SoftwareUnitResultCmd.builder()
+                        .softwareTargetCode(u.getSoftwareTargetCode())
+                        .sourceVersion(u.getSourceVersion())
+                        .targetVersion(u.getTargetVersion())
+                        .actualVersion(u.hasActualVersion() ? u.getActualVersion() : null)
+                        .slot(u.hasSlot() ? u.getSlot() : null)
+                        .active(u.hasActive() ? u.getActive() : null)
+                        .result(u.getResult() == Result.RESULT_SUCCEEDED ? "SUCCESS"
+                                : u.getResult() == Result.RESULT_ROLLED_BACK ? "ROLLED_BACK" : "FAILED")
+                        .failureStage(u.hasFailureStage() ? u.getFailureStage() : null)
+                        .rollbackResult(u.hasRollbackResult()
+                                ? (u.getRollbackResult() == Result.RESULT_SUCCEEDED ? "SUCCESS"
+                                    : u.getRollbackResult() == Result.RESULT_ROLLED_BACK ? "ROLLED_BACK" : "FAILED")
+                                : null)
+                        .packageId(u.hasPackageId() ? u.getPackageId() : null)
+                        .build());
+            }
+        }
         return EcuResultCmd.builder()
                 .ecuId(ecu.getEcuId())
+                .softwareModel(protoSoftwareModel(ecu.getSoftwareModel()))
                 .targetSoftwareVersion(ecu.getTargetVersion())
                 .actualSoftwareVersion(ecu.hasActualVersion() ? ecu.getActualVersion() : null)
                 .result(ecu.getResult() == Result.RESULT_SUCCEEDED ? "SUCCESS"
                         : ecu.getResult() == Result.RESULT_ROLLED_BACK ? "ROLLED_BACK" : "FAILED")
                 .failReason(ecu.hasFailureStage() ? ecu.getFailureStage() : null)
+                .softwareUnitResults(units)
                 .build();
+    }
+
+    private static String protoSoftwareModel(vehicle.fota.v1.Types.EcuSoftwareModel model) {
+        if (model == null) {
+            return null;
+        }
+        return switch (model) {
+            case ECU_SOFTWARE_MODEL_SINGLE_IMAGE -> "SINGLE_IMAGE";
+            case ECU_SOFTWARE_MODEL_MULTI_TARGET -> "MULTI_TARGET";
+            default -> null;
+        };
     }
 
     private static String mapFinalStatus(Result result) {

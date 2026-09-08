@@ -46,6 +46,8 @@ class TaskVehicleProcessQueryServiceTest {
     @Mock private ExecutionControlMapper executionControlMapper;
     @Mock private ExecutionControlAckMapper executionControlAckMapper;
     @Mock private ExecutionEcuResultMapper executionEcuResultMapper;
+    @Mock private ExecutionEcuSoftwareUnitMapper executionEcuSoftwareUnitMapper;
+    @Mock private VehicleInventorySoftwareUnitMapper vehicleInventorySoftwareUnitMapper;
     @Mock private UpgradeLogMapper upgradeLogMapper;
     @Mock private TaskVehicleRetryLogMapper taskVehicleRetryLogMapper;
     @Mock private GatewayDeliveryObservationMapper gatewayDeliveryObservationMapper;
@@ -107,6 +109,14 @@ class TaskVehicleProcessQueryServiceTest {
                 .build();
         when(vehicleInventoryMapper.selectList(any())).thenReturn(List.of(inventory));
         when(vehicleInventoryItemMapper.selectCount(any())).thenReturn(6L);
+        when(vehicleInventoryItemMapper.selectByInventoryId(any())).thenReturn(List.of(
+                VehicleInventoryItemPo.builder().id(1L).inventoryId(inventory.getId())
+                        .ecuId("ECU-1").hardwarePn("HPN-1").hardwareVersion("H1")
+                        .softwareModel("SINGLE_IMAGE").build()));
+        when(vehicleInventorySoftwareUnitMapper.selectByInventoryItemId(any())).thenReturn(List.of(
+                net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.VehicleInventorySoftwareUnitPo.builder()
+                        .softwareTargetCode("ECU_IMAGE").softwarePartNumber("SPN-1").swVersion("V1.0")
+                        .active(true).build()));
 
         // 授权
         VehicleTaskConsentPo consent = VehicleTaskConsentPo.builder()
@@ -152,6 +162,10 @@ class TaskVehicleProcessQueryServiceTest {
                 .executionId(20L).ecuId("ECU-1").targetSoftwareVersion("V1.1").actualSoftwareVersion("V1.1")
                 .result("SUCCESS").build();
         when(executionEcuResultMapper.selectList(any())).thenReturn(List.of(ecu));
+        when(executionEcuSoftwareUnitMapper.selectByEcuResultId(any())).thenReturn(List.of(
+                net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ExecutionEcuSoftwareUnitPo.builder()
+                        .softwareTargetCode("ECU_IMAGE").sourceVersion("V1.0").targetVersion("V1.1")
+                        .result("SUCCESS").build()));
 
         // 日志
         UpgradeLogPo log = UpgradeLogPo.builder()

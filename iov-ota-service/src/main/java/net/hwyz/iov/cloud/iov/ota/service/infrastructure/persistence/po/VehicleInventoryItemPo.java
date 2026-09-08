@@ -46,4 +46,16 @@ public class VehicleInventoryItemPo extends BasePo {
 
     @TableField("hardware_version")
     private String hardwareVersion;
+
+    /** ECU 软件模型：SINGLE_IMAGE/MULTI_TARGET */
+    @TableField("software_model")
+    private String softwareModel;
+
+    /** legacy SINGLE_IMAGE 槽位（只读兼容） */
+    @TableField("legacy_slot")
+    private String legacySlot;
+
+    /** legacy SINGLE_IMAGE 活动槽（只读兼容，缺省 true） */
+    @TableField("legacy_active")
+    private Boolean legacyActive;
 }

@@ -57,6 +57,10 @@ public class ActivityUpgradeTargetPo extends BasePo {
     @TableField("vehicle_node_code")
     private String vehicleNodeCode;
 
+    /** 软件目标编码（CR-019；存量 NULL 规范化为 ECU_IMAGE） */
+    @TableField("software_target_code")
+    private String softwareTargetCode;
+
     /**
      * 软件零件号
      */

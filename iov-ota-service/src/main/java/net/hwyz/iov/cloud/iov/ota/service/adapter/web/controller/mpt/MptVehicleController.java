@@ -13,11 +13,16 @@ import net.hwyz.iov.cloud.framework.web.controller.BaseController;
 import net.hwyz.iov.cloud.framework.web.util.PageUtil;
 import net.hwyz.iov.cloud.iov.ota.api.vo.VehicleMpt;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.VehicleProjectionMptAssembler;
+import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.InventoryProcessSummary;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.VehicleAppService;
+import net.hwyz.iov.cloud.iov.ota.service.application.service.VehicleInventoryQueryService;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.VehicleProjectionPo;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 车辆相关管理接口实现类
@@ -31,6 +36,7 @@ import java.util.List;
 public class MptVehicleController extends BaseController {
 
     private final VehicleAppService vehicleAppService;
+    private final VehicleInventoryQueryService vehicleInventoryQueryService;
 
     /**
      * 分页查询车辆信息
@@ -73,4 +79,53 @@ public class MptVehicleController extends BaseController {
         return ApiResponse.ok(VehicleProjectionMptAssembler.INSTANCE.fromPo(vehicleAppService.getVehicleByVin(vin)));
     }
 
+    /**
+     * 车辆软件清单详情（CR-019 §10：ECU → SoftwareUnits 层级）
+     *
+     * @param vin 车架号
+     * @return 已接受清单详情（含 model / canonical digest / software units）
+     */
+    @RequiresPermissions("ota:fota:vehicle:query")
+    @GetMapping(value = "/{vin}/inventory")
+    public ApiResponse<InventoryProcessSummary> inventory(@PathVariable String vin) {
+        log.info("管理后台用户[{}]查询车辆[{}]软件清单详情", SecurityUtils.getUsername(), vin);
+        return ApiResponse.ok(vehicleInventoryQueryService.getLatestByVin(vin));
+    }
+
+    /**
+     * 车辆软件清单导出（CR-019 §10：CSV 每行一个 VIN + ECU + Target + Slot）
+     *
+     * @param response 响应
+     * @param vin      车架号
+     */
+    @Log(title = "车辆软件清单导出", businessType = BusinessType.EXPORT)
+    @RequiresPermissions("ota:fota:vehicle:export")
+    @PostMapping(value = "/{vin}/inventory/export")
+    public void exportInventory(HttpServletResponse response, @PathVariable String vin) throws IOException {
+        log.info("管理后台用户[{}]导出车辆[{}]软件清单", SecurityUtils.getUsername(), vin);
+        List<VehicleInventoryQueryService.ExportRow> rows = vehicleInventoryQueryService.exportByVin(vin);
+        String header = "vin,ecu_id,hardware_pn,hardware_version,software_model,software_target_code,software_part_number,sw_version,slot,active\n";
+        String body = rows.stream()
+                .map(r -> String.join(",",
+                        csv(r.getVin()), csv(r.getEcuId()), csv(r.getHardwarePn()),
+                        csv(r.getHardwareVersion()), csv(r.getSoftwareModel()),
+                        csv(r.getSoftwareTargetCode()), csv(r.getSoftwarePartNumber()),
+                        csv(r.getSwVersion()), csv(r.getSlot()),
+                        r.getActive() == null ? "" : r.getActive().toString()))
+                .collect(Collectors.joining("\n"));
+        response.setContentType("text/csv;charset=UTF-8");
+        response.setHeader("Content-Disposition", "attachment; filename=vehicle_inventory_" + vin + ".csv");
+        response.getOutputStream().write((header + body).getBytes(StandardCharsets.UTF_8));
+        response.getOutputStream().flush();
+    }
+
+    private static String csv(String value) {
+        if (value == null) {
+            return "";
+        }
+        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
+            return "\"" + value.replace("\"", "\"\"") + "\"";
+        }
+        return value;
+    }
 }

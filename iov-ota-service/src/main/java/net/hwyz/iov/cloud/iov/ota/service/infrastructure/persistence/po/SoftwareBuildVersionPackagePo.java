@@ -45,6 +45,10 @@ public class SoftwareBuildVersionPackagePo extends BasePo {
     @TableField("software_package_id")
     private Long softwarePackageId;
 
+    /** 软件目标编码（CR-019；存量 NULL 规范化为 ECU_IMAGE） */
+    @TableField("software_target_code")
+    private String softwareTargetCode;
+
     /**
      * 排序
      */

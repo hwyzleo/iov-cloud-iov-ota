@@ -38,6 +38,12 @@ public class DetectionCmd {
     /** 完整清单明细（FULL 模式） */
     private List<InventoryItemCmd> inventoryItems;
 
+    /** canonicalization 版本（1/2；缺省 v1） */
+    private Integer canonicalizationVersion;
+
+    /** 车端清单采集时间（毫秒时间戳） */
+    private Long collectedAt;
+
     /** 本地任务版本（车端持有的 taskRevision） */
     private Long localTaskRevision;
 }

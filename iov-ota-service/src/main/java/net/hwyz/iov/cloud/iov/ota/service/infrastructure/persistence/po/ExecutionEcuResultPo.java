@@ -32,6 +32,10 @@ public class ExecutionEcuResultPo extends BasePo {
     @TableField("ecu_id")
     private String ecuId;
 
+    /** ECU 软件模型：SINGLE_IMAGE/MULTI_TARGET（CR-019） */
+    @TableField("software_model")
+    private String softwareModel;
+
     @TableField("target_software_version")
     private String targetSoftwareVersion;
 
