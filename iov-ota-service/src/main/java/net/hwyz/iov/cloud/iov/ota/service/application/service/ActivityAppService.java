@@ -11,6 +11,7 @@ import net.hwyz.iov.cloud.iov.ota.api.vo.enums.ApprovalLevel;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TypeApprovalAssessmentState;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TypeApprovalBaseline;
 import net.hwyz.iov.cloud.iov.ota.service.domain.repository.TypeApprovalBaselineRepository;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.cache.CacheService;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityApprovalMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityFixedConfigWordMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityMapper;
@@ -65,6 +66,7 @@ public class ActivityAppService {
     private final TypeApprovalBaselineRepository typeApprovalBaselineRepository;
     private final MdmRxswinRegistryService mdmRxswinRegistryService;
     private final SwinManagedSystemMapper swinManagedSystemMapper;
+    private final CacheService cacheService;
 
     /**
      * 查询升级活动
@@ -232,7 +234,10 @@ public class ActivityAppService {
      * @return 结果
      */
     public int modifyActivity(ActivityPo activity) {
-        return activityDao.updatePo(activity);
+        int result = activityDao.updatePo(activity);
+        // 直写 DB 后同步失效内存缓存，避免 getById 读到过期领域对象
+        cacheService.removeActivity(activity.getId());
+        return result;
     }
 
     /**
@@ -413,14 +418,14 @@ public class ActivityAppService {
         if ("REJECT".equals(result)) {
             // 任一级驳回，回到编辑态
             activity.setState(ActivityState.REJECTED.value);
-            activityDao.updatePo(activity);
+            saveActivityState(activity);
             log.info("活动[{}]在[{}]阶段被驳回", activityId, approvalStage);
         } else if ("PASS".equals(result)) {
             // 检查是否所有三级审批都已通过
             if (isAllApprovalStagesPassed(activityId)) {
                 // 所有三级审批通过，自动跃迁到 APPROVED
                 activity.setState(ActivityState.APPROVED.value);
-                activityDao.updatePo(activity);
+                saveActivityState(activity);
                 log.info("活动[{}]所有三级审批通过，状态自动跃迁到APPROVED", activityId);
             } else {
                 log.info("活动[{}]在[{}]阶段通过，等待后续审批", activityId, approvalStage);
@@ -428,6 +433,18 @@ public class ActivityAppService {
         }
 
         return approval;
+    }
+
+    /**
+     * 直接更新活动并失效内存缓存
+     * 审批/型批评估等绕过 ActivityRepository 直写 DB 的链路必须同步失效
+     * activityMap 中的过期领域对象，否则后续 getById 会读到旧状态
+     *
+     * @param activity 升级活动PO
+     */
+    private void saveActivityState(ActivityPo activity) {
+        activityDao.updatePo(activity);
+        cacheService.removeActivity(activity.getId());
     }
 
     /**
@@ -464,7 +481,7 @@ public class ActivityAppService {
         }
         if (!Boolean.TRUE.equals(activity.getIsTypeApprovalRelevant())) {
             activity.setTypeApprovalAssessmentState(TypeApprovalAssessmentState.PASSED.value);
-            activityDao.updatePo(activity);
+            saveActivityState(activity);
             return TypeApprovalAssessmentState.PASSED;
         }
 
@@ -479,7 +496,7 @@ public class ActivityAppService {
             if (swinCode == null || swinCode.isEmpty()) {
                 log.warn("活动[{}]未关联SWIN代码，无法进行型批评估", activityId);
                 activity.setTypeApprovalAssessmentState(TypeApprovalAssessmentState.BLOCKED.value);
-                activityDao.updatePo(activity);
+                saveActivityState(activity);
                 return TypeApprovalAssessmentState.BLOCKED;
             }
 
@@ -488,7 +505,7 @@ public class ActivityAppService {
             if (taBaselines == null || taBaselines.isEmpty()) {
                 log.warn("活动[{}]关联的SWIN[{}]无TA基线投影，fail-safe阻断发布", activityId, swinCode);
                 activity.setTypeApprovalAssessmentState(TypeApprovalAssessmentState.BLOCKED.value);
-                activityDao.updatePo(activity);
+                saveActivityState(activity);
                 return TypeApprovalAssessmentState.BLOCKED;
             }
 
@@ -508,7 +525,7 @@ public class ActivityAppService {
             if (digestMatch) {
                 // digest一致，未越型批边界，可跳过manifest冻结与RXSWIN迭代
                 activity.setTypeApprovalAssessmentState(TypeApprovalAssessmentState.PASSED.value);
-                activityDao.updatePo(activity);
+                saveActivityState(activity);
                 return TypeApprovalAssessmentState.PASSED;
             }
 
@@ -535,18 +552,18 @@ public class ActivityAppService {
                 // 回填到活动
                 activity.setRxswin(registryResponse.getRxswinValue());
                 activity.setTypeApprovalAssessmentState(TypeApprovalAssessmentState.PASSED.value);
-                activityDao.updatePo(activity);
+                saveActivityState(activity);
                 return TypeApprovalAssessmentState.PASSED;
             } else {
                 log.error("活动[{}]请求MDM生成RXSWIN失败", activityId);
                 activity.setTypeApprovalAssessmentState(TypeApprovalAssessmentState.BLOCKED.value);
-                activityDao.updatePo(activity);
+                saveActivityState(activity);
                 return TypeApprovalAssessmentState.BLOCKED;
             }
         } catch (Exception e) {
             log.error("活动[{}]型式批准评估异常: {}", activityId, e.getMessage(), e);
             activity.setTypeApprovalAssessmentState(TypeApprovalAssessmentState.BLOCKED.value);
-            activityDao.updatePo(activity);
+            saveActivityState(activity);
             return TypeApprovalAssessmentState.BLOCKED;
         }
     }

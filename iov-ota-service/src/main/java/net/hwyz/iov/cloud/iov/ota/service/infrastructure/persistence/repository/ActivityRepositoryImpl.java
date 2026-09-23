@@ -109,6 +109,9 @@ public class ActivityRepositoryImpl extends AbstractRepository<Long, ActivityDo>
             case CHANGED -> {
                 ActivityPo activityPo = ActivityPoAssembler.INSTANCE.fromDo(activityDo);
                 activityDao.updatePo(activityPo);
+                // 落库后复位脏标记，避免缓存中的领域对象永久停留在 CHANGED，
+                // 导致后续无实际变更的操作（如被阻断的 release）误触发整行回写
+                activityDo.statePersistent(activityDo.getId());
                 cacheService.setActivity(activityDo);
             }
             default -> {

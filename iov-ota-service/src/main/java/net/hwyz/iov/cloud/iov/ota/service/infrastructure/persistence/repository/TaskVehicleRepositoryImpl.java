@@ -47,6 +47,8 @@ public class TaskVehicleRepositoryImpl extends AbstractRepository<Long, TaskVehi
             case CHANGED -> {
                 TaskVehiclePo taskVehiclePo = TaskVehiclePoAssembler.INSTANCE.fromDo(taskVehicleDo);
                 taskVehicleDao.updatePo(taskVehiclePo);
+                // 落库后复位脏标记，避免领域对象残留 CHANGED 状态
+                taskVehicleDo.statePersistent(taskVehicleDo.getId());
             }
             default -> {
                 return false;

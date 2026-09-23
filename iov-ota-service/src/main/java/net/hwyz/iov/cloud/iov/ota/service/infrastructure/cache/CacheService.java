@@ -22,6 +22,15 @@ public interface CacheService {
 
     void setActivity(ActivityDo activity);
 
+    /**
+     * 移除升级活动内存缓存
+     * 供绕过仓库直接写库的链路（审批/型批评估/编辑）失效过期领域对象，
+     * 避免后续经 getById 读到过期状态
+     *
+     * @param activityId 升级活动ID
+     */
+    void removeActivity(Long activityId);
+
     void addReleaseActivity(ActivityDo activity);
 
     void removeReleaseActivity(ActivityDo activity);

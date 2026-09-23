@@ -27,6 +27,7 @@ import net.hwyz.iov.cloud.iov.ota.service.application.service.ActivityAppService
 import net.hwyz.iov.cloud.iov.ota.service.application.service.SoftwareBuildVersionAppService;
 import java.util.Date;
 import net.hwyz.iov.cloud.iov.ota.service.common.exception.ActivityNotExistException;
+import net.hwyz.iov.cloud.iov.ota.service.common.exception.ActivityReleaseException;
 import net.hwyz.iov.cloud.iov.ota.service.common.exception.BaselineNotExistException;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.ActivityDo;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.BaselineItem;
@@ -329,8 +330,14 @@ public class MptActivityController extends BaseController {
         log.info("管理后台用户[{}]发布升级活动[{}]", SecurityUtils.getUsername(), activityId);
         ActivityDo activityDo = activityRepository.getById(activityId).orElseThrow(() -> new ActivityNotExistException(activityId));
         int result = activityDo.release();
-        activityRepository.save(activityDo);
-        cacheService.addReleaseActivity(activityDo);
+        if (result == 1) {
+            activityRepository.save(activityDo);
+            cacheService.addReleaseActivity(activityDo);
+        } else {
+            // 发布被阻断（未处于已审核状态，或型批相关且评估未通过）：
+            // 不再无脑 save/写发布缓存，避免把过期状态回写库，并向调用方明确报错
+            throw new ActivityReleaseException(activityId, "活动未处于已审核状态或型批相关且评估未通过，无法发布");
+        }
         return ApiResponse.ok(result);
     }
 

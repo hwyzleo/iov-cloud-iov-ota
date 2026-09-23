@@ -77,6 +77,8 @@ public class VehicleRepositoryImpl extends AbstractRepository<String, VehicleDo>
             case CHANGED -> {
                 VehStatusPo vehStatusPo = VehStatusPoAssembler.INSTANCE.fromDo(vehicleDo);
                 vehStatusDao.updatePo(vehStatusPo);
+                // 落库后复位脏标记，避免领域对象残留 CHANGED 状态
+                vehicleDo.statePersistent(vehicleDo.getId());
             }
             default -> {
                 return false;

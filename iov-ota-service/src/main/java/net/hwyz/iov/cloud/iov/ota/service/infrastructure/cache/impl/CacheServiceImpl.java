@@ -48,6 +48,12 @@ public class CacheServiceImpl implements CacheService {
     }
 
     @Override
+    public void removeActivity(Long activityId) {
+        // 仅移除内存中的领域对象缓存；不触碰 REDIS_KEY_PREFIX_ACTIVITY（该键保存的是该活动下已发布任务ID集合）
+        activityMap.remove(activityId);
+    }
+
+    @Override
     public void addReleaseActivity(ActivityDo activity) {
         redisTemplate.opsForZSet().add(REDIS_KEY_RELEASE_ACTIVITY, activity.getId().toString(), activity.getStartTime().getTime());
     }
