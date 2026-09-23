@@ -34,8 +34,10 @@ public class InMemoryTaskRepository implements TaskRepository {
     }
 
     @Override
-    public List<Task> findReleasedTasks() {
-        return store.values().stream().collect(Collectors.toList());
+    public List<Task> findByState(Integer state) {
+        return store.values().stream()
+                .filter(t -> state == null || t.getState().value == state)
+                .collect(Collectors.toList());
     }
 
     @Override

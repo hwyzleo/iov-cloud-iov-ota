@@ -83,8 +83,12 @@ public class TaskRepositoryImpl implements TaskRepository {
     }
 
     @Override
-    public List<Task> findReleasedTasks() {
-        List<TaskPo> taskPoList = taskMapper.selectPoByMap(java.util.Map.of("state", TaskState.RELEASED.value));
+    public List<Task> findByState(Integer state) {
+        // state 为 null 时不带条件，返回全部状态；否则按 state 过滤
+        java.util.Map<String, Object> params = state == null
+            ? java.util.Map.of()
+            : java.util.Map.of("state", state);
+        List<TaskPo> taskPoList = taskMapper.selectPoByMap(params);
         return taskPoList.stream()
             .map(po -> {
                 List<TaskRestrictionPo> restrictionPoList = taskRestrictionMapper.selectPoByTaskId(po.getId());

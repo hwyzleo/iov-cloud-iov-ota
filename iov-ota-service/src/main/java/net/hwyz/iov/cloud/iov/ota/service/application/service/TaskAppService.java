@@ -2,7 +2,6 @@ package net.hwyz.iov.cloud.iov.ota.service.application.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.hwyz.iov.cloud.framework.common.util.ParamHelper;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskType;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskPhase;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.cmd.*;
@@ -33,9 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.Set;
@@ -58,12 +55,8 @@ public class TaskAppService {
     private final TaskReportRepository taskReportRepository;
     private final TaskReleaseGateRepository taskReleaseGateRepository;
 
-    public List<TaskResult> search(String name, Date beginTime, Date endTime) {
-        Map<String, Object> map = new HashMap<>();
-        map.put("name", ParamHelper.fuzzyQueryParam(name));
-        map.put("beginTime", beginTime);
-        map.put("endTime", endTime);
-        return taskRepository.findReleasedTasks().stream()
+    public List<TaskResult> search(String name, Integer state, Date beginTime, Date endTime) {
+        return taskRepository.findByState(state).stream()
             .filter(task -> {
                 if (name != null && !task.getName().contains(name)) return false;
                 if (beginTime != null && task.getStartTime().isBefore(beginTime.toInstant())) return false;

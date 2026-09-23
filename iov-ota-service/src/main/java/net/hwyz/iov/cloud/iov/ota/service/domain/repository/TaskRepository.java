@@ -19,9 +19,14 @@ public interface TaskRepository {
     Optional<Task> getById(TaskId id);
     
     List<Task> findByActivityId(ActivityId activityId);
-    
-    List<Task> findReleasedTasks();
-    
+
+    /**
+     * 按状态查询任务列表（管理后台列表用）
+     * <p>{@code state} 为 null 时返回全部状态（草稿 / 待审批 / 已审批 / 已排程 / 已发布 / …），
+     * 与活动列表 {@code search(name, state, ...)} 语义对齐。</p>
+     */
+    List<Task> findByState(Integer state);
+
     List<Task> findScheduledTasks();
     
     void save(Task task);

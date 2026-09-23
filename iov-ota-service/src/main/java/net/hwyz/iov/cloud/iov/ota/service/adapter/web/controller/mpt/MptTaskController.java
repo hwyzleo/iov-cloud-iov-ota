@@ -83,7 +83,7 @@ public class MptTaskController extends BaseController {
     public ApiResponse<PageResult<TaskMpt>> list(TaskMpt task) {
         log.info("管理后台用户[{}]分页查询升级任务", SecurityUtils.getUsername());
         startPage();
-        List<TaskResult> results = taskAppService.search(task.getName(), task.getStartTime(), task.getEndTime());
+        List<TaskResult> results = taskAppService.search(task.getName(), task.getState(), task.getStartTime(), task.getEndTime());
         return ApiResponse.ok(getPageResult(PageUtil.convert(results, taskMptAssembler::toVo)));
     }
 
