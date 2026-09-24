@@ -1,6 +1,7 @@
 package net.hwyz.iov.cloud.iov.ota.service.adapter.kafka.outbound;
 
 import net.hwyz.iov.cloud.framework.kafka.topic.KafkaTopicProvisioningStatus;
+import net.hwyz.iov.cloud.iov.ota.service.adapter.kafka.config.OtaKafkaTopicsProperties;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.messaging.kafka.OtaKafkaProperties;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.messaging.outbox.CloudEventOutboxPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.messaging.outbox.CloudEventOutboxRepository;
@@ -39,12 +40,14 @@ class CloudEventOutboxRelayTest {
     @Mock private KafkaTopicProvisioningStatus provisioningStatus;
 
     private OtaKafkaProperties properties;
+    private OtaKafkaTopicsProperties topics;
     private CloudEventOutboxRelay relay;
 
     @BeforeEach
     void setUp() {
         properties = new OtaKafkaProperties();
-        relay = new CloudEventOutboxRelay(producerTemplate, outboxRepository, properties,
+        topics = new OtaKafkaTopicsProperties();
+        relay = new CloudEventOutboxRelay(producerTemplate, outboxRepository, properties, topics,
                 provisioningStatusProvider);
         when(producerTemplate.send(any(), any(), any()))
                 .thenReturn(Mono.empty());

@@ -172,6 +172,6 @@ class FotaKafkaInboundIntegrationTest {
     }
 
     private static ConsumerRecord<String, byte[]> record(VehicleMessageEnvelope envelope) {
-        return new ConsumerRecord<>("iov.vagw.up.fota", 0, 0L, envelope.getVin(), envelope.toByteArray());
+        return new ConsumerRecord<>("vagw.fota", 0, 0L, envelope.getVin(), envelope.toByteArray());
     }
 }

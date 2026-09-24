@@ -26,7 +26,7 @@ class GatewayDeliveryStatusValidatorTest {
                 Outcome.OUTCOME_ACCEPTED, Outcome.OUTCOME_REJECTED, Outcome.OUTCOME_UNKNOWN}) {
             GatewayDeliveryStatus status = status(outcome);
             GatewayDeliveryStatus parsed = validator.validate(
-                    new ConsumerRecord<>("iov.vagw.delivery.fota", 0, 0L, status.getVin(), status.toByteArray()));
+                    new ConsumerRecord<>("vagw.delivery.status", 0, 0L, status.getVin(), status.toByteArray()));
             assertNotNull(parsed);
             assertEquals(outcome, parsed.getOutcome());
         }
@@ -37,7 +37,7 @@ class GatewayDeliveryStatusValidatorTest {
     void key_mismatch_fails() {
         GatewayDeliveryStatus status = status(Outcome.OUTCOME_ACCEPTED);
         assertThrows(OtaKafkaMessagingException.class, () -> validator.validate(
-                new ConsumerRecord<>("iov.vagw.delivery.fota", 0, 0L, "OTHER", status.toByteArray())));
+                new ConsumerRecord<>("vagw.delivery.status", 0, 0L, "OTHER", status.toByteArray())));
     }
 
     @Test
@@ -46,12 +46,12 @@ class GatewayDeliveryStatusValidatorTest {
         GatewayDeliveryStatus noMsgId = GatewayDeliveryStatus.newBuilder()
                 .setVin("LSVAU2188N2ZG4G").setOutcome(Outcome.OUTCOME_ACCEPTED).setOccurredAtMs(1L).build();
         assertThrows(OtaKafkaMessagingException.class, () -> validator.validate(
-                new ConsumerRecord<>("iov.vagw.delivery.fota", 0, 0L, "LSVAU2188N2ZG4G", noMsgId.toByteArray())));
+                new ConsumerRecord<>("vagw.delivery.status", 0, 0L, "LSVAU2188N2ZG4G", noMsgId.toByteArray())));
 
         GatewayDeliveryStatus noVin = GatewayDeliveryStatus.newBuilder()
                 .setOriginalMessageId("m1").setOutcome(Outcome.OUTCOME_ACCEPTED).setOccurredAtMs(1L).build();
         assertThrows(OtaKafkaMessagingException.class, () -> validator.validate(
-                new ConsumerRecord<>("iov.vagw.delivery.fota", 0, 0L, "LSVAU2188N2ZG4G", noVin.toByteArray())));
+                new ConsumerRecord<>("vagw.delivery.status", 0, 0L, "LSVAU2188N2ZG4G", noVin.toByteArray())));
     }
 
     @Test
@@ -69,7 +69,7 @@ class GatewayDeliveryStatusValidatorTest {
                 .setOccurredAtMs(System.currentTimeMillis())
                 .build();
         GatewayDeliveryStatus parsed = validator.validate(new ConsumerRecord<>(
-                "iov.vagw.delivery.fota", 0, 0L, "LSVAU2188N2ZG4G", withUnknown.toByteArray()));
+                "vagw.delivery.status", 0, 0L, "LSVAU2188N2ZG4G", withUnknown.toByteArray()));
         assertTrue(parsed.hasCorrelationId());
         assertTrue(parsed.hasRetryAfterMs());
         assertEquals(5000L, parsed.getRetryAfterMs());

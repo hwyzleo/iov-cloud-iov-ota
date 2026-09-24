@@ -114,7 +114,7 @@ class FotaEnvelopeValidatorTest {
     }
 
     private static ConsumerRecord<String, byte[]> record(String key, VehicleMessageEnvelope envelope) {
-        return new ConsumerRecord<>("iov.vagw.up.fota", 0, 0L, key, envelope.toByteArray());
+        return new ConsumerRecord<>("vagw.fota", 0, 0L, key, envelope.toByteArray());
     }
 
     private static void assertNonRecoverable(Runnable runnable) {

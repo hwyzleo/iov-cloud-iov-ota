@@ -3,6 +3,7 @@ package net.hwyz.iov.cloud.iov.ota.service.adapter.kafka.fota;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.hwyz.iov.cloud.framework.kafka.topic.KafkaTopicProvisioningStatus;
+import net.hwyz.iov.cloud.iov.ota.service.adapter.kafka.config.OtaKafkaTopicsProperties;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.messaging.kafka.OtaKafkaProperties;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.messaging.outbox.KafkaOutboxPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.messaging.outbox.KafkaOutboxRepository;
@@ -27,7 +28,8 @@ import java.util.List;
  * <p>门禁（对齐 MDM-DSN-CR-034）：KafkaTopicProvisioningStatus = NOT_READY 时暂停本轮
  * （Topic 尚未检查/创建完成，不发送）；READY / DISABLED（或未装配）放行。
  *
- * <p>重试只重发已持久化 bytes，不重建 Envelope、不生成新 message_id、不改变 correlation/trace。
+ * <p>目标 Topic 为 ota.fota（CR-020 §4.2，配置键 ota.kafka.topics.fota-down）；
+ * 重试只重发已持久化 bytes，不重建 Envelope、不生成新 message_id、不改变 correlation/trace。
  * payload=10 是唯一业务 payload；不增加外层 JSON、digest、compression、seq、ttl_ms 或 schemaVersion。
  *
  * @author hwyz_leo
@@ -40,6 +42,7 @@ public class FotaEnvelopeProducer {
     private final ReactiveKafkaProducerTemplate<String, byte[]> producerTemplate;
     private final KafkaOutboxRepository outboxRepository;
     private final OtaKafkaProperties properties;
+    private final OtaKafkaTopicsProperties topics;
     private final KafkaMessagingMetricsService metrics;
     private final ObjectProvider<KafkaTopicProvisioningStatus> provisioningStatusProvider;
 
@@ -81,7 +84,7 @@ public class FotaEnvelopeProducer {
             metrics.increment(KafkaMessagingMetricsService.OUTBOX_DEAD);
             return;
         }
-        String topic = properties.getOutbound().getTopic();
+        String topic = topics.getFotaDown();
         String key = po.getVin() != null ? po.getVin() : po.getAggregateId();
         producerTemplate.send(topic, key, value)
                 .subscribe(

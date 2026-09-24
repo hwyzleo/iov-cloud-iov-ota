@@ -12,12 +12,13 @@ import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 
 /**
- * FOTA 上行 Envelope 消费者（CR-014 §4.1）
+ * FOTA 上行 Envelope 消费者（CR-014 §4.1 / CR-020 §4.1）
  *
- * <p>监听 iov.vagw.up.fota，value=完整序列化 VehicleMessageEnvelope bytes、Key=VIN。
- * 使用 MANUAL ack：业务成功才提交 offset；可恢复异常不提交（由 Kafka 重投）；
- * 不可恢复契约错误转 DLQ/隔离并正常提交（消息已被技术消费并留存）。
- * Kafka Header 仅用于观测，不参与 schema 或业务决策。
+ * <p>监听 vagw.fota（配置键 ota.kafka.topics.fota-up），value=完整序列化
+ * VehicleMessageEnvelope bytes、Key=VIN。使用 MANUAL ack：业务成功才提交 offset；
+ * 可恢复异常不提交（由 Kafka 重投）；不可恢复契约错误转 DLQ/隔离并正常提交
+ * （消息已被技术消费并留存）。Kafka Header 仅用于观测，不参与 schema 或业务决策。
+ * 消费 Topic 缺失时由 OtaKafkaTopicStartupValidator 启动期 fail-fast，不补建。
  *
  * @author hwyz_leo
  */
@@ -32,7 +33,7 @@ public class FotaEnvelopeConsumer {
     private final KafkaMessagingMetricsService metrics;
 
     @KafkaListener(
-            topics = "${ota.kafka.inbound.topics:iov.vagw.up.fota}",
+            topics = "${ota.kafka.topics.fota-up:vagw.fota}",
             groupId = "${ota.kafka.inbound.group-id:iov-cloud-iov-ota}",
             containerFactory = "fotaKafkaListenerContainerFactory",
             concurrency = "${ota.kafka.inbound.concurrency:3}"

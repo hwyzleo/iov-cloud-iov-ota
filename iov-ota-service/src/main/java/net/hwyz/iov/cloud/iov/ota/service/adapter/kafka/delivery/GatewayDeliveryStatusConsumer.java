@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.kafka.outbound.OtaKafkaDlqService;
 import net.hwyz.iov.cloud.iov.ota.service.application.messaging.delivery.DeliveryObservationService;
 import net.hwyz.iov.cloud.iov.ota.service.common.exception.OtaKafkaMessagingException;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.messaging.kafka.OtaKafkaProperties;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.metrics.KafkaMessagingMetricsService;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -15,29 +14,32 @@ import org.springframework.stereotype.Component;
 import vagw.v1.Delivery.GatewayDeliveryStatus;
 
 /**
- * GatewayDeliveryStatus 独立消费者（CR-014 §7.1）
+ * GatewayDeliveryStatus 独立消费者（CR-014 §7.1 / CR-020 §4.5）
  *
- * <p>独立消费 iov.vagw.delivery.fota（Key=VIN，value=serialized vagw.v1.GatewayDeliveryStatus）；
- * 使用独立 codec、router 与状态语义，不经过 FotaEnvelopeConsumer 或 PayloadType Router。
- * MANUAL ack：业务成功才提交 offset；不可恢复契约错误转 DLQ/隔离。
+ * <p>CR-020 起默认停用：Kafka Topic 目录未登记独立 delivery Topic，IOV-OTA 不创建、
+ * 不订阅该流，也不将 GatewayDeliveryStatus 混入 vagw.fota。若需恢复，必须先完成
+ * 目录与契约治理（新增正式 Topic 记录并通过配套协议/ACL CR 明确 value、生产者和消费者），
+ * 再显式开启 ota.kafka.delivery.enabled=true 并配置 topic。
+ *
+ * <p>技术投递结果不推进 Task/VehicleTask/Execution 成功；正式 FOTA RESPONSE/EVENT
+ * 与领域状态继续作为业务结果来源。
  *
  * @author hwyz_leo
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "ota.kafka.delivery.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "ota.kafka.delivery.enabled", havingValue = "true", matchIfMissing = false)
 public class GatewayDeliveryStatusConsumer {
 
     private final GatewayDeliveryStatusValidator validator;
     private final DeliveryObservationService observationService;
     private final DeliveryObservationAssembler assembler;
     private final OtaKafkaDlqService dlqService;
-    private final OtaKafkaProperties properties;
     private final KafkaMessagingMetricsService metrics;
 
     @KafkaListener(
-            topics = "${ota.kafka.delivery.topic:iov.vagw.delivery.fota}",
+            topics = "${ota.kafka.delivery.topic:}",
             groupId = "${ota.kafka.delivery.group-id:iov-cloud-iov-ota-delivery}",
             containerFactory = "fotaKafkaListenerContainerFactory",
             concurrency = "${ota.kafka.delivery.concurrency:2}"

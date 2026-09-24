@@ -14,8 +14,9 @@ import java.util.List;
  * 车云 payload。字段契约由 iov-ota-api 定义，生产者（IOV-OTA Outbox Relay）
  * 与消费者（edd-vmd）共同版本治理。
  *
- * <p>topic: ota.vehicle-software-inventory.observed / key: VIN /
- * dlq: ota.vehicle-software-inventory.observed.dlq
+ * <p>topic: ota.vehicle-software-inventory.observed（CR-020 §4.4，配置键
+ * ota.kafka.topics.inventory-observed） / key: VIN；目录未登记独立 DLQ，
+ * 不自动派生 .dlq，发布失败由 Outbox 状态、退避、人工重放和告警闭环处理。
  *
  * @author hwyz_leo
  */

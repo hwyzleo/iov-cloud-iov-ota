@@ -6,47 +6,57 @@ mybatis-plus:
 
 # FW-KAFKA Topic Provisioning 框架级开关（对齐 MDM-DSN-CR-034 模式）
 # 激活 KafkaTopicProvisioningAutoConfiguration：存在性检查 + 幂等创建 OTA 发送 Topic
+# （生产 Topic 由 OtaProducerTopicInitializer 以显式 allowlist 声明，见下方 ota.kafka.startup）
 iov:
   kafka:
     topic-provisioning:
       enabled: ${IOV_KAFKA_TOPIC_PROVISIONING_ENABLED:true}
 
 # ============================================================
-# CR-013: OTA Kafka 消息化（车外 MQTT、云内 Kafka）
-# 物理 Topic/分区/保留期由车云接入契约治理（VAGW 为车云接入契约 owner，见 FotaRouteConfig）；
-# 上行 iov.vagw.up.fota / 下行 iov.vagw.down.fota / 上行死信 iov.vagw.up.fota.dlq，
-# IOV-OTA 仅维护 Envelope 与 payload 业务语义。
+# CR-013/CR-020: OTA Kafka 消息化（车外 MQTT、云内 Kafka）
+# Topic 名称以 Kafka Topic 目录为基线，统一由 ota.kafka.topics.* 管理；
+# 上行 vagw.fota（消费）/ 下行 ota.fota（生产）/ 上行 DLQ ota.fota.dlq.up（生产）
+# / VAGW 上行错误流 vagw.fota.dlq.up（消费）/ 车辆清单观测（生产）。
+# IOV-OTA 仅幂等初始化自己生产的三个 Topic，消费 Topic 缺失时启动期 fail-fast。
 # ============================================================
 ota:
   kafka:
+    startup:
+      # 是否由 OtaProducerTopicInitializer 幂等初始化三个生产 Topic（本地开发可关闭）
+      initialize-producer-topics: ${OTA_KAFKA_INITIALIZE_PRODUCER_TOPICS:true}
+      # 启动校验失败处理策略：fail-fast（默认）| warn
+      validation-mode: ${OTA_KAFKA_STARTUP_VALIDATION_MODE:fail-fast}
+    topics:
+      fota-up: ${OTA_KAFKA_TOPICS_FOTA_UP:vagw.fota}
+      vagw-up-dlq: ${OTA_KAFKA_TOPICS_VAGW_UP_DLQ:vagw.fota.dlq.up}
+      fota-down: ${OTA_KAFKA_TOPICS_FOTA_DOWN:ota.fota}
+      fota-up-dlq: ${OTA_KAFKA_TOPICS_FOTA_UP_DLQ:ota.fota.dlq.up}
+      inventory-observed: ${OTA_KAFKA_TOPICS_INVENTORY_OBSERVED:ota.vehicle-software-inventory.observed}
+    topic-definitions:
+      default-partitions: ${OTA_KAFKA_TOPIC_DEFAULT_PARTITIONS:3}
+      default-replication-factor: ${OTA_KAFKA_TOPIC_DEFAULT_REPLICATION_FACTOR:1}
+      topics:
+        ota.fota:
+          partitions: ${OTA_FOTA_PARTITIONS:3}
+          replication-factor: ${OTA_FOTA_REPLICAS:1}
+        ota.fota.dlq.up:
+          partitions: ${OTA_FOTA_DLQ_PARTITIONS:3}
+          replication-factor: ${OTA_FOTA_REPLICAS:1}
+        ota.vehicle-software-inventory.observed:
+          partitions: ${OTA_INVENTORY_PARTITIONS:3}
+          replication-factor: ${OTA_INVENTORY_REPLICAS:1}
     inbound:
       enabled: true
-      topics: ${OTA_KAFKA_INBOUND_TOPICS:iov.vagw.up.fota}
       group-id: ${OTA_KAFKA_GROUP_ID:iov-cloud-iov-ota}
       concurrency: ${OTA_KAFKA_INBOUND_CONCURRENCY:3}
-    topic-provisioning:
-      # 对齐 FW-KAFKA（MDM-DSN-CR-034 模式）：OTA 作为 Producer 的 Topic 由框架检查并幂等创建
-      enabled: ${OTA_KAFKA_TOPIC_PROVISIONING_ENABLED:true}
-      partitions: ${OTA_KAFKA_TOPIC_PROVISIONING_PARTITIONS:3}
-      replication-factor: ${OTA_KAFKA_TOPIC_PROVISIONING_REPLICATION_FACTOR:1}
     outbound:
       enabled: true
-      topic: ${OTA_KAFKA_OUTBOUND_TOPIC:iov.vagw.down.fota}
       max-retry: ${OTA_KAFKA_OUTBOUND_MAX_RETRY:5}
       backoff-base-seconds: ${OTA_KAFKA_OUTBOUND_BACKOFF_BASE:1}
       batch-size: ${OTA_KAFKA_OUTBOUND_BATCH_SIZE:100}
       poll-interval-ms: ${OTA_KAFKA_OUTBOUND_POLL_INTERVAL:2000}
-    delivery:
-      enabled: true
-      topic: ${OTA_KAFKA_DELIVERY_TOPIC:iov.vagw.delivery.fota}
-      group-id: ${OTA_KAFKA_DELIVERY_GROUP_ID:iov-cloud-iov-ota-delivery}
-      concurrency: ${OTA_KAFKA_DELIVERY_CONCURRENCY:2}
-    dlq:
-      topic: ${OTA_KAFKA_DLQ_TOPIC:iov.vagw.up.fota.dlq}
     cloud-events:
       enabled: ${OTA_CLOUD_EVENTS_ENABLED:true}
-      observed-topic: ${OTA_CLOUD_EVENTS_OBSERVED_TOPIC:ota.vehicle-software-inventory.observed}
-      observed-dlq-topic: ${OTA_CLOUD_EVENTS_OBSERVED_DLQ_TOPIC:ota.vehicle-software-inventory.observed.dlq}
       max-retry: ${OTA_CLOUD_EVENTS_MAX_RETRY:5}
       backoff-base-seconds: ${OTA_CLOUD_EVENTS_BACKOFF_BASE:1}
       batch-size: ${OTA_CLOUD_EVENTS_BATCH_SIZE:100}

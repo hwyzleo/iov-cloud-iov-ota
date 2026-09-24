@@ -3,6 +3,7 @@ package net.hwyz.iov.cloud.iov.ota.service.adapter.kafka.outbound;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.hwyz.iov.cloud.framework.kafka.topic.KafkaTopicProvisioningStatus;
+import net.hwyz.iov.cloud.iov.ota.service.adapter.kafka.config.OtaKafkaTopicsProperties;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.messaging.kafka.OtaKafkaProperties;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.messaging.outbox.CloudEventOutboxPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.messaging.outbox.CloudEventOutboxRepository;
@@ -27,7 +28,10 @@ import java.util.List;
  * <p>门禁（对齐 MDM-DSN-CR-034）：KafkaTopicProvisioningStatus = NOT_READY 时暂停本轮
  * （Topic 尚未检查/创建完成，不发送、不累加重试）；READY / DISABLED 放行。
  *
- * <p>云服务消息不使用 Proto、不归 PAR-PROTO 管理、不进入 vehicle.fota.v1。
+ * <p>目标 Topic 为 ota.vehicle-software-inventory.observed（CR-020 §4.4，
+ * 配置键 ota.kafka.topics.inventory-observed）；未登记的 .dlq 不自动派生，
+ * 失败由 Outbox 状态、退避、人工重放和告警闭环处理。
+ * 云服务消息不使用 Proto、不归 PAR-PROTO 管理、不进入 vehicle.fota.v1。
  *
  * @author hwyz_leo
  */
@@ -39,6 +43,7 @@ public class CloudEventOutboxRelay {
     private final ReactiveKafkaProducerTemplate<String, byte[]> producerTemplate;
     private final CloudEventOutboxRepository outboxRepository;
     private final OtaKafkaProperties properties;
+    private final OtaKafkaTopicsProperties topics;
     private final ObjectProvider<KafkaTopicProvisioningStatus> provisioningStatusProvider;
 
     @Scheduled(fixedDelayString = "${ota.kafka.cloud-events.poll-interval-ms:2000}")
@@ -75,8 +80,8 @@ public class CloudEventOutboxRelay {
             return;
         }
         byte[] value = po.getPayloadJson().getBytes(StandardCharsets.UTF_8);
-        String topic = po.getTopic() != null ? po.getTopic()
-                : properties.getCloudEvents().getObservedTopic();
+        // 统一配置（CR-020 RD-020-1）：Topic 只从 OtaKafkaTopicsProperties 解析，不依赖消息内字段
+        String topic = topics.getInventoryObserved();
         String key = po.getVin() != null ? po.getVin() : po.getBusinessKey();
         producerTemplate.send(topic, key, value)
                 .subscribe(
