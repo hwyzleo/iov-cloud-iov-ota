@@ -14,6 +14,8 @@ import org.springframework.stereotype.Component;
  *   <li>{@code ota.kafka.topics.fota-down} → ota.fota（Producer）；</li>
  *   <li>{@code ota.kafka.topics.fota-up-dlq} → ota.fota.dlq.up（Producer）；</li>
  *   <li>{@code ota.kafka.topics.inventory-observed} → ota.vehicle-software-inventory.observed（Producer）。</li>
+ *   <li>{@code ota.kafka.topics.vmd-vehicle-produce} → vmd.vehicle-produce（Consumer，VMD 生产）；</li>
+ *   <li>{@code ota.kafka.topics.vmd-part-binding-changed} → vmd.vehcile-part-binding.changed（Consumer，VMD 生产）。</li>
  * </ul>
  *
  * <p>所有 Kafka Adapter、Inbox/Outbox、监控与测试只从该配置读取 Topic 名称，
@@ -40,4 +42,10 @@ public class OtaKafkaTopicsProperties {
 
     /** OTA→VMD 车辆软件清单观测 Topic（CloudEventOutboxRelay 生产） */
     private String inventoryObserved = "ota.vehicle-software-inventory.observed";
+
+    /** VMD 车辆生产事件 Topic（VehicleProduceEventConsumer 消费，VMD 生产，目录治理值） */
+    private String vmdVehicleProduce = "vmd.vehicle-produce";
+
+    /** VMD 车辆-零件绑定变更 Topic（VmdVehiclePartBindingKafkaConsumer 消费，VMD 生产，保留 vehcile 目录拼写） */
+    private String vmdPartBindingChanged = "vmd.vehcile-part-binding.changed";
 }

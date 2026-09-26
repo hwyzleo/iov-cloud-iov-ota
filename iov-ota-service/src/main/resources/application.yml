@@ -32,6 +32,8 @@ ota:
       fota-down: ${OTA_KAFKA_TOPICS_FOTA_DOWN:ota.fota}
       fota-up-dlq: ${OTA_KAFKA_TOPICS_FOTA_UP_DLQ:ota.fota.dlq.up}
       inventory-observed: ${OTA_KAFKA_TOPICS_INVENTORY_OBSERVED:ota.vehicle-software-inventory.observed}
+      vmd-vehicle-produce: ${OTA_KAFKA_TOPICS_VMD_VEHICLE_PRODUCE:vmd.vehicle-produce}
+      vmd-part-binding-changed: ${OTA_KAFKA_TOPICS_VMD_PART_BINDING_CHANGED:vmd.vehcile-part-binding.changed}
     topic-definitions:
       default-partitions: ${OTA_KAFKA_TOPIC_DEFAULT_PARTITIONS:3}
       default-replication-factor: ${OTA_KAFKA_TOPIC_DEFAULT_REPLICATION_FACTOR:1}

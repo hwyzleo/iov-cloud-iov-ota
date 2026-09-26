@@ -37,7 +37,8 @@ import java.util.concurrent.TimeoutException;
  * <ol>
  *   <li>旧名称残留校验：解析后的 Topic 映射与生产定义不得出现
  *       iov.vagw.up.fota / iov.vagw.down.fota / iov.vagw.delivery.fota 等目录外旧名称；</li>
- *   <li>消费 Topic 存在性断言：vagw.fota / vagw.fota.dlq.up 必须已存在（由 VAGW/上游治理），
+ *   <li>消费 Topic 存在性断言：vagw.fota / vagw.fota.dlq.up / vmd.vehicle-produce /
+ *       vmd.vehcile-part-binding.changed 必须已存在（由 VAGW/VMD 等上游治理），
  *       缺失时按校验模式 fail-fast 阻断启动，绝不补建；</li>
  *   <li>生产 Topic 配置校验：已存在的生产 Topic 与定义比对 partitions / replicas /
  *       关键 config，配置漂移按校验模式处理；缺失的由 {@link OtaProducerTopicInitializer}
@@ -109,7 +110,8 @@ public class OtaKafkaTopicStartupValidator implements ApplicationListener<Applic
      */
     public ValidationReport validate() {
         ValidationReport.Builder builder = ValidationReport.builder()
-                .consumerTopics(List.of(topics.getFotaUp(), topics.getVagwUpDlq()))
+                .consumerTopics(List.of(topics.getFotaUp(), topics.getVagwUpDlq(),
+                        topics.getVmdVehicleProduce(), topics.getVmdPartBindingChanged()))
                 .producerTopics(List.of(topics.getFotaDown(), topics.getFotaUpDlq(),
                         topics.getInventoryObserved()));
 

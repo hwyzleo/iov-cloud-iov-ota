@@ -19,7 +19,7 @@ import java.util.Map;
 /**
  * VMD车辆零件绑定变更事件Kafka消费者
  * <p>
- * 监听 vmd-vehicle-binding-changed，同步车辆零件只读投影。
+ * 监听 vmd.vehcile-part-binding.changed（配置键 ota.kafka.topics.vmd-part-binding-changed，vehcile 为目录治理拼写），同步车辆零件只读投影。
  * 仅接受VMD来源的绑定写；BIND/REPLACE -> upsert，UNBIND -> 删除。
  * </p>
  *
@@ -35,7 +35,7 @@ public class VmdVehiclePartBindingKafkaConsumer {
     private final ObjectMapper objectMapper;
 
     @KafkaListener(
-            topics = "${ota.vmd.binding.kafka.topic:vmd-vehicle-binding-changed}",
+            topics = "${ota.kafka.topics.vmd-part-binding-changed:vmd.vehcile-part-binding.changed}",
             groupId = "${spring.kafka.consumer.group-id:iov-cloud-iov-ota}",
             containerFactory = "kafkaListenerContainerFactory"
     )

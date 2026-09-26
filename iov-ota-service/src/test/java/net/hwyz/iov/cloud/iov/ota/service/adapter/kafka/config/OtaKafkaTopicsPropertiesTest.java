@@ -25,6 +25,8 @@ class OtaKafkaTopicsPropertiesTest {
         assertEquals("ota.fota", props.getFotaDown());
         assertEquals("ota.fota.dlq.up", props.getFotaUpDlq());
         assertEquals("ota.vehicle-software-inventory.observed", props.getInventoryObserved());
+        assertEquals("vmd.vehicle-produce", props.getVmdVehicleProduce());
+        assertEquals("vmd.vehcile-part-binding.changed", props.getVmdPartBindingChanged());
     }
 
     @Test
@@ -33,10 +35,13 @@ class OtaKafkaTopicsPropertiesTest {
         OtaKafkaTopicsProperties props = new OtaKafkaTopicsProperties();
         props.setFotaUp("env.vagw.fota");
         props.setFotaDown("env.ota.fota");
+        props.setVmdVehicleProduce("vmd.vehicle-produce.prod");
 
         assertEquals("env.vagw.fota", props.getFotaUp());
         assertEquals("env.ota.fota", props.getFotaDown());
         // 未覆盖项保持目录基线
         assertEquals("ota.vehicle-software-inventory.observed", props.getInventoryObserved());
+        assertEquals("vmd.vehicle-produce.prod", props.getVmdVehicleProduce());
+        assertEquals("vmd.vehcile-part-binding.changed", props.getVmdPartBindingChanged());
     }
 }

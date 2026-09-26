@@ -42,7 +42,7 @@ class OtaKafkaTopicStartupValidatorTest {
         return new TopicDescription(name, false, infos);
     }
 
-    /** 全部 5 个 Topic 存在且配置匹配（3 分区 / 1 副本） */
+    /** 全部 7 个 Topic 存在且配置匹配（3 分区 / 1 副本） */
     private static void allPresent(StubValidator validator) {
         validator.described.put("vagw.fota", TopicDescribeResult.present(topic("vagw.fota", 3, 1)));
         validator.described.put("vagw.fota.dlq.up", TopicDescribeResult.present(topic("vagw.fota.dlq.up", 3, 1)));
@@ -50,6 +50,10 @@ class OtaKafkaTopicStartupValidatorTest {
         validator.described.put("ota.fota.dlq.up", TopicDescribeResult.present(topic("ota.fota.dlq.up", 3, 1)));
         validator.described.put("ota.vehicle-software-inventory.observed",
                 TopicDescribeResult.present(topic("ota.vehicle-software-inventory.observed", 3, 1)));
+        validator.described.put("vmd.vehicle-produce",
+                TopicDescribeResult.present(topic("vmd.vehicle-produce", 3, 1)));
+        validator.described.put("vmd.vehcile-part-binding.changed",
+                TopicDescribeResult.present(topic("vmd.vehcile-part-binding.changed", 3, 1)));
     }
 
     /** 三个生产 Topic 定义与默认值一致 */

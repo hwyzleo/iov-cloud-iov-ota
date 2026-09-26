@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 /**
  * VMD车辆生产事件Kafka消费者
  * <p>
- * 监听 vmd.vehicle.produce.event，同步车辆主档本地只读投影。
+ * 监听 vmd.vehicle-produce（配置键 ota.kafka.topics.vmd-vehicle-produce），同步车辆主档本地只读投影。
  * 以 VIN + 上游版本幂等 upsert。
  * </p>
  *
@@ -27,7 +27,7 @@ public class VehicleProduceEventConsumer {
     private final VehicleProjectionSyncService vehicleProjectionSyncService;
 
     @KafkaListener(
-            topics = "${ota.vmd.vehicle-produce.kafka.topic:vmd.vehicle.produce.event}",
+            topics = "${ota.kafka.topics.vmd-vehicle-produce:vmd.vehicle-produce}",
             groupId = "${spring.kafka.consumer.group-id:iov-cloud-iov-ota}",
             containerFactory = "kafkaListenerContainerFactory"
     )
