@@ -29,6 +29,7 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -68,6 +69,14 @@ public class VehicleProjectionSyncService {
     @Value("${ota.vehicle-projection.bootstrap.max-pages:1000}")
     private int bootstrapMaxPages;
 
+    /**
+     * VMD 无时区墙上时间串的显式解释时区（CR-021 §4.25.3：不用 systemDefault 猜测）。
+     * 配置键 ota.time.business-zone-id，默认 Asia/Shanghai（业务确认）。
+     */
+    @Value("${ota.time.business-zone-id:Asia/Shanghai}")
+    private ZoneId businessZoneId;
+
+    /** VMD 事件遗留无时区格式（CR-021 §4.25.1：文档漂移按运行配置复核，不改名不修拼写） */
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
 
     /**
@@ -107,7 +116,8 @@ public class VehicleProjectionSyncService {
 
             VehicleProjectionPo po = existing != null ? existing : new VehicleProjectionPo();
             po.setVin(vin);
-            po.setProductionTime(parseDateTime(payload.path("produceTime").asText("")));
+            // production_time NOT NULL 且上游必填：缺失/解析失败拒绝写入，不伪造当前时间（CR-021 §4.25.3）
+            po.setProductionTime(parseRequiredDateTime(payload.path("produceTime").asText(""), "produceTime", businessZoneId));
             po.setPlantCode(payload.path("plantCode").asText(null));
             po.setBrandCode(payload.path("brandCode").asText(null));
             po.setPlatformCode(payload.path("platformCode").asText(null));
@@ -117,7 +127,8 @@ public class VehicleProjectionSyncService {
             po.setConfigurationCode(payload.path("configurationCode").asText(null));
             po.setSourceEventId(eventId);
             po.setSourceVersion(version);
-            po.setSourceEventTime(parseDateTime(occurredAt));
+            // source_event_time NOT NULL 且 occurredAt 为必填信封字段：缺失/解析失败拒绝写入
+            po.setSourceEventTime(parseRequiredDateTime(occurredAt, "occurredAt", businessZoneId));
             po.setLastSyncTime(new Date());
 
             upsert(po, existing != null);
@@ -314,12 +325,17 @@ public class VehicleProjectionSyncService {
             // configuration_code 为核心锚点，缺失告警但允许落库（生产时间可为兜底）
             log.warn("VMD 回源缺少 configurationCode: vin={}", vin);
         }
+        if (StrUtil.isBlank(remote.getProductionTime())) {
+            // production_time NOT NULL：必填缺失拒绝本次写入（CR-021 §4.25.3，不伪造当前时间）
+            throw new IllegalStateException("VMD 回源缺少 productionTime: vin=" + vin);
+        }
     }
 
     private VehicleProjectionPo toProjection(VmdVehicleProjectionDto dto) {
         VehicleProjectionPo po = new VehicleProjectionPo();
         po.setVin(dto.getVin());
-        po.setProductionTime(parseIsoDateTime(dto.getProductionTime()));
+        // production_time NOT NULL：缺失/解析失败拒绝写入（apply() 捕获后计入 failed，走现有隔离机制）
+        po.setProductionTime(parseRequiredDateTime(dto.getProductionTime(), "productionTime", businessZoneId));
         po.setPlantCode(dto.getPlantCode());
         po.setBrandCode(dto.getBrandCode());
         po.setPlatformCode(dto.getPlatformCode());
@@ -379,33 +395,40 @@ public class VehicleProjectionSyncService {
         log.debug("保存投影同步 checkpoint: cursor={}, updatedAfter={}", cursor, updatedAfter);
     }
 
-    private Date parseDateTime(String dateTimeStr) {
+    /**
+     * 解析 VMD 事件/快照中的必填时间字段（CR-021 §4.25.3）。
+     * <p>规则：
+     * <ul>
+     *   <li>blank：必填字段缺失 → 抛异常拒绝本次写入，不伪造当前时间；</li>
+     *   <li>带 offset/Z 的 ISO 串：绝对时刻，直接转换；</li>
+     *   <li>无时区墙上时间串：按显式业务时区（businessZoneId）解释，不用 systemDefault 猜测；</li>
+     *   <li>非空但解析失败 → 抛异常，走现有失败/隔离机制，不伪装成正常缺失。</li>
+     * </ul>
+     *
+     * @param dateTimeStr 原始时间串
+     * @param fieldName   字段名（错误信息用）
+     * @param zoneId      无时区串的显式解释时区
+     */
+    static Date parseRequiredDateTime(String dateTimeStr, String fieldName, ZoneId zoneId) {
         if (StrUtil.isBlank(dateTimeStr)) {
-            return new Date();
+            throw new IllegalStateException("车辆投影必填时间字段[" + fieldName + "]缺失，拒绝写入");
+        }
+        String candidate = dateTimeStr.trim();
+        try {
+            return Date.from(OffsetDateTime.parse(candidate).toInstant());
+        } catch (DateTimeParseException ignored) {
+            // 无时区墙上时间串：继续按显式业务时区解释
         }
         try {
-            LocalDateTime localDateTime = LocalDateTime.parse(dateTimeStr, DATE_TIME_FORMATTER);
-            return Date.from(localDateTime.atZone(ZoneId.systemDefault()).toInstant());
-        } catch (Exception e) {
-            log.warn("解析日期时间失败: {}, 使用当前时间", dateTimeStr);
-            return new Date();
-        }
-    }
-
-    private Date parseIsoDateTime(String dateTimeStr) {
-        if (StrUtil.isBlank(dateTimeStr)) {
-            return new Date();
-        }
-        try {
-            OffsetDateTime odt = OffsetDateTime.parse(dateTimeStr);
-            return Date.from(odt.toInstant());
-        } catch (Exception e) {
+            LocalDateTime localDateTime = LocalDateTime.parse(candidate, DATE_TIME_FORMATTER);
+            return Date.from(localDateTime.atZone(zoneId).toInstant());
+        } catch (DateTimeParseException e1) {
             try {
-                LocalDateTime ldt = LocalDateTime.parse(dateTimeStr, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-                return Date.from(ldt.atZone(ZoneId.systemDefault()).toInstant());
-            } catch (Exception e2) {
-                log.warn("解析 ISO 日期时间失败: {}, 使用当前时间", dateTimeStr);
-                return new Date();
+                LocalDateTime localDateTime = LocalDateTime.parse(candidate, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+                return Date.from(localDateTime.atZone(zoneId).toInstant());
+            } catch (DateTimeParseException e2) {
+                throw new IllegalStateException(
+                        "车辆投影时间字段[" + fieldName + "]解析失败，拒绝写入: " + candidate, e2);
             }
         }
     }

@@ -4,10 +4,21 @@ server:
 mybatis-plus:
   type-aliases-package: net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po
 
+# ============================================================
+# CR-021: 组织自有 JSON java.time 时间契约治理（§4.25.2/4.25.3）
+# - date-format: 兼容阶段显式固定 epoch-millis（保持旧毫秒输出）；ISO 切换属后续灰度阶段，
+#   仅允许 epoch-millis | iso，未知值启动失败（框架探针校验）。
+# - zone-id: 显式业务墙上时区（依据业务确认，不用 systemDefault 猜测）。
+# - 读能力（ISO/旧整数双读）由框架 IovJavaTimeReadModule 始终注册，与写模式解耦。
+# ============================================================
 # FW-KAFKA Topic Provisioning 框架级开关（对齐 MDM-DSN-CR-034 模式）
 # 激活 KafkaTopicProvisioningAutoConfiguration：存在性检查 + 幂等创建 OTA 发送 Topic
 # （生产 Topic 由 OtaProducerTopicInitializer 以显式 allowlist 声明，见下方 ota.kafka.startup）
 iov:
+  web:
+    jackson:
+      date-format: ${IOV_WEB_JACKSON_DATE_FORMAT:epoch-millis}
+      zone-id: ${IOV_WEB_JACKSON_ZONE_ID:Asia/Shanghai}
   kafka:
     topic-provisioning:
       enabled: ${IOV_KAFKA_TOPIC_PROVISIONING_ENABLED:true}
@@ -20,6 +31,9 @@ iov:
 # IOV-OTA 仅幂等初始化自己生产的三个 Topic，消费 Topic 缺失时启动期 fail-fast。
 # ============================================================
 ota:
+  # OTA 业务墙上时区（CR-021 §4.25.3：无时区墙上时间串的显式解释时区）
+  time:
+    business-zone-id: ${OTA_TIME_BUSINESS_ZONE_ID:Asia/Shanghai}
   kafka:
     startup:
       # 是否由 OtaProducerTopicInitializer 幂等初始化三个生产 Topic（本地开发可关闭）
