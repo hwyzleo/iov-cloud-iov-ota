@@ -52,8 +52,8 @@ class OtaKafkaTopicStartupValidatorTest {
                 TopicDescribeResult.present(topic("ota.vehicle-software-inventory.observed", 3, 1)));
         validator.described.put("vmd.vehicle-produce",
                 TopicDescribeResult.present(topic("vmd.vehicle-produce", 3, 1)));
-        validator.described.put("vmd.vehcile-part-binding.changed",
-                TopicDescribeResult.present(topic("vmd.vehcile-part-binding.changed", 3, 1)));
+        validator.described.put("vmd.vehicle-part-binding.changed",
+                TopicDescribeResult.present(topic("vmd.vehicle-part-binding.changed", 3, 1)));
     }
 
     /** 三个生产 Topic 定义与默认值一致 */
