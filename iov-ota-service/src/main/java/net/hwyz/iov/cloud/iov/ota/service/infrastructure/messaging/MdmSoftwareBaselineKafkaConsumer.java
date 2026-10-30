@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 /**
  * MDM SoftwareBaseline事件Kafka消费者
  * <p>
- * 监听 mdm.material.softwareBaseline.event，同步配置软件应装基线投影。
+ * 监听 mdm.software-baseline，同步配置软件应装基线投影。
  * </p>
  *
  * @author hwyz_leo
@@ -25,7 +25,7 @@ public class MdmSoftwareBaselineKafkaConsumer {
     private final MdmProjectionSyncAppService mdmProjectionSyncAppService;
 
     @KafkaListener(
-            topics = "${ota.mdm.baseline.kafka.topic:mdm.material.softwareBaseline.event}",
+            topics = "${ota.mdm.baseline.kafka.topic:mdm.software-baseline}",
             groupId = "${spring.kafka.consumer.group-id:iov-cloud-iov-ota}",
             containerFactory = "kafkaListenerContainerFactory"
     )

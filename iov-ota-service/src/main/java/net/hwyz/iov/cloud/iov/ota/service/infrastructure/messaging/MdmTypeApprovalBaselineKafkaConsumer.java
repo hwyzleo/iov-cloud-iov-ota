@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 /**
  * MDM TypeApprovalBaseline事件Kafka消费者
  * <p>
- * 监听 mdm.eead.typeApprovalBaseline.event，同步TA基线投影。
+ * 监听 mdm.type-approval-baseline，同步TA基线投影。
  * 仅消费 status=RELEASED/FROZEN。
  * </p>
  *
@@ -26,7 +26,7 @@ public class MdmTypeApprovalBaselineKafkaConsumer {
     private final MdmProjectionSyncAppService mdmProjectionSyncAppService;
 
     @KafkaListener(
-            topics = "${ota.mdm.typeApprovalBaseline.kafka.topic:mdm.eead.typeApprovalBaseline.event}",
+            topics = "${ota.mdm.typeApprovalBaseline.kafka.topic:mdm.type-approval-baseline}",
             groupId = "${spring.kafka.consumer.group-id:iov-cloud-iov-ota}",
             containerFactory = "kafkaListenerContainerFactory"
     )

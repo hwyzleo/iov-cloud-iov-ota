@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 /**
  * MDM SWIN定义事件Kafka消费者
  * <p>
- * 监听 mdm.eead.swin.event，同步SWIN定义与受管系统清单投影。
+ * 监听 mdm.swin-definition，同步SWIN定义与受管系统清单投影。
  * </p>
  *
  * @author hwyz_leo
@@ -25,7 +25,7 @@ public class MdmSwinKafkaConsumer {
     private final MdmProjectionSyncAppService mdmProjectionSyncAppService;
 
     @KafkaListener(
-            topics = "${ota.mdm.swin.kafka.topic:mdm.eead.swin.event}",
+            topics = "${ota.mdm.swin.kafka.topic:mdm.swin-definition}",
             groupId = "${spring.kafka.consumer.group-id:iov-cloud-iov-ota}",
             containerFactory = "kafkaListenerContainerFactory"
     )
