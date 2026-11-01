@@ -1,27 +1,5 @@
-server:
-  port: 10403
-
 mybatis-plus:
   type-aliases-package: net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po
-
-# ============================================================
-# CR-021: 组织自有 JSON java.time 时间契约治理（§4.25.2/4.25.3）
-# - date-format: 兼容阶段显式固定 epoch-millis（保持旧毫秒输出）；ISO 切换属后续灰度阶段，
-#   仅允许 epoch-millis | iso，未知值启动失败（框架探针校验）。
-# - zone-id: 显式业务墙上时区（依据业务确认，不用 systemDefault 猜测）。
-# - 读能力（ISO/旧整数双读）由框架 IovJavaTimeReadModule 始终注册，与写模式解耦。
-# ============================================================
-# FW-KAFKA Topic Provisioning 框架级开关（对齐 MDM-DSN-CR-034 模式）
-# 激活 KafkaTopicProvisioningAutoConfiguration：存在性检查 + 幂等创建 OTA 发送 Topic
-# （生产 Topic 由 OtaProducerTopicInitializer 以显式 allowlist 声明，见下方 ota.kafka.startup）
-iov:
-  web:
-    jackson:
-      date-format: ${IOV_WEB_JACKSON_DATE_FORMAT:epoch-millis}
-      zone-id: ${IOV_WEB_JACKSON_ZONE_ID:Asia/Shanghai}
-  kafka:
-    topic-provisioning:
-      enabled: ${IOV_KAFKA_TOPIC_PROVISIONING_ENABLED:true}
 
 # ============================================================
 # CR-013/CR-020: OTA Kafka 消息化（车外 MQTT、云内 Kafka）
