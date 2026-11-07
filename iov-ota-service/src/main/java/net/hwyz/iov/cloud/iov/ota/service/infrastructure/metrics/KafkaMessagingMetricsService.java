@@ -81,6 +81,7 @@ public class KafkaMessagingMetricsService {
     public static final String INBOX_DIGEST_CONFLICT = "kafka.inbox.digest.conflict";
     public static final String INBOX_FAILED = "kafka.inbox.failed";
     public static final String INBOX_DLQ = "kafka.inbox.dlq";
+    public static final String INBOX_QUARANTINED = "kafka.inbox.quarantined";
     public static final String INBOX_BACKLOG = "kafka.inbox.backlog";
 
     /** Outbox */

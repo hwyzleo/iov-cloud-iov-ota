@@ -3,6 +3,8 @@ package net.hwyz.iov.cloud.iov.ota.service.adapter.kafka.outbound;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.kafka.config.OtaKafkaTopicsProperties;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.messaging.kafka.OtaKafkaProperties;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
+import org.apache.kafka.common.TopicPartition;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,9 +14,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.kafka.core.reactive.ReactiveKafkaProducerTemplate;
-
 import reactor.core.publisher.Mono;
+import reactor.kafka.sender.SenderResult;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -26,6 +30,7 @@ import static org.mockito.Mockito.when;
  *
  * <p>OtaKafkaDlqService 只从统一配置 OtaKafkaTopicsProperties.fotaUpDlq 解析
  * 目标 Topic（ota.fota.dlq.up），与 VAGW 生产的消费流 vagw.fota.dlq.up 不混用。
+ * 转存必须同步等待结果：失败时返回 false，调用方不得提交 offset。
  *
  * @author hwyz_leo
  */
@@ -45,7 +50,15 @@ class OtaKafkaDlqServiceTest {
         properties = new OtaKafkaProperties();
         topics = new OtaKafkaTopicsProperties();
         dlqService = new OtaKafkaDlqService(producerTemplate, properties, topics);
-        when(producerTemplate.send(any(), any(), any())).thenReturn(Mono.empty());
+        Mono<SenderResult<Void>> okResult = Mono.just(sendResult(42L));
+        when(producerTemplate.send(any(), any(), any())).thenReturn(okResult);
+    }
+
+    private static SenderResult<Void> sendResult(long offset) {
+        SenderResult<Void> result = org.mockito.Mockito.mock(SenderResult.class);
+        when(result.recordMetadata()).thenReturn(new RecordMetadata(
+                new TopicPartition("ota.fota.dlq.up", 0), offset, 0, 1L, 1, 1));
+        return result;
     }
 
     @Test
@@ -55,7 +68,7 @@ class OtaKafkaDlqServiceTest {
         ConsumerRecord<String, byte[]> record =
                 new ConsumerRecord<>("vagw.fota", 0, 42L, "LSVAU2188N2ZG4G", raw);
 
-        dlqService.sendToDlq(record, "Envelope 解析失败");
+        assertTrue(dlqService.sendToDlq(record, "Envelope 解析失败"));
 
         verify(producerTemplate).send(eq("ota.fota.dlq.up"), eq("LSVAU2188N2ZG4G"), eq(raw));
     }
@@ -66,7 +79,7 @@ class OtaKafkaDlqServiceTest {
         ConsumerRecord<String, byte[]> record =
                 new ConsumerRecord<>("vagw.fota", 1, 7L, null, new byte[]{1});
 
-        dlqService.sendToDlq(record, "contract error");
+        assertTrue(dlqService.sendToDlq(record, "contract error"));
 
         verify(producerTemplate).send(eq("ota.fota.dlq.up"), eq("vagw.fota"), any());
     }
@@ -75,7 +88,33 @@ class OtaKafkaDlqServiceTest {
     @DisplayName("下行生产关闭时不转存")
     void disabled_outbound_skips_dlq() {
         properties.getOutbound().setEnabled(false);
-        dlqService.sendToDlq(new ConsumerRecord<>("vagw.fota", 0, 0L, "K", new byte[]{1}), "r");
+
+        assertTrue(dlqService.sendToDlq(
+                new ConsumerRecord<>("vagw.fota", 0, 0L, "K", new byte[]{1}), "r"));
+
         verify(producerTemplate, never()).send(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("转存发送失败时返回 false（调用方不得提交 offset）")
+    void send_failure_returns_false() {
+        when(producerTemplate.send(any(), any(), any()))
+                .thenReturn(Mono.error(new org.apache.kafka.common.errors.SerializationException("boom")));
+
+        ConsumerRecord<String, byte[]> record =
+                new ConsumerRecord<>("vagw.fota", 0, 0L, "K", new byte[]{1});
+
+        assertFalse(dlqService.sendToDlq(record, "contract error"));
+    }
+
+    @Test
+    @DisplayName("转存无结果（Mono.empty）时返回 false")
+    void empty_result_returns_false() {
+        when(producerTemplate.send(any(), any(), any())).thenReturn(Mono.empty());
+
+        ConsumerRecord<String, byte[]> record =
+                new ConsumerRecord<>("vagw.fota", 0, 0L, "K", new byte[]{1});
+
+        assertFalse(dlqService.sendToDlq(record, "contract error"));
     }
 }

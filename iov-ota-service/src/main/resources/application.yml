@@ -43,6 +43,13 @@ ota:
       enabled: true
       group-id: ${OTA_KAFKA_GROUP_ID:iov-cloud-iov-ota}
       concurrency: ${OTA_KAFKA_INBOUND_CONCURRENCY:3}
+      # 可恢复失败：指数退避有界重试；重试耗尽后原始 bytes 落盘隔离（可人工回放）
+      # 并提交 offset，避免一条毒消息永久阻塞分区。
+      error-handler:
+        max-retry: ${OTA_KAFKA_INBOUND_MAX_RETRY:3}
+        backoff-ms: ${OTA_KAFKA_INBOUND_BACKOFF_MS:1000}
+        # 隔离目录含原始 Key(VIN) 与消息内容，须用受限目录并定期人工回放/清理
+        quarantine-dir: ${OTA_KAFKA_INBOUND_QUARANTINE_DIR:./kafka-quarantine}
     outbound:
       enabled: true
       max-retry: ${OTA_KAFKA_OUTBOUND_MAX_RETRY:5}

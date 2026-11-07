@@ -63,7 +63,14 @@ public class GatewayDeliveryStatusConsumer {
             metrics.increment(KafkaMessagingMetricsService.INBOX_DLQ);
             log.error("技术投递不可恢复契约错误，转 DLQ: offset={}, error={}",
                     record.offset(), e.getMessage());
-            dlqService.sendToDlq(record, e.getMessage());
+            if (!dlqService.sendToDlq(record, e.getMessage())) {
+                // DLQ 转存失败不得提交 offset，否则消息既未留存也已被消费 → 永久丢失
+                metrics.increment(KafkaMessagingMetricsService.INBOX_FAILED);
+                log.error("技术投递契约错误消息 DLQ 转存失败，不提交 offset 等待重投: offset={}, error={}",
+                        record.offset(), e.getMessage());
+                throw OtaKafkaMessagingException.recoverable(
+                        "DLQ 转存失败，保留 offset 等待重投: " + e.getMessage(), e);
+            }
         } catch (Exception e) {
             metrics.increment(KafkaMessagingMetricsService.INBOX_FAILED);
             log.error("技术投递处理异常，不提交 offset 等待重投: offset={}, error={}",
