@@ -3,6 +3,7 @@ package net.hwyz.iov.cloud.iov.ota.service.application.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.hwyz.iov.cloud.iov.ota.api.vo.VehicleSoftwareInventoryObservedEvent;
+import net.hwyz.iov.cloud.iov.ota.service.adapter.kafka.config.OtaKafkaTopicsProperties;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.CanonicalEcu;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.CanonicalVehicleInventory;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.CanonicalSoftwareUnit;
@@ -40,6 +41,7 @@ public class InventoryObservedOutboxProducer {
 
     private final CloudEventOutboxRepository cloudEventOutboxRepository;
     private final KafkaMessagingMetricsService metrics;
+    private final OtaKafkaTopicsProperties topics;
 
     /**
      * 计算观测业务唯一键。
@@ -91,6 +93,7 @@ public class InventoryObservedOutboxProducer {
                 .eventType(CloudEventOutboxPo.EVENT_INVENTORY_OBSERVED)
                 .businessKey(businessKey)
                 .payloadJson(payload)
+                .topic(topics.getInventoryObserved())
                 .vin(inventory.getVin())
                 .build();
         boolean created = cloudEventOutboxRepository.append(po);
