@@ -318,4 +318,11 @@
           AND p.vin = #{vin}
         LIMIT 1
     </select>
+    <!-- CR-023：车辆存在性校验（主档投影，不使用 tb_veh_status） -->
+    <select id="countByVin" resultType="int">
+        SELECT COUNT(*)
+        FROM tb_vehicle_projection p
+        WHERE p.row_valid = 1
+          AND p.vin = #{vin}
+    </select>
 </mapper>

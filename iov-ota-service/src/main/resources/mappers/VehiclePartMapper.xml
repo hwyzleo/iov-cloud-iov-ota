@@ -240,4 +240,37 @@
         WHERE t.row_valid = 1
         <!-- 添加自定义条件 -->
     </select>
+    <!-- 根据车辆vin批量查询有效零件投影（CR-023 §5：一次查询，供按 deviceCode 内存分组） -->
+    <select id="selectByVin" resultMap="baseResultMap">
+        SELECT <include refid="baseColumnList"/>
+        FROM tb_vehicle_part t
+        WHERE t.row_valid = 1
+        AND t.vin = #{vin}
+        ORDER BY t.id
+    </select>
+
+    <!--
+      全受管字段更新（CR-023 §6.1）
+      - 受管字段无条件赋值，允许清空为 NULL/空串，修复通用 updatePo 的 <if> 无法置空问题；
+      - vin + pn 为身份键，不由本条零件内容改写；
+      - 无变化时不得调用本语句（幂等由应用层差异检测保证）。
+    -->
+    <update id="updateManagedFields" parameterType="net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.VehiclePartPo">
+        UPDATE tb_vehicle_part t SET
+            t.device_code = #{deviceCode},
+            t.device_item = #{deviceItem},
+            t.sn = #{sn},
+            t.config_word = #{configWord},
+            t.supplier_code = #{supplierCode},
+            t.batch_num = #{batchNum},
+            t.hardware_ver = #{hardwareVer},
+            t.software_ver = #{softwareVer},
+            t.hardware_pn = #{hardwarePn},
+            t.software_pn = #{softwarePn},
+            t.extra = #{extra},
+            t.row_version = t.row_version + 1,
+            t.modify_time = now()
+        WHERE t.id = #{id}
+    </update>
+
 </mapper>

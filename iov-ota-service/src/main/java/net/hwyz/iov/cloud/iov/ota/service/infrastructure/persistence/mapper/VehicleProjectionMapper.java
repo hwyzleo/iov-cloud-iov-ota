@@ -73,4 +73,13 @@ public interface VehicleProjectionMapper extends BaseDao<VehicleProjectionPo, Lo
      * @return 管理查询结果，主档不存在返回 null
      */
     VehicleManagementResult selectManagementByVin(@Param("vin") String vin);
+
+    /**
+     * 车辆是否存在于主档投影（CR-023 §9：车辆存在性使用 tb_vehicle_projection，
+     * 不使用 tb_veh_status）
+     *
+     * @param vin 车架号
+     * @return 匹配行数（0/1）
+     */
+    int countByVin(@Param("vin") String vin);
 }

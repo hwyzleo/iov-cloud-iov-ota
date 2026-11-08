@@ -3,6 +3,7 @@ package net.hwyz.iov.cloud.iov.ota.service.application.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.VehicleManagementResult;
+import net.hwyz.iov.cloud.iov.ota.service.common.exception.VehicleNotExistException;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.VehStatusMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.VehicleProjectionMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.VehStatusPo;
@@ -46,6 +47,27 @@ public class VehicleAppService {
      */
     public VehicleManagementResult getVehicleByVin(String vin) {
         return vehicleProjectionMapper.selectManagementByVin(vin);
+    }
+
+    /**
+     * 车辆是否存在（CR-023 §9：使用 tb_vehicle_projection，不使用 tb_veh_status）
+     *
+     * @param vin 车架号
+     * @return true 表示主档投影存在
+     */
+    public boolean existsByVin(String vin) {
+        return vehicleProjectionMapper.countByVin(vin) > 0;
+    }
+
+    /**
+     * 校验车辆存在，不存在时抛出明确业务错误（CR-023 §5.6 / §9）
+     *
+     * @param vin 车架号
+     */
+    public void requireVehicleExists(String vin) {
+        if (!existsByVin(vin)) {
+            throw new VehicleNotExistException(vin);
+        }
     }
 
     /**

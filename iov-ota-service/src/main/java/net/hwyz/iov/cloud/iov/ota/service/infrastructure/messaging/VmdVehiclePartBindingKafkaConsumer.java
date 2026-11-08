@@ -8,6 +8,7 @@ import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.Vehi
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.VehiclePartPo;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -72,7 +73,19 @@ public class VmdVehiclePartBindingKafkaConsumer {
                 po.setPn(partCode);
                 po.setDeviceCode(vehicleNodeCode);
                 if (existingList.isEmpty()) {
-                    vehiclePartMapper.insertPo(po);
+                    try {
+                        vehiclePartMapper.insertPo(po);
+                    } catch (DuplicateKeyException e) {
+                        // CR-023 C1：并发「先查后插」被 uk_vehicle_part_vin_pn 拦截，转为更新避免事件丢失
+                        List<VehiclePartPo> concurrent = vehiclePartMapper.selectPoByMap(params);
+                        if (concurrent.isEmpty()) {
+                            throw e;
+                        }
+                        VehiclePartPo concurrentPo = concurrent.get(0);
+                        concurrentPo.setDeviceCode(vehicleNodeCode);
+                        vehiclePartMapper.updatePo(concurrentPo);
+                        log.info("车辆零件投影并发插入命中唯一键，已转为更新");
+                    }
                 } else {
                     vehiclePartMapper.updatePo(po);
                 }

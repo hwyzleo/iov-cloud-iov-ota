@@ -13,10 +13,10 @@ import net.hwyz.iov.cloud.framework.web.controller.BaseController;
 import net.hwyz.iov.cloud.framework.web.util.PageUtil;
 import net.hwyz.iov.cloud.iov.ota.api.vo.TaskVehicleMpt;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.TaskVehicleMptAssembler;
-import net.hwyz.iov.cloud.iov.ota.service.application.service.ActivityAppService;
-import net.hwyz.iov.cloud.iov.ota.service.application.service.TaskAppService;
+import net.hwyz.iov.cloud.iov.ota.service.application.dto.query.VehicleRelationTaskQuery;
+import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.VehicleTaskRelationResult;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.TaskVehicleAppService;
-import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.TaskResult;
+import net.hwyz.iov.cloud.iov.ota.service.application.service.VehicleUpgradeRelationQueryService;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.TaskVehicleProcessResult;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.ExecutionProcessView;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.ExecutionEventProcessView;
@@ -26,7 +26,6 @@ import net.hwyz.iov.cloud.iov.ota.service.application.service.TaskVehicleProcess
 import net.hwyz.iov.cloud.iov.ota.service.application.service.VehicleTaskConsentQueryService;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.VehicleTaskConsentResult;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.VehicleTaskConsentCurrentResult;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskVehiclePo;
 import org.springframework.web.bind.annotation.*;
 
@@ -44,11 +43,10 @@ import java.util.List;
 @RequestMapping(value = "/api/mpt/taskVehicle/v1")
 public class MptTaskVehicleController extends BaseController {
 
-    private final TaskAppService taskAppService;
-    private final ActivityAppService activityAppService;
     private final TaskVehicleAppService taskVehicleAppService;
     private final TaskVehicleProcessQueryService taskVehicleProcessQueryService;
     private final VehicleTaskConsentQueryService vehicleTaskConsentQueryService;
+    private final VehicleUpgradeRelationQueryService vehicleUpgradeRelationQueryService;
 
     /**
      * 分页查询车辆升级任务
@@ -61,18 +59,23 @@ public class MptTaskVehicleController extends BaseController {
     public ApiResponse<PageResult<TaskVehicleMpt>> list(TaskVehicleMpt taskVehicle) {
         log.info("管理后台用户[{}]分页车辆查询升级任务", SecurityUtils.getUsername());
         startPage();
-        List<TaskVehiclePo> taskVehiclePoList = taskVehicleAppService.search(taskVehicle.getVin(), getBeginTime(taskVehicle), getEndTime(taskVehicle));
-        List<TaskVehicleMpt> taskVehicleMptList = PageUtil.convert(taskVehiclePoList, TaskVehicleMptAssembler.INSTANCE::fromPo);
-taskVehicleMptList.forEach(taskVehicleMpt -> {
-            TaskResult task = taskAppService.getTaskById(taskVehicleMpt.getTaskId());
-            if (task != null) {
-                taskVehicleMpt.setTaskName(task.getName());
-            }
-            ActivityPo activity = activityAppService.getActivityById(task.getActivityId());
-            if (activity != null) {
-                taskVehicleMpt.setActivityName(activity.getName());
-            }
-        });
+        // CR-023 §4.2：一次 JOIN 取回任务/活动名称，消除逐行 getTaskById/getActivityById 与空任务 NPE
+        VehicleRelationTaskQuery condition = VehicleRelationTaskQuery.builder()
+                .vin(taskVehicle.getVin())
+                .beginTime(getBeginTime(taskVehicle))
+                .endTime(getEndTime(taskVehicle))
+                .build();
+        List<VehicleTaskRelationResult> relations = vehicleUpgradeRelationQueryService.listTasks(condition);
+        List<TaskVehicleMpt> taskVehicleMptList = PageUtil.convert(relations, relation -> TaskVehicleMpt.builder()
+                .id(relation.getVehicleTaskId())
+                .activityId(relation.getActivityId())
+                .activityName(relation.getActivityName())
+                .taskId(relation.getTaskId())
+                .taskName(relation.getTaskName())
+                .vin(taskVehicle.getVin())
+                .resultCode(relation.getResultCode())
+                .createTime(relation.getCreateTime())
+                .build());
         return ApiResponse.ok(getPageResult(taskVehicleMptList));
     }
 

@@ -11,7 +11,10 @@ import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.VehicleI
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.VehicleInventorySoftwareUnitPo;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 车辆清单查询应用服务（CR-019 §6.4 Inventory Query Assembler）
@@ -19,6 +22,9 @@ import java.util.List;
  * <p>组装 ECU → SoftwareUnits 查询模型，支持逐 Target/Slot 导出。
  * legacy SINGLE_IMAGE 通过 synthetic ECU_IMAGE unit 返回；MULTI_TARGET
  * 不允许任取第一项降级。
+ *
+ * <p>CR-023 §2/§5.6：ECU 与 SoftwareUnit 均以固定次数批量查询（按 inventory_id
+ * 一次取回后在内存按 inventory_item_id 分组），查询次数不随 ECU 数量增长。
  *
  * @author hwyz_leo
  */
@@ -32,7 +38,10 @@ public class VehicleInventoryQueryService {
     private final VehicleInventorySoftwareUnitMapper vehicleInventorySoftwareUnitMapper;
 
     /**
-     * 查询某 VIN 最新已接受清单（含 ECU → SoftwareUnits 明细）。
+     * 查询某 VIN 最新已接受清单（含 ECU → SoftwareUnits 明细，不含 VMD 零件富化）。
+     *
+     * <p>VMD 零件富化由 {@link VehicleDeviceInventoryQueryService} 追加，避免
+     * TaskVehicle 过程查询复用时无条件加载零件（CR-023 §2）。
      */
     public InventoryProcessSummary getLatestByVin(String vin) {
         VehicleInventoryPo inventory = vehicleInventoryMapper.selectLatestByVin(vin);
@@ -41,7 +50,7 @@ public class VehicleInventoryQueryService {
         }
         List<VehicleInventoryItemPo> itemPos = vehicleInventoryItemMapper
                 .selectByInventoryId(inventory.getId());
-        return toSummary(inventory, itemPos);
+        return toSummary(inventory, itemPos, loadUnitsByItemId(inventory, itemPos));
     }
 
     /**
@@ -54,9 +63,11 @@ public class VehicleInventoryQueryService {
         }
         List<VehicleInventoryItemPo> itemPos = vehicleInventoryItemMapper
                 .selectByInventoryId(inventory.getId());
+        Map<Long, List<VehicleInventorySoftwareUnitPo>> unitsByItemId =
+                loadUnitsByItemId(inventory, itemPos);
         return itemPos.stream()
-                .flatMap(item -> vehicleInventorySoftwareUnitMapper
-                        .selectByInventoryItemId(item.getId()).stream()
+                .flatMap(item -> unitsByItemId
+                        .getOrDefault(item.getId(), Collections.emptyList()).stream()
                         .map(u -> ExportRow.builder()
                                 .vin(vin)
                                 .ecuId(item.getEcuId())
@@ -72,13 +83,26 @@ public class VehicleInventoryQueryService {
                 .toList();
     }
 
+    /**
+     * 一次批量加载清单下全部 SoftwareUnit，并按 inventory_item_id 内存分组（CR-023 §5.6）。
+     */
+    private Map<Long, List<VehicleInventorySoftwareUnitPo>> loadUnitsByItemId(
+            VehicleInventoryPo inventory, List<VehicleInventoryItemPo> itemPos) {
+        if (itemPos.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return vehicleInventorySoftwareUnitMapper.selectByInventoryId(inventory.getId()).stream()
+                .collect(Collectors.groupingBy(VehicleInventorySoftwareUnitPo::getInventoryItemId));
+    }
+
     private InventoryProcessSummary toSummary(VehicleInventoryPo inventory,
-                                              List<VehicleInventoryItemPo> itemPos) {
+                                              List<VehicleInventoryItemPo> itemPos,
+                                              Map<Long, List<VehicleInventorySoftwareUnitPo>> unitsByItemId) {
         int ecuCount = itemPos.size();
         List<InventoryProcessSummary.EcuInventorySummary> ecuList = itemPos.stream()
                 .map(item -> {
-                    List<VehicleInventorySoftwareUnitPo> unitPos =
-                            vehicleInventorySoftwareUnitMapper.selectByInventoryItemId(item.getId());
+                    List<VehicleInventorySoftwareUnitPo> unitPos = unitsByItemId
+                            .getOrDefault(item.getId(), Collections.emptyList());
                     List<InventoryProcessSummary.SoftwareUnitSummary> units = unitPos.stream()
                             .map(u -> InventoryProcessSummary.SoftwareUnitSummary.builder()
                                     .softwareTargetCode(u.getSoftwareTargetCode())

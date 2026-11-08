@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.VehicleUpgradeRelationMapper">
+
+    <!-- CR-023 §4.1：车辆关联活动（按活动分组，一次 JOIN 取回名称与状态） -->
+    <resultMap id="activityRelationResultMap"
+               type="net.hwyz.iov.cloud.iov.ota.service.application.dto.result.VehicleActivityRelationResult">
+        <result column="activity_id" property="activityId" />
+        <result column="activity_name" property="activityName" />
+        <result column="activity_state" property="activityState" />
+        <result column="vehicle_task_count" property="vehicleTaskCount" />
+        <result column="latest_task_time" property="latestTaskTime" />
+    </resultMap>
+
+    <!--
+      GROUP BY 分页：PageHelper 的 count SQL 会包裹为
+      SELECT count(0) FROM (... GROUP BY ...) table_count，
+      总数 = 活动分组数，不会误把 VehicleTask 行数当活动总数（CR-023 §4.1）。
+    -->
+    <select id="selectActivityRelations" resultMap="activityRelationResultMap">
+        SELECT tv.activity_id                        AS activity_id,
+               a.name                                AS activity_name,
+               a.state                               AS activity_state,
+               COUNT(tv.id)                          AS vehicle_task_count,
+               MAX(tv.create_time)                   AS latest_task_time
+        FROM tb_task_vehicle tv
+        JOIN tb_activity a ON a.id = tv.activity_id AND a.row_valid = 1
+        WHERE tv.vin = #{vin}
+          AND tv.row_valid = 1
+        GROUP BY tv.activity_id, a.name, a.state
+        ORDER BY latest_task_time DESC, tv.activity_id DESC
+    </select>
+
+    <!--
+      CR-023 §4.2：车辆关联任务
+      - 名称/状态一次 JOIN 取回，禁止逐行 getTaskById / getActivityById；
+      - 任务为空（row_valid=0 或已删除）不会产生 NPE，因为不存在逐行补全；
+      - release_at 取 VehicleTask 发布时间快照，start/end 取 VehicleTask 冻结的执行窗口快照；
+      - 默认按 VehicleTask 创建时间倒序（tv.create_time DESC, tv.id DESC）。
+    -->
+    <resultMap id="taskRelationResultMap"
+               type="net.hwyz.iov.cloud.iov.ota.service.application.dto.result.VehicleTaskRelationResult">
+        <result column="vehicle_task_id" property="vehicleTaskId" />
+        <result column="vehicle_task_status" property="vehicleTaskStatus" />
+        <result column="result_code" property="resultCode" />
+        <result column="task_id" property="taskId" />
+        <result column="task_name" property="taskName" />
+        <result column="task_phase" property="taskPhase" />
+        <result column="task_state" property="taskState" />
+        <result column="activity_id" property="activityId" />
+        <result column="activity_name" property="activityName" />
+        <result column="activity_state" property="activityState" />
+        <result column="release_at" property="releaseAt" />
+        <result column="start_time" property="startTime" />
+        <result column="end_time" property="endTime" />
+        <result column="create_time" property="createTime" />
+    </resultMap>
+
+    <select id="selectTaskRelations"
+            parameterType="net.hwyz.iov.cloud.iov.ota.service.application.dto.query.VehicleRelationTaskQuery"
+            resultMap="taskRelationResultMap">
+        SELECT tv.id                        AS vehicle_task_id,
+               tv.vehicle_task_status       AS vehicle_task_status,
+               tv.result_code               AS result_code,
+               t.id                         AS task_id,
+               t.name                       AS task_name,
+               t.phase                      AS task_phase,
+               t.state                      AS task_state,
+               a.id                         AS activity_id,
+               a.name                       AS activity_name,
+               a.state                      AS activity_state,
+               tv.release_at                AS release_at,
+               tv.vt_start_time             AS start_time,
+               tv.vt_end_time               AS end_time,
+               tv.create_time               AS create_time
+        FROM tb_task_vehicle tv
+        JOIN tb_task t ON t.id = tv.task_id AND t.row_valid = 1
+        JOIN tb_activity a ON a.id = tv.activity_id AND a.row_valid = 1
+        WHERE tv.vin = #{vin}
+          AND tv.row_valid = 1
+        <if test="activityId != null">
+            AND tv.activity_id = #{activityId}
+        </if>
+        <if test="taskState != null">
+            AND t.state = #{taskState}
+        </if>
+        <if test="vehicleTaskStatus != null and vehicleTaskStatus != ''">
+            AND tv.vehicle_task_status = #{vehicleTaskStatus}
+        </if>
+        <if test="beginTime != null">
+            AND tv.create_time &gt;= #{beginTime}
+        </if>
+        <if test="endTime != null">
+            AND tv.create_time &lt;= #{endTime}
+        </if>
+        ORDER BY tv.create_time DESC, tv.id DESC
+    </select>
+</mapper>

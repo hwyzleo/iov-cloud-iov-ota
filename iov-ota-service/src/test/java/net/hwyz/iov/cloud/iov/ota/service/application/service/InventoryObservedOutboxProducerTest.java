@@ -6,6 +6,7 @@ import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.CanonicalSoft
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.messaging.outbox.CloudEventOutboxPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.messaging.outbox.CloudEventOutboxRepository;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.metrics.KafkaMessagingMetricsService;
+import net.hwyz.iov.cloud.iov.ota.service.adapter.kafka.config.OtaKafkaTopicsProperties;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,6 +36,8 @@ class InventoryObservedOutboxProducerTest {
 
     @Mock private CloudEventOutboxRepository cloudEventOutboxRepository;
     @Mock private KafkaMessagingMetricsService metrics;
+    /** CR-020：Topic 统一由配置目录提供，测试需注入避免 topics 为 null */
+    @Mock private OtaKafkaTopicsProperties topics;
 
     @InjectMocks
     private InventoryObservedOutboxProducer producer;
@@ -57,6 +60,7 @@ class InventoryObservedOutboxProducerTest {
     @DisplayName("生成观测事件：observation_key 唯一、事件字段完整")
     void produces_observation_event() {
         byte[] digest = new byte[32];
+        when(topics.getInventoryObserved()).thenReturn("ota.vehicle.inventory.observed");
         when(cloudEventOutboxRepository.findByBusinessKey(any())).thenReturn(null);
         when(cloudEventOutboxRepository.append(any())).thenReturn(true);
 

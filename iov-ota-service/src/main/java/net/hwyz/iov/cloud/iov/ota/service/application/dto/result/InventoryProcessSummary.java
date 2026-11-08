@@ -42,6 +42,11 @@ public class InventoryProcessSummary {
         private String hardwareVersion;
         private String softwareModel;
         private List<SoftwareUnitSummary> softwareUnits;
+        /**
+         * CR-023：VMD 零件投影关联（追加字段，仅车辆设备清单查询富化；
+         * TaskVehicle 过程查询复用本模型时不加载零件，保持为 null）。
+         */
+        private PartAssociationSummary partAssociation;
     }
 
     /**
