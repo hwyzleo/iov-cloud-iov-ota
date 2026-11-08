@@ -6,6 +6,7 @@ import net.hwyz.iov.cloud.iov.ota.service.application.dto.cmd.InventoryItemCmd;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.cmd.SoftwareUnitCmd;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.VehicleInventoryItemMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.VehicleInventoryMapper;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.VehicleInventoryReportStateMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.VehicleInventorySoftwareUnitMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.VehicleInventoryItemPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.VehicleInventoryPo;
@@ -41,6 +42,7 @@ class VehicleInventoryApplicationServiceTest {
     @Mock private VehicleInventoryMapper vehicleInventoryMapper;
     @Mock private VehicleInventoryItemMapper vehicleInventoryItemMapper;
     @Mock private VehicleInventorySoftwareUnitMapper vehicleInventorySoftwareUnitMapper;
+    @Mock private VehicleInventoryReportStateMapper vehicleInventoryReportStateMapper;
     @Mock private InventoryObservedOutboxProducer observedOutboxProducer;
 
     @InjectMocks
@@ -93,7 +95,7 @@ class VehicleInventoryApplicationServiceTest {
     }
 
     @Test
-    @DisplayName("FULL legacy 受理：写 header + item + ECU_IMAGE unit + 观测 Outbox")
+    @DisplayName("FULL legacy 受理：写 header + item + ECU_IMAGE unit + 观测 Outbox + 运行态最后上报时间")
     void full_legacy_accepts_and_persists() {
         when(vehicleInventoryMapper.selectByVinAndRevision(eq(VIN), anyLong())).thenReturn(null);
         VehicleInventoryApplicationService.InventoryHandlingResult result =
@@ -106,6 +108,8 @@ class VehicleInventoryApplicationServiceTest {
         verify(vehicleInventoryItemMapper, times(1)).insert(any(VehicleInventoryItemPo.class));
         verify(vehicleInventorySoftwareUnitMapper, times(1)).insert(any());
         verify(observedOutboxProducer, times(1)).produce(any(), any(), any(), any());
+        // CR-022：首次有效 FULL 建立运行态最后上报时间
+        verify(vehicleInventoryReportStateMapper, times(1)).upsertReported(eq(VIN), any(Date.class));
     }
 
     @Test
@@ -124,7 +128,7 @@ class VehicleInventoryApplicationServiceTest {
     }
 
     @Test
-    @DisplayName("FULL 校验失败（模式冲突）→ FULL_REQUIRED，无持久化")
+    @DisplayName("FULL 校验失败（模式冲突）→ FULL_REQUIRED，无持久化，不刷新运行态")
     void full_validation_failure_no_persist() {
         when(vehicleInventoryMapper.selectByVinAndRevision(eq(VIN), anyLong())).thenReturn(null);
         DetectionCmd cmd = fullLegacyCmd();
@@ -139,6 +143,7 @@ class VehicleInventoryApplicationServiceTest {
         assertEquals(InventoryDisposition.FULL_REQUIRED, result.getDisposition());
         verify(vehicleInventoryMapper, never()).insert(any());
         verify(observedOutboxProducer, never()).produce(any(), any(), any(), any());
+        verify(vehicleInventoryReportStateMapper, never()).upsertReported(any(), any());
     }
 
     @Test
@@ -158,10 +163,12 @@ class VehicleInventoryApplicationServiceTest {
                 service.handleInventory(cmd);
         assertEquals(InventoryDisposition.REVISION_CONFLICT, result.getDisposition());
         verify(vehicleInventoryMapper, never()).insert(any());
+        // CR-022：冲突拒绝不刷新运行态
+        verify(vehicleInventoryReportStateMapper, never()).upsertReported(any(), any());
     }
 
     @Test
-    @DisplayName("FULL 幂等重放（同 revision 同摘要）→ ACCEPTED 复用，不发新事件")
+    @DisplayName("FULL 幂等重放（同 revision 同摘要）→ ACCEPTED 复用，不发新事件，刷新运行态")
     void full_idempotent_replay() {
         VehicleInventoryPo existing = VehicleInventoryPo.builder()
                 .id(1L).vin(VIN).inventoryRevision(1L)
@@ -178,10 +185,43 @@ class VehicleInventoryApplicationServiceTest {
         assertEquals(InventoryDisposition.ACCEPTED, result.getDisposition());
         verify(vehicleInventoryMapper, never()).insert(any());
         verify(observedOutboxProducer, never()).produce(any(), any(), any(), any());
+        // CR-022：新消息身份的 FULL 业务幂等重放仍刷新最后上报时间（accepted_time 不变）
+        verify(vehicleInventoryReportStateMapper, times(1)).upsertReported(eq(VIN), any(Date.class));
     }
 
     @Test
-    @DisplayName("DIGEST 命中 v1 → ACCEPTED 复用，不更新 accepted_time")
+    @DisplayName("运行态 upsert 异常向上抛出（随业务事务回滚，不吞异常）")
+    void report_state_failure_rolls_back_business() {
+        when(vehicleInventoryMapper.selectByVinAndRevision(eq(VIN), anyLong())).thenReturn(null);
+        when(vehicleInventoryReportStateMapper.upsertReported(eq(VIN), any(Date.class)))
+                .thenThrow(new IllegalStateException("report state write failed"));
+
+        assertThrows(IllegalStateException.class, () -> service.handleInventory(fullLegacyCmd()));
+        // 运行态失败后不得继续创建观测 Outbox
+        verify(observedOutboxProducer, never()).produce(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("FULL 算法不支持 → ALGORITHM_UNSUPPORTED，不刷新运行态")
+    void full_algorithm_unsupported_no_refresh() {
+        VehicleInventoryPo existing = VehicleInventoryPo.builder()
+                .id(1L).vin(VIN).inventoryRevision(1L)
+                .digest("abc").algorithm("SHA-256")
+                .canonicalizationVersion(2)
+                .acceptedTime(new Date())
+                .build();
+        when(vehicleInventoryMapper.selectByVinAndRevision(eq(VIN), anyLong())).thenReturn(existing);
+
+        DetectionCmd cmd = fullLegacyCmd();
+        cmd.setCanonicalizationVersion(1);
+        VehicleInventoryApplicationService.InventoryHandlingResult result =
+                service.handleInventory(cmd);
+        assertEquals(InventoryDisposition.ALGORITHM_UNSUPPORTED, result.getDisposition());
+        verify(vehicleInventoryReportStateMapper, never()).upsertReported(any(), any());
+    }
+
+    @Test
+    @DisplayName("DIGEST 命中 v1 → ACCEPTED 复用，不更新 accepted_time，刷新运行态")
     void digest_hit_v1() {
         VehicleInventoryPo existing = VehicleInventoryPo.builder()
                 .id(1L).vin(VIN).inventoryRevision(3L)
@@ -202,6 +242,8 @@ class VehicleInventoryApplicationServiceTest {
                 service.handleInventory(cmd);
         assertEquals(InventoryDisposition.ACCEPTED, result.getDisposition());
         verify(observedOutboxProducer, never()).produce(any(), any(), any(), any());
+        // CR-022：DIGEST 命中仍刷新最后上报时间
+        verify(vehicleInventoryReportStateMapper, times(1)).upsertReported(eq(VIN), any(Date.class));
     }
 
     @Test
@@ -224,6 +266,7 @@ class VehicleInventoryApplicationServiceTest {
         VehicleInventoryApplicationService.InventoryHandlingResult result =
                 service.handleInventory(cmd);
         assertEquals(InventoryDisposition.DIGEST_MISMATCH, result.getDisposition());
+        verify(vehicleInventoryReportStateMapper, never()).upsertReported(any(), any());
     }
 
     @Test
@@ -238,5 +281,6 @@ class VehicleInventoryApplicationServiceTest {
         VehicleInventoryApplicationService.InventoryHandlingResult result =
                 service.handleInventory(cmd);
         assertEquals(InventoryDisposition.FULL_REQUIRED, result.getDisposition());
+        verify(vehicleInventoryReportStateMapper, never()).upsertReported(any(), any());
     }
 }

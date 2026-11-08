@@ -88,6 +88,12 @@ public class VehicleMpt extends BaseRequest {
     private Date lastSyncTime;
 
     /**
+     * 最后一次有效车辆软件清单上报时间（OTA服务端时间，只读）
+     * <p>CR-022：来自 tb_vehicle_inventory_report_state，不代表车辆在线或最后任意 FOTA 消息时间。</p>
+     */
+    private Date lastInventoryReportedAt;
+
+    /**
      * 创建时间
      */
     private Date createTime;

@@ -14,9 +14,9 @@ import net.hwyz.iov.cloud.framework.web.util.PageUtil;
 import net.hwyz.iov.cloud.iov.ota.api.vo.VehicleMpt;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.VehicleProjectionMptAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.InventoryProcessSummary;
+import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.VehicleManagementResult;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.VehicleAppService;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.VehicleInventoryQueryService;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.VehicleProjectionPo;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
@@ -49,8 +49,9 @@ public class MptVehicleController extends BaseController {
     public ApiResponse<PageResult<VehicleMpt>> list(VehicleMpt vehicle) {
         log.info("管理后台用户[{}]分页查询车辆信息", SecurityUtils.getUsername());
         startPage();
-        List<VehicleProjectionPo> vehiclePoList = vehicleAppService.search(vehicle.getVin(), getBeginTime(vehicle), getEndTime(vehicle));
-        return ApiResponse.ok(getPageResult(PageUtil.convert(vehiclePoList, VehicleProjectionMptAssembler.INSTANCE::fromPo)));
+        // CR-022：LEFT JOIN 运行态一次取回 lastInventoryReportedAt，不得逐 VIN 查询
+        List<VehicleManagementResult> vehicleList = vehicleAppService.search(vehicle.getVin(), getBeginTime(vehicle), getEndTime(vehicle));
+        return ApiResponse.ok(getPageResult(PageUtil.convert(vehicleList, VehicleProjectionMptAssembler.INSTANCE::fromResult)));
     }
 
     /**
@@ -76,7 +77,7 @@ public class MptVehicleController extends BaseController {
     @GetMapping(value = "/{vin}")
     public ApiResponse<VehicleMpt> getInfo(@PathVariable String vin) {
         log.info("管理后台用户[{}]根据车架号[{}]获取车辆信息", SecurityUtils.getUsername(), vin);
-        return ApiResponse.ok(VehicleProjectionMptAssembler.INSTANCE.fromPo(vehicleAppService.getVehicleByVin(vin)));
+        return ApiResponse.ok(VehicleProjectionMptAssembler.INSTANCE.fromResult(vehicleAppService.getVehicleByVin(vin)));
     }
 
     /**

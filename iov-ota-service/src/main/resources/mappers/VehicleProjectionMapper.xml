@@ -262,4 +262,60 @@
         WHERE t.row_valid = 1
         ${ew.customSqlSegment}
     </select>
+    <!-- CR-022：升级车辆管理查询结果（主档投影 + 运行态最后上报时间） -->
+    <resultMap id="managementResultMap" type="net.hwyz.iov.cloud.iov.ota.service.application.dto.result.VehicleManagementResult">
+        <id column="id" property="id" />
+        <result column="vin" property="vin" />
+        <result column="production_time" property="productionTime" />
+        <result column="plant_code" property="plantCode" />
+        <result column="brand_code" property="brandCode" />
+        <result column="platform_code" property="platformCode" />
+        <result column="car_line_code" property="carLineCode" />
+        <result column="model_code" property="modelCode" />
+        <result column="variant_code" property="variantCode" />
+        <result column="configuration_code" property="configurationCode" />
+        <result column="source_event_id" property="sourceEventId" />
+        <result column="source_version" property="sourceVersion" />
+        <result column="source_event_time" property="sourceEventTime" />
+        <result column="last_sync_time" property="lastSyncTime" />
+        <result column="create_time" property="createTime" />
+        <result column="last_inventory_reported_at" property="lastInventoryReportedAt" />
+    </resultMap>
+
+    <!-- CR-022：管理查询列（运行态仅取只读 last_reported_at，不回写主档） -->
+    <sql id="managementColumnList">
+        p.id, p.vin, p.production_time, p.plant_code, p.brand_code, p.platform_code, p.car_line_code, p.model_code,
+        p.variant_code, p.configuration_code, p.source_event_id, p.source_version, p.source_event_time,
+        p.last_sync_time, p.create_time, r.last_reported_at AS last_inventory_reported_at
+    </sql>
+
+    <!-- CR-022：升级车辆管理列表，一次关联运行态（List 必须为该分页查询，禁止 N+1） -->
+    <select id="selectManagementList" resultMap="managementResultMap">
+        SELECT <include refid="managementColumnList"/>
+        FROM tb_vehicle_projection p
+        LEFT JOIN tb_vehicle_inventory_report_state r
+               ON r.vin = p.vin AND r.row_valid = 1
+        WHERE p.row_valid = 1
+        <if test="vin != null and vin != ''">
+            AND p.vin LIKE CONCAT('%', #{vin}, '%')
+        </if>
+        <if test="beginTime != null">
+            AND p.create_time &gt;= #{beginTime}
+        </if>
+        <if test="endTime != null">
+            AND p.create_time &lt;= #{endTime}
+        </if>
+        ORDER BY p.id DESC
+    </select>
+
+    <!-- CR-022：升级车辆管理详情，一次关联运行态 -->
+    <select id="selectManagementByVin" resultMap="managementResultMap">
+        SELECT <include refid="managementColumnList"/>
+        FROM tb_vehicle_projection p
+        LEFT JOIN tb_vehicle_inventory_report_state r
+               ON r.vin = p.vin AND r.row_valid = 1
+        WHERE p.row_valid = 1
+          AND p.vin = #{vin}
+        LIMIT 1
+    </select>
 </mapper>

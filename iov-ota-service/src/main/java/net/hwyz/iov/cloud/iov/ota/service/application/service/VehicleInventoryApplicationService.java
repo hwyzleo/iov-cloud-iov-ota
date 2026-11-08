@@ -16,6 +16,7 @@ import net.hwyz.iov.cloud.iov.ota.service.domain.service.CanonicalDigestService;
 import net.hwyz.iov.cloud.iov.ota.service.domain.service.InventoryModelValidator;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.VehicleInventoryItemMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.VehicleInventoryMapper;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.VehicleInventoryReportStateMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.VehicleInventorySoftwareUnitMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.VehicleInventoryItemPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.VehicleInventoryPo;
@@ -40,6 +41,10 @@ import java.util.Objects;
  *       不更新 accepted_time、不发新事件；未命中/版本不同返回 FULL_REQUIRED。</li>
  * </ul>
  *
+ * <p>CR-022：有效 FULL、FULL 业务幂等重放和 DIGEST 命中在同一本地事务内单调刷新
+ * {@code tb_vehicle_inventory_report_state.last_reported_at}（RD-022-2/4）；拒绝、冲突、
+ * 校验失败与事务回滚不刷新，技术重投由 Inbox 在业务前短路。</p>
+ *
  * @author hwyz_leo
  */
 @Slf4j
@@ -50,6 +55,7 @@ public class VehicleInventoryApplicationService {
     private final VehicleInventoryMapper vehicleInventoryMapper;
     private final VehicleInventoryItemMapper vehicleInventoryItemMapper;
     private final VehicleInventorySoftwareUnitMapper vehicleInventorySoftwareUnitMapper;
+    private final VehicleInventoryReportStateMapper vehicleInventoryReportStateMapper;
     private final InventoryObservedOutboxProducer observedOutboxProducer;
 
     /**
@@ -108,6 +114,8 @@ public class VehicleInventoryApplicationService {
             if (sameDigest) {
                 // 幂等重放：复用原受理，不更新 accepted_time、不发新事件
                 log.info("车辆[{}]FULL 清单幂等重放，复用原受理：revision[{}]", cmd.getVin(), revision);
+                // CR-022：新消息身份的 FULL 业务幂等重放仍为一次有效上报，刷新最后上报时间
+                markInventoryReported(cmd.getVin());
                 return InventoryHandlingResult.builder()
                         .disposition(InventoryDisposition.ACCEPTED)
                         .inventoryModel(deriveModel(cmd))
@@ -193,6 +201,9 @@ public class VehicleInventoryApplicationService {
             }
         }
 
+        // 运行态最后上报时间（CR-022）：与本次受理同一服务端时刻，同事务提交
+        vehicleInventoryReportStateMapper.upsertReported(cmd.getVin(), Date.from(acceptedAt));
+
         // 观测 Outbox（同事务）；v1 无 canonical digest 时以请求摘要参与观测键
         observedOutboxProducer.produce(canonical, canonicalDigest != null
                 ? canonicalDigest : computeRequestDigest(cmd), model, acceptedAt);
@@ -257,6 +268,8 @@ public class VehicleInventoryApplicationService {
         // DIGEST 命中：复用已接受 FULL，不更新 accepted_time、不发新事件
         log.info("车辆[{}]DIGEST 清单命中，复用已受理 FULL：revision[{}]", cmd.getVin(),
                 existing.getInventoryRevision());
+        // CR-022：DIGEST 命中仍为一次有效上报，刷新最后上报时间
+        markInventoryReported(cmd.getVin());
         return InventoryHandlingResult.builder()
                 .disposition(InventoryDisposition.ACCEPTED)
                 .inventoryModel(deriveStoredModel(existing))
@@ -275,6 +288,13 @@ public class VehicleInventoryApplicationService {
     }
 
     // ---------------------------------------------------------------- helpers
+
+    /**
+     * 刷新该 VIN 的最后清单上报时间（CR-022）；失败向上抛出，随本次业务事务回滚。
+     */
+    private void markInventoryReported(String vin) {
+        vehicleInventoryReportStateMapper.upsertReported(vin, Date.from(Instant.now()));
+    }
 
     private int resolveCanonicalizationVersion(DetectionCmd cmd) {
         int version = cmd.getCanonicalizationVersion() != null
