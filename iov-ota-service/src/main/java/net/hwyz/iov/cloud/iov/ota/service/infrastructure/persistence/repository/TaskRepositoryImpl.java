@@ -26,7 +26,6 @@ import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.Task
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskRestrictionPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskStrategyPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskVehiclePo;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -157,19 +156,10 @@ public class TaskRepositoryImpl implements TaskRepository {
             taskMapper.updatePo(taskPo);
         }
 
-        if (task.getVehicles() != null) {
-            task.getVehicles().forEach(vin -> {
-                TaskVehiclePo taskVehiclePo = taskVehicleMapper.selectByTaskIdAndVin(taskPo.getId(), vin.getValue());
-                if (taskVehiclePo == null) {
-                    taskVehicleMapper.insertPo(TaskVehiclePo.builder()
-                        .activityId(taskPo.getActivityId())
-                        .taskId(taskPo.getId())
-                        .vin(vin.getValue())
-                        .build());
-                }
-            });
-        }
-
+        // 说明：发布时的车辆任务快照（tb_task_vehicle）统一由 TaskReleasedEvent 处理器
+        // 通过 TaskVehicleRepository.batchCreate 创建（含 vehicle_task_status / release_at /
+        // 执行窗口快照等 CR-012 字段）。此处不得再插入仅含 taskId+vin 的半初始化行，
+        // 否则读取侧的 vehicle_task_status IS NOT NULL 过滤会永久丢行。
         // 仅对内容发生变化的行执行更新，避免每次 save 全量重写子表造成 binlog 放大
         List<TaskRestrictionPo> existingRestrictionPoList =
                 taskRestrictionMapper.selectPoByTaskId(task.getId().getValue());

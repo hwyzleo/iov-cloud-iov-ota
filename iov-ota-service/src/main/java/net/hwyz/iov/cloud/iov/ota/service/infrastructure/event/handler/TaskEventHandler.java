@@ -54,7 +54,7 @@ public class TaskEventHandler {
             return;
         }
         Task task = taskOpt.get();
-        int created = taskVehicleRepository.batchCreate(taskId, task.getActivityId().getValue(), event.getAffectedVehicles());
+        int created = taskVehicleRepository.batchCreate(task, event.getAffectedVehicles());
         log.info("任务[{}]批量创建升级任务车辆记录：新增[{}]，总数[{}]", taskId, created, event.getAffectedVehicles().size());
         cacheService.addReleaseTask(task);
         log.info("任务[{}]已写入缓存", taskId);

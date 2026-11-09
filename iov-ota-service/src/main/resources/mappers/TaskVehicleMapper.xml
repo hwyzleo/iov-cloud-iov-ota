@@ -16,36 +16,89 @@
         <result column="task_id" property="taskId" />
         <result column="vin" property="vin" />
         <result column="result_code" property="resultCode" />
+        <!-- CR-009 / CR-012 / CR-016：VehicleTask 运行态字段，发布快照与过程查询依赖 -->
+        <result column="source" property="source" />
+        <result column="admit_state" property="admitState" />
+        <result column="admit_reason" property="admitReason" />
+        <result column="baseline" property="baseline" />
+        <result column="download_retry_count" property="downloadRetryCount" />
+        <result column="install_retry_count" property="installRetryCount" />
+        <result column="resume_offset" property="resumeOffset" />
+        <result column="resume_token" property="resumeToken" />
+        <result column="last_fail_reason" property="lastFailReason" />
+        <result column="next_retry_at" property="nextRetryAt" />
+        <result column="attempt_no" property="attemptNo" />
+        <result column="vehicle_task_status" property="vehicleTaskStatus" />
+        <result column="task_revision" property="taskRevision" />
+        <result column="snapshot_digest" property="snapshotDigest" />
+        <result column="availability_status" property="availabilityStatus" />
+        <result column="download_ready_state" property="downloadReadyState" />
+        <result column="consent_state" property="consentState" />
+        <result column="consent_required" property="consentRequired" />
+        <result column="consent_article_id" property="consentArticleId" />
+        <result column="consent_article_version" property="consentArticleVersion" />
+        <result column="consent_article_hash" property="consentArticleHash" />
+        <result column="consent_scope_digest" property="consentScopeDigest" />
+        <result column="current_consent_id" property="currentConsentId" />
+        <result column="consent_updated_at" property="consentUpdatedAt" />
+        <result column="release_at" property="releaseAt" />
+        <result column="vt_start_time" property="vtStartTime" />
+        <result column="vt_end_time" property="vtEndTime" />
+        <result column="last_attempt_no" property="lastAttemptNo" />
+        <result column="active_execution_id" property="activeExecutionId" />
+        <result column="superseded_by" property="supersededBy" />
+        <result column="local_disposition" property="localDisposition" />
+        <result column="package_cache_action" property="packageCacheAction" />
+        <result column="vt_state_before_pause" property="vtStateBeforePause" />
     </resultMap>
 
     <!-- 通用查询结果列 -->
     <sql id="baseColumnList">
-        id, activity_id, task_id, vin, result_code, 
+        id, activity_id, task_id, vin, result_code,
+        source, admit_state, admit_reason, baseline,
+        download_retry_count, install_retry_count, resume_offset, resume_token, last_fail_reason, next_retry_at, attempt_no,
+        vehicle_task_status, task_revision, snapshot_digest, availability_status, download_ready_state, consent_state,
+        consent_required, consent_article_id, consent_article_version, consent_article_hash, consent_scope_digest,
+        current_consent_id, consent_updated_at, release_at, vt_start_time, vt_end_time,
+        last_attempt_no, active_execution_id, superseded_by, local_disposition, package_cache_action, vt_state_before_pause,
         description, create_time, create_by, modify_time, modify_by, row_version, row_valid
     </sql>
 
-    <!-- 插入 -->
+    <!--
+      插入
+      CR-012 §2.2：发布即生成 VehicleTask 快照，必须同时落 vehicle_task_status / release_at /
+      执行窗口快照 / task_revision / 授权初始态，否则读取侧（VehicleTaskMapper.selectByVin、
+      selectByTaskId 均要求 vehicle_task_status IS NOT NULL）永远看不到该车辆任务。
+    -->
     <insert id="insertPo" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO tb_task_vehicle (
-            id, activity_id, task_id, vin, result_code, 
+            id, activity_id, task_id, vin, result_code,
+            vehicle_task_status, task_revision, download_ready_state, consent_state, consent_required,
+            release_at, vt_start_time, vt_end_time, last_attempt_no,
             description, create_time, create_by, modify_time, modify_by, row_version, row_valid
         )
         VALUES (
-            #{id}, #{activityId}, #{taskId}, #{vin}, #{resultCode}, 
+            #{id}, #{activityId}, #{taskId}, #{vin}, #{resultCode},
+            #{vehicleTaskStatus}, #{taskRevision}, #{downloadReadyState}, #{consentState}, #{consentRequired},
+            #{releaseAt}, #{vtStartTime}, #{vtEndTime}, #{lastAttemptNo},
             #{description}, now(), #{createBy}, now(), #{modifyBy}, 1, 1
         )
     </insert>
 
-    <!-- 批量插入 -->
+    <!-- 批量插入（同上：发布快照字段必须随行写入） -->
     <insert id="batchInsertPo" useGeneratedKeys="true" keyProperty="id" parameterType="java.util.List">
         INSERT INTO tb_task_vehicle (
-            id, activity_id, task_id, vin, result_code, 
+            id, activity_id, task_id, vin, result_code,
+            vehicle_task_status, task_revision, download_ready_state, consent_state, consent_required,
+            release_at, vt_start_time, vt_end_time, last_attempt_no,
             description, create_time, create_by, modify_time, modify_by, row_version, row_valid
         )
         VALUES
         <foreach collection="list" item="item" index="index" separator=",">
         (
-            #{item.id}, #{item.activityId}, #{item.taskId}, #{item.vin}, #{item.resultCode}, 
+            #{item.id}, #{item.activityId}, #{item.taskId}, #{item.vin}, #{item.resultCode},
+            #{item.vehicleTaskStatus}, #{item.taskRevision}, #{item.downloadReadyState}, #{item.consentState}, #{item.consentRequired},
+            #{item.releaseAt}, #{item.vtStartTime}, #{item.vtEndTime}, #{item.lastAttemptNo},
             #{item.description}, now(), #{item.createBy}, now(), #{item.modifyBy}, 1, 1
         )
         </foreach>
