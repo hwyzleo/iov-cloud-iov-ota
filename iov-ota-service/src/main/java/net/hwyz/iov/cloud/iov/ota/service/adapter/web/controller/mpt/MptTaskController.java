@@ -43,14 +43,11 @@ import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.Task
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskStrategyMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskRestrictionPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskStrategyPo;
+import net.hwyz.iov.cloud.iov.ota.api.vo.request.TaskScheduleRequest;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -206,19 +203,12 @@ public class MptTaskController extends BaseController {
     @Log(title = "升级任务管理", businessType = BusinessType.UPDATE)
     @RequiresPermissions("ota:fota:task:schedule")
     @PostMapping("/{taskId}/action/schedule")
-    public ApiResponse<Integer> schedule(@PathVariable Long taskId, @RequestBody Map<String, Object> body) {
+    public ApiResponse<Integer> schedule(@PathVariable Long taskId,
+                                        @RequestBody @Validated TaskScheduleRequest request) {
         log.info("管理后台用户[{}]排程升级任务[{}]", SecurityUtils.getUsername(), taskId);
-        String releaseTimeStr = (String) body.get("releaseTime");
-        Integer rowVersion = (Integer) body.get("rowVersion");
-        Instant releaseTime;
-        try {
-            releaseTime = Instant.parse(releaseTimeStr);
-        } catch (DateTimeParseException e) {
-            releaseTime = LocalDateTime.parse(releaseTimeStr)
-                .atZone(ZoneId.of("Asia/Shanghai"))
-                .toInstant();
-        }
-        taskAppService.scheduleTask(taskId, releaseTime, rowVersion);
+        // CR-021 §4.25：时间由框架 IovInstantDeserializer 统一按带 offset 的 ISO-8601
+        // （或历史 epoch 秒/毫秒整数）双读，Controller 不再自行解析字符串或猜测时区。
+        taskAppService.scheduleTask(taskId, request.getReleaseTime(), request.getRowVersion());
         return ApiResponse.ok(1);
     }
 

@@ -9,6 +9,7 @@ import net.hwyz.iov.cloud.framework.web.jackson.IovEpochMillisWriteModule;
 import net.hwyz.iov.cloud.framework.web.jackson.IovJavaTimeReadModule;
 import net.hwyz.iov.cloud.iov.ota.api.vo.TaskApprovalMpt;
 import net.hwyz.iov.cloud.iov.ota.api.vo.VehicleSoftwareInventoryObservedEvent;
+import net.hwyz.iov.cloud.iov.ota.api.vo.request.TaskScheduleRequest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -19,6 +20,7 @@ import java.time.ZoneId;
 import java.util.TimeZone;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -43,12 +45,13 @@ class IovJacksonTimeCodecTest {
         return mapper;
     }
 
-    /** ISO 阶段：双读 + JavaTimeModule ISO 写（date-format=iso） */
+    /** ISO 阶段：JavaTimeModule 写 ISO，IovJavaTimeReadModule 最后注册保证 Instant 双读
+     *  （与框架 IovJacksonAutoConfiguration 的 postConfigurer 顺序一致）。 */
     private ObjectMapper isoMapper() {
         ObjectMapper mapper = new ObjectMapper();
-        mapper.registerModule(new IovJavaTimeReadModule(ZONE));
         mapper.registerModule(new JavaTimeModule());
         mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        mapper.registerModule(new IovJavaTimeReadModule(ZONE));
         return mapper;
     }
 
@@ -153,5 +156,28 @@ class IovJacksonTimeCodecTest {
         JsonNode node = producerMapper.readTree(producerMapper.writeValueAsString(event));
         assertEquals("2026-07-17T08:00:00Z", node.get("collectedAt").asText());
         assertEquals("2026-07-17T09:00:00Z", node.get("acceptedAt").asText());
+    }
+
+    @Test
+    @DisplayName("排程请求：Instant releaseTime 双读带 offset ISO 与历史 epoch 毫秒，并拒绝无 offset 串")
+    void taskScheduleRequestReleaseTimeContract() throws Exception {
+        ObjectMapper mapper = isoMapper();
+
+        TaskScheduleRequest fromIso = mapper.readValue(
+                "{\"releaseTime\":\"2026-11-10T02:00:00.000Z\"}", TaskScheduleRequest.class);
+        TaskScheduleRequest fromOffsetIso = mapper.readValue(
+                "{\"releaseTime\":\"2026-11-10T10:00:00+08:00\"}", TaskScheduleRequest.class);
+        TaskScheduleRequest fromNumber = mapper.readValue(
+                "{\"releaseTime\":" + 1794276000000L + "}", TaskScheduleRequest.class);
+
+        assertEquals(Instant.parse("2026-11-10T02:00:00Z"), fromIso.getReleaseTime());
+        assertEquals(fromIso.getReleaseTime(), fromOffsetIso.getReleaseTime(),
+                "同一时刻的不同 offset 表示必须落到同一 Instant，不得二次换算");
+        assertEquals(fromIso.getReleaseTime(), fromNumber.getReleaseTime(),
+                "历史 epoch 毫秒入参必须与服务端 ISO 契约得到同一时刻");
+
+        // 无 offset 的墙钟串没有绝对时刻语义，必须 fail-closed，不得按服务器默认时区猜测
+        assertThrows(Exception.class,
+                () -> mapper.readValue("{\"releaseTime\":\"2026-11-10T10:00:00\"}", TaskScheduleRequest.class));
     }
 }

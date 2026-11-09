@@ -61,6 +61,32 @@ class IovJacksonMapperAssemblyIntegrationTest {
     }
 
     @Test
+    @DisplayName("ISO 阶段装配：数字读仍为 10 位秒/13 位毫秒双读，不被 JavaTimeModule 默认按秒解析")
+    void isoStageKeepsNumericDualRead() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(
+                        JacksonAutoConfiguration.class,
+                        IovJacksonAutoConfiguration.class))
+                .withPropertyValues(
+                        "iov.web.jackson.date-format=iso",
+                        "iov.web.jackson.zone-id=Asia/Shanghai")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    ObjectMapper mapper = context.getBean(ObjectMapper.class);
+                    // 写：ISO 阶段输出带 Z 的 ISO 字符串
+                    assertThat(mapper.writeValueAsString(Instant.parse("2026-07-17T08:00:00Z")))
+                            .isEqualTo("\"2026-07-17T08:00:00Z\"");
+                    // 读：13 位按毫秒、10 位按秒，均得到同一时刻（不得按秒解释 13 位）
+                    assertThat(mapper.readValue("1784275200000", Instant.class))
+                            .isEqualTo(Instant.parse("2026-07-17T08:00:00Z"));
+                    assertThat(mapper.readValue("1784275200", Instant.class))
+                            .isEqualTo(Instant.parse("2026-07-17T08:00:00Z"));
+                    assertThat(mapper.readValue("\"2026-07-17T16:00:00+08:00\"", Instant.class))
+                            .isEqualTo(Instant.parse("2026-07-17T08:00:00Z"));
+                });
+    }
+
+    @Test
     @DisplayName("配置时区确定性：LocalDateTime 数字输入按配置 zone-id 解释，不随 JVM 默认时区漂移")
     void localDateTimeUsesConfiguredZoneNotJvmDefault() {
         TimeZone previous = TimeZone.getDefault();
