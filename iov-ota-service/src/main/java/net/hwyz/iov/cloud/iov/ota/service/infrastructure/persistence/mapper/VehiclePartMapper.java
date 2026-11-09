@@ -23,6 +23,20 @@ public interface VehiclePartMapper extends BaseDao<VehiclePartPo, Long> {
      * @return 车辆零件信息
      */
     VehiclePartPo selectPoByVinAndPn(String vin, String pn);
+
+    /**
+     * 根据车辆vin和零件pn查询全部有效零件投影（vin + pn 业务身份键）
+     *
+     * <p>与 {@link #selectPoByVinAndPn(String, String)} 的区别：不做 LIMIT 1，
+     * 以便 UNBIND 场景删除历史遗留重复行。绝不可用 {@code selectPoByMap} 代替，
+     * 该通用语句在全表范围内返回数据，会把其他 VIN 的行当成命中行改写/删除。</p>
+     *
+     * @param vin 车架号
+     * @param pn  零件编号
+     * @return 命中行列表（按 id 倒序，通常 0 或 1 条）
+     */
+    java.util.List<VehiclePartPo> selectPoListByVinAndPn(@org.apache.ibatis.annotations.Param("vin") String vin,
+                                                         @org.apache.ibatis.annotations.Param("pn") String pn);
     /**
      * 按 VIN 批量查询有效零件投影（CR-023 §5：一次查询，按 deviceCode 内存分组）
      *

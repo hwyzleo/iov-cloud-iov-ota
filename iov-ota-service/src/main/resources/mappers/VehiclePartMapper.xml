@@ -213,12 +213,35 @@
         ORDER BY t.id DESC
     </select>
 
-    <!-- 根据Map对象获取对应数据列表 -->
+    <!-- 根据Map对象获取对应数据列表
+         注意：必须保留条件过滤。缺失条件下本语句会返回全表有效行，
+         「先查后插」的写入链路会把其他 VIN 的行误判为命中行（历史缺陷）。 -->
     <select id="selectPoByMap" parameterType="java.util.Map" resultMap="baseResultMap">
         SELECT <include refid="baseColumnList"/>
         FROM tb_vehicle_part t
         WHERE t.row_valid = 1
-        <!-- 添加自定义条件 -->
+        <if test="id != null">
+            AND t.id = #{id}
+        </if>
+        <if test="vin != null and vin != ''">
+            AND t.vin = #{vin}
+        </if>
+        <if test="pn != null and pn != ''">
+            AND t.pn = #{pn}
+        </if>
+        <if test="deviceCode != null and deviceCode != ''">
+            AND t.device_code = #{deviceCode}
+        </if>
+        ORDER BY t.id DESC
+    </select>
+
+    <!-- 根据车辆vin和零件pn查询全部有效零件投影（vin + pn 业务身份键，不 LIMIT） -->
+    <select id="selectPoListByVinAndPn" resultMap="baseResultMap">
+        SELECT <include refid="baseColumnList"/>
+        FROM tb_vehicle_part t
+        WHERE t.row_valid = 1
+        AND t.vin = #{vin}
+        AND t.pn = #{pn}
         ORDER BY t.id DESC
     </select>
 
@@ -238,7 +261,18 @@
         SELECT COUNT(*)
         FROM tb_vehicle_part t
         WHERE t.row_valid = 1
-        <!-- 添加自定义条件 -->
+        <if test="id != null">
+            AND t.id = #{id}
+        </if>
+        <if test="vin != null and vin != ''">
+            AND t.vin = #{vin}
+        </if>
+        <if test="pn != null and pn != ''">
+            AND t.pn = #{pn}
+        </if>
+        <if test="deviceCode != null and deviceCode != ''">
+            AND t.device_code = #{deviceCode}
+        </if>
     </select>
     <!-- 根据车辆vin批量查询有效零件投影（CR-023 §5：一次查询，供按 deviceCode 内存分组） -->
     <select id="selectByVin" resultMap="baseResultMap">

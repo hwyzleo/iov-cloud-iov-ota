@@ -13,15 +13,18 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * VMD车辆零件绑定变更事件Kafka消费者
  * <p>
  * 监听 vmd.vehicle-part-binding.changed（配置键 ota.kafka.topics.vmd-part-binding-changed，目录治理拼写），同步车辆零件只读投影。
  * 仅接受VMD来源的绑定写；BIND/REPLACE -> upsert，UNBIND -> 删除。
+ * </p>
+ * <p>
+ * 查询必须使用 vin + pn 业务身份键（{@code selectPoListByVinAndPn}）：
+ * 早期版本使用无过滤条件的 {@code selectPoByMap}，导致所有事件命中同一行
+ * （全表 id 最大行）永不插入，且会把其他 VIN 的行改写/删除。
  * </p>
  *
  * @author hwyz_leo
@@ -55,41 +58,43 @@ public class VmdVehiclePartBindingKafkaConsumer {
                     vin, partCode, vehicleNodeCode, changeType);
 
             if ("UNBIND".equals(changeType)) {
-                Map<String, Object> params = new HashMap<>();
-                params.put("vin", vin);
-                params.put("pn", partCode);
-                List<VehiclePartPo> existing = vehiclePartMapper.selectPoByMap(params);
+                // 必须按 vin + pn 业务身份键定位命中行：通用 selectPoByMap 无过滤条件时会返回全表，
+                // 会导致一条 UNBIND 事件物理删除所有车辆的零件投影。
+                List<VehiclePartPo> existing = vehiclePartMapper.selectPoListByVinAndPn(vin, partCode);
                 for (VehiclePartPo po : existing) {
                     vehiclePartMapper.physicalDeletePo(po.getId());
                 }
-                log.info("已删除车辆零件投影: vin={}, partCode={}", vin, partCode);
+                log.info("已删除车辆零件投影: vin={}, partCode={}, rows={}", vin, partCode, existing.size());
             } else {
-                Map<String, Object> params = new HashMap<>();
-                params.put("vin", vin);
-                params.put("pn", partCode);
-                List<VehiclePartPo> existingList = vehiclePartMapper.selectPoByMap(params);
-                VehiclePartPo po = existingList.isEmpty() ? new VehiclePartPo() : existingList.get(0);
-                po.setVin(vin);
-                po.setPn(partCode);
-                po.setDeviceCode(vehicleNodeCode);
+                List<VehiclePartPo> existingList = vehiclePartMapper.selectPoListByVinAndPn(vin, partCode);
                 if (existingList.isEmpty()) {
+                    VehiclePartPo po = new VehiclePartPo();
+                    po.setVin(vin);
+                    po.setPn(partCode);
+                    po.setDeviceCode(vehicleNodeCode);
                     try {
                         vehiclePartMapper.insertPo(po);
+                        log.info("已新增车辆零件投影: vin={}, partCode={}, deviceCode={}, id={}",
+                                vin, partCode, vehicleNodeCode, po.getId());
                     } catch (DuplicateKeyException e) {
                         // CR-023 C1：并发「先查后插」被 uk_vehicle_part_vin_pn 拦截，转为更新避免事件丢失
-                        List<VehiclePartPo> concurrent = vehiclePartMapper.selectPoByMap(params);
+                        List<VehiclePartPo> concurrent = vehiclePartMapper.selectPoListByVinAndPn(vin, partCode);
                         if (concurrent.isEmpty()) {
                             throw e;
                         }
                         VehiclePartPo concurrentPo = concurrent.get(0);
                         concurrentPo.setDeviceCode(vehicleNodeCode);
                         vehiclePartMapper.updatePo(concurrentPo);
-                        log.info("车辆零件投影并发插入命中唯一键，已转为更新");
+                        log.info("车辆零件投影并发插入命中唯一键，已转为更新: vin={}, partCode={}, id={}",
+                                vin, partCode, concurrentPo.getId());
                     }
                 } else {
+                    VehiclePartPo po = existingList.get(0);
+                    po.setDeviceCode(vehicleNodeCode);
                     vehiclePartMapper.updatePo(po);
+                    log.info("已更新车辆零件投影: vin={}, partCode={}, deviceCode={}, id={}",
+                            vin, partCode, vehicleNodeCode, po.getId());
                 }
-                log.info("已同步车辆零件投影: vin={}, partCode={}", vin, partCode);
             }
         } catch (Exception e) {
             log.error("处理VMD绑定变更事件失败: offset={}, error={}",
