@@ -44,7 +44,7 @@ public class VehicleUpgradeRelationQueryService {
     /**
      * 查询某 VIN 关联的升级任务（全部历史，默认创建时间倒序，支持过滤）。
      *
-     * @param query 查询条件（vin 必填）
+     * @param query 查询条件（vin 可选；为空时返回全部车辆任务，供管理端全局列表使用）
      * @return 任务关联结果列表（已分页，若 Controller 开启分页）
      */
     public List<VehicleTaskRelationResult> listTasks(VehicleRelationTaskQuery query) {

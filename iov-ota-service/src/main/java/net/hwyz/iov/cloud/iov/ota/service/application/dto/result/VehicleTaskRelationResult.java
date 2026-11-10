@@ -28,6 +28,9 @@ public class VehicleTaskRelationResult {
 
     private String resultCode;
 
+    /** 车架号（tv.vin，全局列表无 VIN 入参时由结果回传） */
+    private String vin;
+
     private Long taskId;
 
     private String taskName;

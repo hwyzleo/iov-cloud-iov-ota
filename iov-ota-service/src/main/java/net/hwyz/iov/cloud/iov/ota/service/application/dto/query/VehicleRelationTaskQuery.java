@@ -19,7 +19,7 @@ import java.util.Date;
 @AllArgsConstructor
 public class VehicleRelationTaskQuery {
 
-    /** 车架号 */
+    /** 车架号（可选；为空表示不按 VIN 过滤，返回全部车辆任务） */
     private String vin;
 
     /** 升级活动ID（可选） */

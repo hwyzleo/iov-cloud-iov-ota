@@ -72,7 +72,7 @@ public class MptTaskVehicleController extends BaseController {
                 .activityName(relation.getActivityName())
                 .taskId(relation.getTaskId())
                 .taskName(relation.getTaskName())
-                .vin(taskVehicle.getVin())
+                .vin(relation.getVin())
                 .resultCode(relation.getResultCode())
                 .createTime(relation.getCreateTime())
                 .build());

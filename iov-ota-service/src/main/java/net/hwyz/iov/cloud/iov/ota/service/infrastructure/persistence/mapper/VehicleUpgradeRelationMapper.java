@@ -31,7 +31,7 @@ public interface VehicleUpgradeRelationMapper {
     /**
      * 按 VIN 分页查询关联任务（已发布生成的 VehicleTask，全部历史）。
      *
-     * @param query 查询条件（vin 必填）
+     * @param query 查询条件（vin 可选；为空时返回全部车辆任务）
      * @return 任务关联结果（task/activity 名称与状态由 JOIN 一次取得）
      */
     List<VehicleTaskRelationResult> selectTaskRelations(VehicleRelationTaskQuery query);

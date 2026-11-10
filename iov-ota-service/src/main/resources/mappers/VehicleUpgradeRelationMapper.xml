@@ -37,6 +37,9 @@
       - 任务为空（row_valid=0 或已删除）不会产生 NPE，因为不存在逐行补全；
       - release_at 取 VehicleTask 发布时间快照，start/end 取 VehicleTask 冻结的执行窗口快照；
       - 默认按 VehicleTask 创建时间倒序（tv.create_time DESC, tv.id DESC）。
+      - vin 可选：车辆详情子资源（/vehicle/{vin}/tasks）走路径变量必带；管理端
+        /taskVehicle/v1/list 是全局车辆任务列表，不传 vin 时必须返回全部（CR-023 前
+        TaskVehicleMapper.selectPoByMap 即为可选过滤，改动不得收窄该语义）。
     -->
     <resultMap id="taskRelationResultMap"
                type="net.hwyz.iov.cloud.iov.ota.service.application.dto.result.VehicleTaskRelationResult">
@@ -50,6 +53,7 @@
         <result column="activity_id" property="activityId" />
         <result column="activity_name" property="activityName" />
         <result column="activity_state" property="activityState" />
+        <result column="vin" property="vin" />
         <result column="release_at" property="releaseAt" />
         <result column="start_time" property="startTime" />
         <result column="end_time" property="endTime" />
@@ -72,12 +76,15 @@
                tv.release_at                AS release_at,
                tv.vt_start_time             AS start_time,
                tv.vt_end_time               AS end_time,
+               tv.vin                       AS vin,
                tv.create_time               AS create_time
         FROM tb_task_vehicle tv
         JOIN tb_task t ON t.id = tv.task_id AND t.row_valid = 1
         JOIN tb_activity a ON a.id = tv.activity_id AND a.row_valid = 1
-        WHERE tv.vin = #{vin}
-          AND tv.row_valid = 1
+        WHERE tv.row_valid = 1
+        <if test="vin != null and vin != ''">
+            AND tv.vin = #{vin}
+        </if>
         <if test="activityId != null">
             AND tv.activity_id = #{activityId}
         </if>

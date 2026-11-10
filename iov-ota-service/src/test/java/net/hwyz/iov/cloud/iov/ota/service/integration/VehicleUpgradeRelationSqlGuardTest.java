@@ -66,6 +66,20 @@ class VehicleUpgradeRelationSqlGuardTest {
     }
 
     @Test
+    @DisplayName("任务：vin 为可选过滤，缺失时返回全部车辆任务（原 taskVehicle/list 语义）")
+    void task_relation_vin_is_optional() throws IOException {
+        String xml = readMapper();
+        int start = xml.indexOf("id=\"selectTaskRelations\"");
+        assertTrue(start > 0, "必须存在 selectTaskRelations");
+        String taskSql = xml.substring(start, xml.indexOf("</select>", start));
+        assertFalse(taskSql.contains("WHERE tv.vin = #{vin}"), "vin 不得为硬等值，否则无 VIN 查询恒空");
+        assertTrue(taskSql.contains("<if test=\"vin != null and vin != ''\">"), "vin 必须由 <if> 包裹为可选条件");
+        assertTrue(taskSql.contains("AND tv.vin = #{vin}"));
+        assertTrue(taskSql.contains("tv.vin                       AS vin,"), "全局列表需由 SQL 回传 vin");
+        assertTrue(xml.contains("<result column=\"vin\" property=\"vin\" />"), "vin 需映射到结果对象");
+    }
+
+    @Test
     @DisplayName("分组分页总数：PageHelper count 包裹外层，total 为活动分组数而非任务行数")
     void group_by_count_sql_counts_activity_groups() {
         String groupBySql = "SELECT tv.activity_id AS activity_id, a.name AS activity_name, a.state AS activity_state, "
