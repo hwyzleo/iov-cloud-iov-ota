@@ -48,6 +48,12 @@ public class TaskVehicleMpt extends BaseRequest {
     private String vin;
 
     /**
+     * VehicleTask 状态（CR-012 状态机枚举名：CREATED/VISIBLE/CONSENT_PENDING/DOWNLOAD_PENDING/...）
+     * <p>旧 tb_task_vehicle.state 数值码已由 CR-013 §6.2 删除，列表状态一律以本字段为准。
+     */
+    private String vehicleTaskStatus;
+
+    /**
      * 结果代码
      */
     private String resultCode;

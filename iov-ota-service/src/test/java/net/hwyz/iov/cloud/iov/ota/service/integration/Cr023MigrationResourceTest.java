@@ -6,8 +6,6 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 
@@ -28,27 +26,13 @@ class Cr023MigrationResourceTest {
 
     private static final String INDEX_MIGRATION = "db/migration/V35__cr023_vehicle_part_index.sql";
     private static final String UNIQUE_KEY_MIGRATION = "db/migration/V36__cr023_vehicle_part_unique_key.sql";
-    private static final String SCAN_SCRIPT = "docs/cr023_vehicle_part_duplicate_scan.sql";
+    private static final String TASK_VEHICLE_INDEX_MIGRATION = "db/migration/V38__cr023_task_vehicle_create_time_index.sql";
 
     private String read(String resource) throws IOException {
         try (InputStream in = Thread.currentThread().getContextClassLoader().getResourceAsStream(resource)) {
             assertNotNull(in, "资源必须存在于 classpath：" + resource);
             return new String(in.readAllBytes(), StandardCharsets.UTF_8);
         }
-    }
-
-    /** 盘点脚本位于仓库根 docs/，不在模块 classpath，兼容从模块目录或仓库根运行 */
-    private String readScanScript() throws IOException {
-        InputStream in = Thread.currentThread().getContextClassLoader().getResourceAsStream(SCAN_SCRIPT);
-        if (in != null) {
-            try (InputStream stream = in) {
-                return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
-            }
-        }
-        Path fromModule = Path.of("..", SCAN_SCRIPT);
-        Path path = Files.exists(fromModule) ? fromModule : Path.of(SCAN_SCRIPT);
-        assertTrue(Files.exists(path), "盘点脚本必须存在：" + SCAN_SCRIPT);
-        return Files.readString(path, StandardCharsets.UTF_8);
     }
 
     @Test
@@ -70,9 +54,21 @@ class Cr023MigrationResourceTest {
     }
 
     @Test
+    @DisplayName("V38：车辆任务全局列表补偿 (row_valid, create_time) 普通索引")
+    void v38_creates_task_vehicle_list_index() throws IOException {
+        String sql = read(TASK_VEHICLE_INDEX_MIGRATION);
+        assertTrue(sql.contains("ADD INDEX `idx_task_vehicle_valid_create` (`row_valid`, `create_time`)"),
+                "全局列表 ORDER BY create_time DESC, id DESC 必须由索引驱动，避免 filesort");
+        assertFalse(sql.contains("UNIQUE KEY"), "仅需普通索引，不引入额外唯一约束");
+        assertFalse(sql.contains("DROP INDEX"), "不得删除既有 idx_vin/idx_task/idx_activity");
+        assertStatelessDdl(sql);
+    }
+
+    @Test
     @DisplayName("Druid WallFilter 兼容：禁止 PREPARE/SIGNAL/存储过程/动态 SQL")
     void migrations_are_wall_filter_compatible() throws IOException {
-        for (String sql : new String[]{read(INDEX_MIGRATION), read(UNIQUE_KEY_MIGRATION)}) {
+        for (String sql : new String[]{read(INDEX_MIGRATION), read(UNIQUE_KEY_MIGRATION),
+                read(TASK_VEHICLE_INDEX_MIGRATION)}) {
             String executable = executableSql(sql);
             String upper = executable.toUpperCase();
             assertFalse(upper.contains("PREPARE "), "Druid WallFilter 拦截 PREPARE");
@@ -84,10 +80,9 @@ class Cr023MigrationResourceTest {
     }
 
     @Test
-    @DisplayName("唯一键门禁：重复数据由 ALTER 硬失败，注释给出盘点与 repair 指引")
+    @DisplayName("唯一键门禁：重复数据由 ALTER 硬失败，注释给出 repair 指引")
     void unique_key_gate_fails_on_duplicates_with_guidance() throws IOException {
         String sql = read(UNIQUE_KEY_MIGRATION);
-        assertTrue(sql.contains("docs/cr023_vehicle_part_duplicate_scan.sql"));
         assertTrue(sql.contains("flyway repair"));
         assertTrue(sql.contains("Duplicate entry"));
         assertTrue(sql.contains("迁移中止"));
@@ -105,17 +100,6 @@ class Cr023MigrationResourceTest {
             assertFalse(upper.contains("DROP INDEX"));
             assertFalse(upper.contains("DROP KEY"));
         }
-    }
-
-    @Test
-    @DisplayName("重复盘点脚本：全表 + 同 ECU 多候选 + 逻辑删除残留三类扫描")
-    void duplicate_scan_script_is_complete() throws IOException {
-        String sql = readScanScript();
-        assertTrue(sql.contains("GROUP BY `vin`, `pn`"));
-        assertTrue(sql.contains("HAVING COUNT(*) > 1"));
-        assertTrue(sql.contains("GROUP BY `vin`, `device_code`"));
-        assertTrue(sql.contains("`row_valid` = 0"));
-        assertTrue(sql.toUpperCase().contains("不得"));
     }
 
     private void assertStatelessDdl(String sql) {

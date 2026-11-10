@@ -60,8 +60,10 @@ public class MptTaskVehicleController extends BaseController {
         log.info("管理后台用户[{}]分页车辆查询升级任务", SecurityUtils.getUsername());
         startPage();
         // CR-023 §4.2：一次 JOIN 取回任务/活动名称，消除逐行 getTaskById/getActivityById 与空任务 NPE
+        // vin / vehicleTaskStatus 均为可选过滤，不带则返回全部车辆任务
         VehicleRelationTaskQuery condition = VehicleRelationTaskQuery.builder()
                 .vin(taskVehicle.getVin())
+                .vehicleTaskStatus(taskVehicle.getVehicleTaskStatus())
                 .beginTime(getBeginTime(taskVehicle))
                 .endTime(getEndTime(taskVehicle))
                 .build();
@@ -73,6 +75,7 @@ public class MptTaskVehicleController extends BaseController {
                 .taskId(relation.getTaskId())
                 .taskName(relation.getTaskName())
                 .vin(relation.getVin())
+                .vehicleTaskStatus(relation.getVehicleTaskStatus())
                 .resultCode(relation.getResultCode())
                 .createTime(relation.getCreateTime())
                 .build());
