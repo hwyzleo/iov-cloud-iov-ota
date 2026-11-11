@@ -91,8 +91,10 @@ public class FotaEnvelopeProducer {
                         result -> {
                             outboxRepository.markPublished(po.getId());
                             metrics.increment(KafkaMessagingMetricsService.OUTBOX_PUBLISHED);
-                            log.debug("FOTA 下行 Envelope 已发布：payloadType[{}] key[{}] offset[{}]",
-                                    po.getPayloadType(), FotaEnvelopeValidator.maskVin(key),
+                            // 发布成功必须可观测（INFO）：否则车端未收到回执时无法区分“未发出”与“未送达”
+                            log.info("FOTA 下行 Envelope 已发布：payloadType[{}] messageId[{}] correlationId[{}] key[{}] topic[{}] offset[{}]",
+                                    po.getPayloadType(), po.getMessageId(), po.getCorrelationId(),
+                                    FotaEnvelopeValidator.maskVin(key), topic,
                                     result.recordMetadata().offset());
                         },
                         error -> onPublishError(po, error));

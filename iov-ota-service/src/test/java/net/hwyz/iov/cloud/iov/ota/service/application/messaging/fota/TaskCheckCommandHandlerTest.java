@@ -50,6 +50,7 @@ class TaskCheckCommandHandlerTest {
                 .build();
         when(appService.detect(any())).thenReturn(DetectionResult.builder()
                 .inventoryDisposition("ACCEPTED")
+                .acceptedInventoryRevision(7L)
                 .availabilityStatus("AVAILABLE")
                 .downloadAllowed(true)
                 .installRequestAllowed(true)
@@ -65,6 +66,10 @@ class TaskCheckCommandHandlerTest {
         assertEquals(InventoryDisposition.INVENTORY_DISPOSITION_ACCEPTED, resp.getInventoryDisposition());
         assertTrue(resp.getDownloadAllowed());
         assertTrue(resp.getInstallRequestAllowed());
+        // ACCEPTED 必须回显云端已受理 revision + 支持的摘要算法
+        assertTrue(resp.hasAcceptedInventoryRevision());
+        assertEquals(7L, resp.getAcceptedInventoryRevision());
+        assertTrue(resp.getSupportedInventoryDigestAlgorithmsList().contains("sha-256"));
         assertEquals("PROCEED", resp.getNextAction());
         assertTrue(resp.hasTask());
         assertEquals("1001", resp.getTask().getVehicleTaskId());
@@ -99,6 +104,8 @@ class TaskCheckCommandHandlerTest {
         assertEquals("sha256", cmd.getDigestAlgorithm());
         assertEquals("abc123", cmd.getInventoryDigest());
         assertEquals(InventoryDisposition.INVENTORY_DISPOSITION_DIGEST_MISMATCH, resp.getInventoryDisposition());
+        // 非 ACCEPTED 不回显 accepted_inventory_revision
+        assertFalse(resp.hasAcceptedInventoryRevision());
     }
 
     @Test

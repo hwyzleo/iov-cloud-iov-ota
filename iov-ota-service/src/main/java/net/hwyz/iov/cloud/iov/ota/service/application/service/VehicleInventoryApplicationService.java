@@ -120,6 +120,8 @@ public class VehicleInventoryApplicationService {
                         .disposition(InventoryDisposition.ACCEPTED)
                         .inventoryModel(deriveModel(cmd))
                         .canonicalizationVersion(canonicalizationVersion)
+                        .inventoryRevision(existing.getInventoryRevision())
+                        .canonicalDigestHex(storedDigestHex(existing, cmd))
                         .build();
             }
             return InventoryHandlingResult.builder()
@@ -214,6 +216,7 @@ public class VehicleInventoryApplicationService {
                 .disposition(InventoryDisposition.ACCEPTED)
                 .inventoryModel(model)
                 .canonicalizationVersion(canonicalizationVersion)
+                .inventoryRevision(revision)
                 .canonicalDigestHex(canonicalDigest == null ? null : HexFormat.of().formatHex(canonicalDigest))
                 .build();
     }
@@ -274,6 +277,8 @@ public class VehicleInventoryApplicationService {
                 .disposition(InventoryDisposition.ACCEPTED)
                 .inventoryModel(deriveStoredModel(existing))
                 .canonicalizationVersion(storedVersion)
+                .inventoryRevision(existing.getInventoryRevision())
+                .canonicalDigestHex(storedDigestHex(existing, cmd))
                 .build();
     }
 
@@ -288,6 +293,18 @@ public class VehicleInventoryApplicationService {
     }
 
     // ---------------------------------------------------------------- helpers
+
+    /**
+     * 已存量清单的摘要 hex（v2 用服务端 canonical digest，v1 回退 legacy 请求摘要）。
+     */
+    private String storedDigestHex(VehicleInventoryPo existing, DetectionCmd cmd) {
+        byte[] canonical = existing.getCanonicalDigest();
+        if (canonical != null && canonical.length > 0) {
+            return HexFormat.of().formatHex(canonical);
+        }
+        String legacy = existing.getDigest() != null ? existing.getDigest() : cmd.getInventoryDigest();
+        return legacy == null ? null : legacy.toLowerCase(java.util.Locale.ROOT);
+    }
 
     /**
      * 刷新该 VIN 的最后清单上报时间（CR-022）；失败向上抛出，随本次业务事务回滚。
@@ -353,6 +370,8 @@ public class VehicleInventoryApplicationService {
         private final InventoryDisposition disposition;
         private final String inventoryModel;
         private final Integer canonicalizationVersion;
+        /** 云端已受理的清单 revision（ACCEPTED 时非空） */
+        private final Long inventoryRevision;
         private final String canonicalDigestHex;
     }
 }

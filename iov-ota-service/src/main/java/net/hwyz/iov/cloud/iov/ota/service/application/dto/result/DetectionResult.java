@@ -34,6 +34,9 @@ public class DetectionResult {
     /** 是否允许申请安装 */
     private boolean installRequestAllowed;
 
+    /** 云端已受理的清单 revision（ACCEPTED 时非空，响应必须回显） */
+    private Long acceptedInventoryRevision;
+
     /** 已接受清单的 inventory model（SINGLE_IMAGE/MULTI_TARGET） */
     private String inventoryModel;
 

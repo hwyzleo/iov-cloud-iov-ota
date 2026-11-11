@@ -41,6 +41,12 @@ public class TaskCheckCommandHandler {
     /** 云端支持的 canonicalization 版本 */
     private static final List<Integer> SUPPORTED_CANONICALIZATION_VERSIONS = List.of(1, 2);
 
+    /** 云端支持的清单摘要算法（小写形式，与车端默认一致） */
+    private static final List<String> SUPPORTED_DIGEST_ALGORITHMS = List.of("sha-256");
+
+    /** 域内清单处置：已接受 */
+    private static final String DISPOSITION_ACCEPTED = "ACCEPTED";
+
     private final TaskDetectionAppService taskDetectionAppService;
 
     public TaskCheckResponse handle(FotaMessageMetadata md, TaskCheckRequest req) {
@@ -73,8 +79,15 @@ public class TaskCheckCommandHandler {
                 .setAvailabilityStatus(FotaProtocols.availabilityStatus(result.getAvailabilityStatus()))
                 .setDownloadAllowed(result.isDownloadAllowed())
                 .setInstallRequestAllowed(result.isInstallRequestAllowed())
+                .addAllSupportedInventoryDigestAlgorithms(SUPPORTED_DIGEST_ALGORITHMS)
                 .addAllSupportedEcuSoftwareModels(SUPPORTED_MODELS)
                 .addAllSupportedInventoryCanonicalizationVersions(SUPPORTED_CANONICALIZATION_VERSIONS);
+        // ACCEPTED 必须回显云端实际受理的 revision，车端据此建立 DIGEST 基线
+        // （缺失时车端只能回退本地 revision，云端重绑定时会持续 FULL 重试）。
+        if (DISPOSITION_ACCEPTED.equals(result.getInventoryDisposition())
+                && result.getAcceptedInventoryRevision() != null) {
+            b.setAcceptedInventoryRevision(result.getAcceptedInventoryRevision());
+        }
         if (result.getInventoryDisposition() != null && result.getInventoryDisposition().startsWith("FULL")) {
             b.setRequiredInventoryMode(vehicle.fota.v1.Types.InventoryMode.INVENTORY_MODE_FULL);
         }

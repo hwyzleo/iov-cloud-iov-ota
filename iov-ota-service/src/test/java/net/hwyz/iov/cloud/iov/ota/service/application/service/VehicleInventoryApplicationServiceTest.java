@@ -183,6 +183,9 @@ class VehicleInventoryApplicationServiceTest {
         VehicleInventoryApplicationService.InventoryHandlingResult result =
                 service.handleInventory(cmd);
         assertEquals(InventoryDisposition.ACCEPTED, result.getDisposition());
+        // 回执必须回显云端已受理的 revision 与摘要（车端据此建立 DIGEST 基线）
+        assertEquals(1L, result.getInventoryRevision());
+        assertEquals("abc123", result.getCanonicalDigestHex());
         verify(vehicleInventoryMapper, never()).insert(any());
         verify(observedOutboxProducer, never()).produce(any(), any(), any(), any());
         // CR-022：新消息身份的 FULL 业务幂等重放仍刷新最后上报时间（accepted_time 不变）

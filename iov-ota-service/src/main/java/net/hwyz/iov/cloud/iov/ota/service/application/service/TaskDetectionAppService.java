@@ -152,6 +152,7 @@ public class TaskDetectionAppService {
                 .visible(anyVisible)
                 .downloadAllowed(anyDownloadAllowed)
                 .installRequestAllowed(anyInstallAllowed)
+                .acceptedInventoryRevision(inventoryResult.getInventoryRevision())
                 .inventoryModel(inventoryResult.getInventoryModel())
                 .canonicalizationVersion(inventoryResult.getCanonicalizationVersion())
                 .canonicalDigestHex(inventoryResult.getCanonicalDigestHex())
