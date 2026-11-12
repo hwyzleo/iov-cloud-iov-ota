@@ -66,5 +66,36 @@ public class DetectionResult {
         private Instant releaseAt;
         private Instant startTime;
         private Instant endTime;
+        /** 活动ID（TaskCheckResponse.task.activity_id 投影） */
+        private Long activityId;
+        /** 安装计划版本（TaskCheckResponse.task.install_plan_version 投影；重试间必须稳定） */
+        private String installPlanVersion;
+        /** 任务包清单（TaskCheckResponse.task.package_list 投影） */
+        private List<MatchedPackage> packages;
+    }
+
+    /**
+     * 匹配任务中的单个升级包（对应 vehicle.fota.v1.PackageSummary）。
+     *
+     * <p>包清单是车端下载/校验/安装的唯一依据：为空时车端无法申请下载凭证，
+     * 云端不得再返回 PROCEED。</p>
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class MatchedPackage {
+        private String packageId;
+        private String packageRevision;
+        private String planNodeId;
+        private String ecuId;
+        private String componentId;
+        private String sourceVersion;
+        private String targetVersion;
+        private Long sizeBytes;
+        private String digestAlgorithm;
+        private String digestHex;
+        private String differentialType;
+        private Boolean encrypted;
     }
 }

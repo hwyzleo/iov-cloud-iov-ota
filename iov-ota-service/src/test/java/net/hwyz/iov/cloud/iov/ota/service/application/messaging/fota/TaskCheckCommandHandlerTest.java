@@ -55,7 +55,14 @@ class TaskCheckCommandHandlerTest {
                 .downloadAllowed(true)
                 .installRequestAllowed(true)
                 .matchedTasks(List.of(DetectionResult.MatchedVehicleTask.builder()
-                        .vehicleTaskId(1001L).taskRevision(3L)
+                        .vehicleTaskId(1001L).taskId(2002L).taskRevision(3L)
+                        .activityId(3003L).installPlanVersion("task-2002-r3")
+                        .packages(List.of(DetectionResult.MatchedPackage.builder()
+                                .packageId("PKG-CCU-1").packageRevision("V2.0.0")
+                                .ecuId("CCU_GEN1").componentId("ECU_IMAGE")
+                                .sourceVersion("V1.0.0").targetVersion("V2.0.0")
+                                .sizeBytes(1024L).digestAlgorithm("sha-256")
+                                .digestHex("abc123").encrypted(false).build()))
                         .snapshotChanged(false).reconsentRequired(false)
                         .localDisposition("KEEP").packageCacheAction("KEEP")
                         .build()))
@@ -73,6 +80,15 @@ class TaskCheckCommandHandlerTest {
         assertEquals("PROCEED", resp.getNextAction());
         assertTrue(resp.hasTask());
         assertEquals("1001", resp.getTask().getVehicleTaskId());
+        // 任务快照必须携带活动、安装计划版本与包清单（车端 doDownload() 依赖）
+        assertEquals("3003", resp.getTask().getActivityId());
+        assertEquals("task-2002-r3", resp.getTask().getInstallPlanVersion());
+        assertEquals(1, resp.getTask().getPackageListCount());
+        assertEquals("PKG-CCU-1", resp.getTask().getPackageList(0).getPackageId());
+        assertEquals("V2.0.0", resp.getTask().getPackageList(0).getTargetVersion());
+        assertEquals("CCU_GEN1", resp.getTask().getPackageList(0).getEcuId());
+        assertEquals("sha-256", resp.getTask().getPackageList(0).getPackageDigest().getAlgorithm());
+        assertEquals("abc123", resp.getTask().getPackageList(0).getPackageDigest().getValueHex());
 
         // 命令字段校验
         DetectionCmd cmd = argumentCaptor();
@@ -145,6 +161,36 @@ class TaskCheckCommandHandlerTest {
         // 响应携带 supported models / canonicalization versions
         assertTrue(resp.getSupportedEcuSoftwareModelsCount() >= 2);
         assertTrue(resp.getSupportedInventoryCanonicalizationVersionsList().contains(2));
+    }
+
+    @Test
+    @DisplayName("匹配任务但包清单为空 → 不得 PROCEED，拒绝放行下载/安装")
+    void matched_task_without_packages_must_not_proceed() {
+        TaskCheckRequest req = TaskCheckRequest.newBuilder()
+                .setInventoryMode(InventoryMode.INVENTORY_MODE_FULL)
+                .setInventoryRevision(7L)
+                .build();
+        when(appService.detect(any())).thenReturn(DetectionResult.builder()
+                .inventoryDisposition("ACCEPTED")
+                .acceptedInventoryRevision(7L)
+                .availabilityStatus("AVAILABLE")
+                .downloadAllowed(true)
+                .installRequestAllowed(true)
+                .matchedTasks(List.of(DetectionResult.MatchedVehicleTask.builder()
+                        .vehicleTaskId(1001L).taskId(2002L).taskRevision(1L)
+                        .installPlanVersion("task-2002-r1")
+                        .packages(List.of())
+                        .build()))
+                .build());
+
+        TaskCheckResponse resp = handler.handle(md, req);
+
+        assertEquals("WAIT", resp.getNextAction());
+        assertFalse(resp.getDownloadAllowed());
+        assertFalse(resp.getInstallRequestAllowed());
+        assertEquals("NO_PACKAGE_IN_TASK_SNAPSHOT", resp.getDownloadDenyReason());
+        assertEquals("NO_PACKAGE_IN_TASK_SNAPSHOT", resp.getInstallRequestDenyReason());
+        assertEquals(0, resp.getTask().getPackageListCount());
     }
 
     private DetectionCmd argumentCaptor() {
