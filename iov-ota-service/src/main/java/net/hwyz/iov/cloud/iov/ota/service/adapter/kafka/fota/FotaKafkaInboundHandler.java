@@ -92,7 +92,38 @@ public class FotaKafkaInboundHandler {
         }
 
         // 首次处理：业务执行 + 领域状态 + 结果 Outbox 同事务
-        Long resultOutboxId = handler.handle(metadata, typedPayload);
+        Long resultOutboxId;
+        try {
+            resultOutboxId = handler.handle(metadata, typedPayload);
+        } catch (RuntimeException e) {
+            // 协议加固：业务异常必须回带错误状态的 RESPONSE，不得静默丢弃。
+            // 否则车端只能等到传输超时（实车 2026-11-12：DownloadGrant 业务异常
+            // 导致整轮 FOTA 静默卡死）。
+            Long failureOutboxId = handler.handleFailure(
+                    metadata, typedPayload, "BUSINESS_ERROR", safeMessage(e));
+            if (failureOutboxId == null) {
+                throw e;
+            }
+            log.error("FOTA 业务处理异常，已回错误响应：payloadType[{}] messageId[{}] 原因[{}]",
+                    payloadType, envelope.getMessageId(), safeMessage(e), e);
+            metrics.increment(KafkaMessagingMetricsService.INBOX_BUSINESS_ERROR);
+            KafkaInboxPo failed = KafkaInboxPo.builder()
+                    .consumerName(consumerName)
+                    .messageId(envelope.getMessageId())
+                    .envelopeSha256(sha)
+                    .payloadType(payloadType)
+                    .messageKind(envelope.getMessageKind().name())
+                    .protocolVersion(envelope.getProtocolVersion())
+                    .vin(envelope.getVin())
+                    .kafkaTopic(record.topic())
+                    .kafkaPartition(record.partition())
+                    .kafkaOffset(record.offset())
+                    .status(KafkaInboxPo.STATUS_PROCESSED)
+                    .resultMessageId(failureOutboxId)
+                    .build();
+            inboxRepository.markProcessed(failed);
+            return;
+        }
 
         KafkaInboxPo inboxPo = KafkaInboxPo.builder()
                 .consumerName(consumerName)
@@ -115,12 +146,19 @@ public class FotaKafkaInboundHandler {
     }
 
     @SuppressWarnings("rawtypes")
-    private com.google.protobuf.Message parsePayload(FotaPayloadHandler handler, VehicleMessageEnvelope envelope) {
-        try {
+    private com.google.protobuf.Message parsePayload(FotaPayloadHandler handler, VehicleMessageEnvelope envelope) {        try {
             return handler.parse(envelope.getPayload());
         } catch (InvalidProtocolBufferException e) {
             throw OtaKafkaMessagingException.nonRecoverable(
                     "FOTA payload 解析失败: " + envelope.getPayloadType() + " " + e.getMessage());
         }
+    }
+
+    private static String safeMessage(Throwable e) {
+        String m = e.getMessage();
+        if (m == null || m.isBlank()) {
+            m = e.getClass().getSimpleName();
+        }
+        return m.length() > 200 ? m.substring(0, 200) : m;
     }
 }

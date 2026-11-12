@@ -42,4 +42,20 @@ public interface FotaPayloadHandler<T extends Message> {
      * @return 拒绝 Outbox 消息 ID
      */
     Long handleConflict(FotaMessageMetadata metadata, T payload, String reason);
+
+    /**
+     * 业务处理抛异常时的**可表达拒绝响应**（协议加固）。
+     *
+     * <p>默认返回 null 表示该类 payload 未提供拒绝响应，异常继续上抛由消费方按可恢复处理；
+     * 支持的 handler 必须返回 Outbox 消息 ID，让车端拿到带错误状态的 RESPONSE，
+     * 而不是只能等到传输超时（实车 2026-11-12：DownloadGrant 业务异常静默 → 车端 2.5s 超时）。</p>
+     *
+     * @param reasonCode 稳定错误码（大写蛇形，如 BUSINESS_ERROR）
+     * @param reason     可定位描述
+     * @return 拒绝 Outbox 消息 ID；null 表示不支持
+     */
+    default Long handleFailure(FotaMessageMetadata metadata, T payload,
+                               String reasonCode, String reason) {
+        return null;
+    }
 }

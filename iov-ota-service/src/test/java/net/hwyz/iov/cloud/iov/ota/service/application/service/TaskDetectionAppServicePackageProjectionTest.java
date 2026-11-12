@@ -75,10 +75,13 @@ class TaskDetectionAppServicePackageProjectionTest {
 
     @BeforeEach
     void setUp() {
+        // 包清单投影已提取到 VehicleTaskPackageService（与下载完成判定共用同一事实）
+        VehicleTaskPackageService packageService = new VehicleTaskPackageService(
+                taskRepository, upgradeTargetMapper, vehicleTaskPackageMapper,
+                buildVersionMapper, buildVersionPackageMapper, softwarePackageMapper);
         service = new TaskDetectionAppService(vehicleTaskRepository, taskRepository, inventoryAppService,
                 availabilityService, inventoryMapper, inventoryItemMapper, inventorySoftwareUnitMapper,
-                upgradeTargetMapper, vehicleTaskPackageMapper, buildVersionMapper,
-                buildVersionPackageMapper, softwarePackageMapper);
+                upgradeTargetMapper, packageService);
     }
 
     @Test

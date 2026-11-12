@@ -56,6 +56,16 @@ public class DownloadGrantPayloadHandler extends AbstractFotaPayloadHandler<Down
     }
 
     @Override
+    public Long handleFailure(FotaMessageMetadata metadata, DownloadGrantRequest payload,
+                              String reasonCode, String reason) {
+        DownloadGrantResponse response = DownloadGrantResponse.newBuilder()
+                .setStatus(FotaProtocols.error(reasonCode, reason))
+                .build();
+        return appendResponse(metadata, response, "VEHICLE_TASK",
+                metadata.vehicleTaskId() == null ? metadata.vin() : metadata.vehicleTaskId());
+    }
+
+    @Override
     public Long handleConflict(FotaMessageMetadata metadata, DownloadGrantRequest payload, String reason) {
         DownloadGrantResponse response = DownloadGrantResponse.newBuilder()
                 .setStatus(FotaProtocols.error("CONFLICT", reason))

@@ -3,6 +3,7 @@ package net.hwyz.iov.cloud.iov.ota.service.application.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.DownloadReadyState;
+import net.hwyz.iov.cloud.iov.ota.api.vo.enums.VehicleTaskStatus;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.cmd.DownloadAuthCmd;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.cmd.StageResultCmd;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.DownloadAuthResult;
@@ -38,6 +39,8 @@ public class PackageDeliveryAppService {
     private final PackageCredentialService packageCredentialService;
     private final PackageStageResultMapper packageStageResultMapper;
     private final VehicleTaskPackageMapper vehicleTaskPackageMapper;
+    /** 必需包集合唯一投影来源（与 TaskCheck 下发的 package_list 同源） */
+    private final VehicleTaskPackageService vehicleTaskPackageService;
 
     /**
      * 签发下载预签名凭证。
@@ -66,9 +69,15 @@ public class PackageDeliveryAppService {
             }
         }
 
-        if ("DOWNLOAD".equals(cmd.getOperation())) {
+        if ("DOWNLOAD".equals(cmd.getOperation())
+                && vt.getStatus() == VehicleTaskStatus.DOWNLOAD_PENDING) {
+            // 幂等：仅在待下载状态迁移。已 IN_PROGRESS / 已 READY_TO_INSTALL 时
+            // 不得再调 startDownload()（会抛状态异常 → 不回执 → 车端超时）。
             vt.startDownload();
             vehicleTaskRepository.save(vt);
+        } else if ("DOWNLOAD".equals(cmd.getOperation())) {
+            log.info("车辆任务[{}]状态[{}]不需迁移下载态，继续签发凭证",
+                    cmd.getVehicleTaskId(), vt.getStatus());
         }
 
         PackageCredentialService.PackageCredential credential =
@@ -118,17 +127,35 @@ public class PackageDeliveryAppService {
                 .build();
         packageStageResultMapper.insert(po);
 
-        // 全部必需包校验成功后 VehicleTask 进入 READY_TO_INSTALL
+        // 全部必需包校验成功后 VehicleTask 进入 READY_TO_INSTALL。
+        // 关键：必须与**必需包集合**比对，不能只看已上报结果——否则第 1 个包
+        // DECRYPT SUCCESS 就会把任务提前置为 READY_TO_INSTALL，后续包的
+        // 下载授权会因状态校验异常而不回执（实车 2026-11-12）。
         if ("SUCCESS".equals(cmd.getResultStatus()) && "DECRYPT".equals(cmd.getStage())) {
-            List<PackageStageResultPo> allResults = packageStageResultMapper.selectByVehicleTaskId(cmd.getVehicleTaskId());
-            boolean allSucceeded = allResults.stream()
-                    .filter(r -> "DECRYPT".equals(r.getStage()))
-                    .allMatch(r -> "SUCCESS".equals(r.getResultStatus()));
-            if (allSucceeded && !allResults.isEmpty()) {
-                VehicleTask vt = vehicleTaskRepository.getById(VehicleTaskId.of(cmd.getVehicleTaskId())).orElse(null);
-                if (vt != null && vt.getDownloadReadyState() != DownloadReadyState.VERIFIED) {
+            VehicleTask vt = vehicleTaskRepository
+                    .getById(VehicleTaskId.of(cmd.getVehicleTaskId())).orElse(null);
+            if (vt != null && vt.getDownloadReadyState() != DownloadReadyState.VERIFIED) {
+                java.util.Set<String> required =
+                        vehicleTaskPackageService.requiredPackageIds(vt);
+                java.util.Set<String> decryptSucceeded =
+                        packageStageResultMapper.selectByVehicleTaskId(cmd.getVehicleTaskId()).stream()
+                                .filter(r -> "DECRYPT".equals(r.getStage()))
+                                .filter(r -> "SUCCESS".equals(r.getResultStatus()))
+                                .map(PackageStageResultPo::getPackageId)
+                                .collect(java.util.stream.Collectors.toSet());
+                if (required.isEmpty()) {
+                    log.warn("车辆任务[{}]必需包集合为空，不做下载就绪判定", cmd.getVehicleTaskId());
+                } else if (decryptSucceeded.containsAll(required)) {
+                    log.info("车辆任务[{}]全部必需包({})校验成功，进入下载就绪",
+                            cmd.getVehicleTaskId(), required.size());
                     vt.markDownloadReady();
                     vehicleTaskRepository.save(vt);
+                } else {
+                    log.info("车辆任务[{}]下载未完成：已完成{}/{}，待完成{}",
+                            cmd.getVehicleTaskId(),
+                            required.stream().filter(decryptSucceeded::contains).count(),
+                            required.size(),
+                            required.stream().filter(id -> !decryptSucceeded.contains(id)).toList());
                 }
             }
         }

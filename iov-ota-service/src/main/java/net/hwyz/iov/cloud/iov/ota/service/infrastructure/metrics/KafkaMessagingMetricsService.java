@@ -80,6 +80,8 @@ public class KafkaMessagingMetricsService {
     public static final String INBOX_DUPLICATE = "kafka.inbox.duplicate";
     public static final String INBOX_DIGEST_CONFLICT = "kafka.inbox.digest.conflict";
     public static final String INBOX_FAILED = "kafka.inbox.failed";
+    /** 业务处理异常但已回错误响应（协议加固，车端不会只能等超时） */
+    public static final String INBOX_BUSINESS_ERROR = "kafka.inbox.business.error";
     public static final String INBOX_DLQ = "kafka.inbox.dlq";
     public static final String INBOX_QUARANTINED = "kafka.inbox.quarantined";
     public static final String INBOX_BACKLOG = "kafka.inbox.backlog";

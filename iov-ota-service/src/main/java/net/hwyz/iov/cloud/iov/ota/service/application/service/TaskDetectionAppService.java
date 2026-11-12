@@ -17,32 +17,22 @@ import net.hwyz.iov.cloud.iov.ota.service.domain.repository.VehicleTaskRepositor
 import net.hwyz.iov.cloud.iov.ota.service.domain.service.FotaTaskMatcher;
 import net.hwyz.iov.cloud.iov.ota.service.domain.service.TaskAvailabilityService;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.ActivityUpgradeTargetMapper;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.SoftwareBuildVersionMapper;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.SoftwareBuildVersionPackageMapper;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.SoftwarePackageMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.VehicleInventoryItemMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.VehicleInventoryMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.VehicleInventorySoftwareUnitMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.VehicleTaskPackageMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.ActivityUpgradeTargetPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwareBuildVersionPackagePo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwareBuildVersionPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwarePackagePo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.VehicleInventoryItemPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.VehicleInventoryPo;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.VehicleInventorySoftwareUnitPo;
-import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.VehicleTaskPackagePo;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -68,11 +58,8 @@ public class TaskDetectionAppService {
     private final VehicleInventoryItemMapper vehicleInventoryItemMapper;
     private final VehicleInventorySoftwareUnitMapper vehicleInventorySoftwareUnitMapper;
     private final ActivityUpgradeTargetMapper activityUpgradeTargetMapper;
-    /** 车辆任务包快照（包清单冻结集合，存在时以其为准） */
-    private final VehicleTaskPackageMapper vehicleTaskPackageMapper;
-    private final SoftwareBuildVersionMapper softwareBuildVersionMapper;
-    private final SoftwareBuildVersionPackageMapper softwareBuildVersionPackageMapper;
-    private final SoftwarePackageMapper softwarePackageMapper;
+    /** 包清单投影唯一来源（与下载完成判定共用同一份事实） */
+    private final VehicleTaskPackageService vehicleTaskPackageService;
 
     /**
      * 检测任务：清单握手 + 任务匹配 + 可用性计算。
@@ -161,7 +148,7 @@ public class TaskDetectionAppService {
                     .endTime(vt.getEndTime())
                     .activityId(task.getActivityId() != null ? task.getActivityId().getValue() : null)
                     .installPlanVersion(installPlanVersion(vt))
-                    .packages(loadPackages(vt, task, canonical))
+                    .packages(vehicleTaskPackageService.project(vt, task, canonical))
                     .build());
         }
 
@@ -193,108 +180,6 @@ public class TaskDetectionAppService {
      */
     private String installPlanVersion(VehicleTask vt) {
         return "task-" + vt.getTaskId() + "-r" + vt.getTaskRevision().getValue();
-    }
-
-    /**
-     * 构建任务包清单（vehicle.fota.v1.PackageSummary 投影）。
-     *
-     * <p>数据源链路：activity_upgrade_target → software_build_version →
-     * software_build_version_package → software_package，并用已受理 Canonical Inventory 回填
-     * sourceVersion。若 tb_vehicle_task_package 已冻结包集合，则以冻结集合为准。</p>
-     *
-     * <p>车端 doDownload() 完全依赖该列表迭代：为空即无法申请下载凭证/无法安装，
-     * 因此这里必须返回真实包，而不是空列表。</p>
-     */
-    private List<DetectionResult.MatchedPackage> loadPackages(VehicleTask vt, Task task,
-                                                              CanonicalVehicleInventory canonical) {
-        if (task.getActivityId() == null) {
-            return List.of();
-        }
-        List<ActivityUpgradeTargetPo> targets =
-                activityUpgradeTargetMapper.selectPoByActivityId(task.getActivityId().getValue());
-        if (targets == null || targets.isEmpty()) {
-            return List.of();
-        }
-        Set<String> frozenPackageIds = vehicleTaskPackageMapper
-                .selectByVehicleTaskId(vt.getId().getValue()).stream()
-                .map(VehicleTaskPackagePo::getPackageId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-
-        Map<String, DetectionResult.MatchedPackage> byPackageId = new LinkedHashMap<>();
-        for (ActivityUpgradeTargetPo target : targets) {
-            if (target.getSoftwareBuildVersionId() == null) {
-                continue;
-            }
-            SoftwareBuildVersionPo buildVersion =
-                    softwareBuildVersionMapper.selectPoById(target.getSoftwareBuildVersionId());
-            if (buildVersion == null) {
-                log.warn("活动[{}]升级对象[{}]软件内部版本[{}]不存在，包清单剔除",
-                        task.getActivityId().getValue(), target.getVehicleNodeCode(),
-                        target.getSoftwareBuildVersionId());
-                continue;
-            }
-            List<SoftwareBuildVersionPackagePo> links = softwareBuildVersionPackageMapper
-                    .selectPoBySoftwareBuildVersionId(target.getSoftwareBuildVersionId());
-            if (links == null || links.isEmpty()) {
-                log.warn("软件内部版本[{}]未关联软件包，包清单剔除（节点[{}]）",
-                        target.getSoftwareBuildVersionId(), target.getVehicleNodeCode());
-                continue;
-            }
-            for (SoftwareBuildVersionPackagePo link : links) {
-                if (link.getSoftwarePackageId() == null) {
-                    continue;
-                }
-                SoftwarePackagePo pkg = softwarePackageMapper.selectPoById(link.getSoftwarePackageId());
-                if (pkg == null) {
-                    continue;
-                }
-                String packageId = pkg.getPackageCode() != null && !pkg.getPackageCode().isBlank()
-                        ? pkg.getPackageCode() : String.valueOf(pkg.getId());
-                if (!frozenPackageIds.isEmpty() && !frozenPackageIds.contains(packageId)) {
-                    continue;
-                }
-                String componentId = link.getSoftwareTargetCode() != null
-                        ? link.getSoftwareTargetCode() : target.getSoftwareTargetCode();
-                byPackageId.putIfAbsent(packageId, DetectionResult.MatchedPackage.builder()
-                        .packageId(packageId)
-                        .packageRevision(buildVersion.getSoftwareBuildVer())
-                        .planNodeId("")
-                        .ecuId(target.getVehicleNodeCode())
-                        .componentId(componentId)
-                        .sourceVersion(sourceVersion(canonical, target.getVehicleNodeCode(), componentId))
-                        .targetVersion(buildVersion.getSoftwareBuildVer())
-                        .sizeBytes(pkg.getPackageSize())
-                        .digestAlgorithm("sha-256")
-                        .digestHex(pkg.getPackageSha256())
-                        .differentialType("")
-                        .encrypted(Boolean.FALSE)
-                        .build());
-            }
-        }
-        return new ArrayList<>(byPackageId.values());
-    }
-
-    /** 从已受理 Canonical Inventory 回填包所在软件单元的当前版本（车端用作 source_version）。 */
-    private String sourceVersion(CanonicalVehicleInventory canonical, String ecuId, String softwareTargetCode) {
-        if (canonical == null || ecuId == null) {
-            return "";
-        }
-        for (CanonicalEcu ecu : canonical.getEcuList()) {
-            if (!ecuId.equalsIgnoreCase(ecu.getEcuId())) {
-                continue;
-            }
-            if (ecu.getSoftwareUnits() == null) {
-                return "";
-            }
-            for (CanonicalSoftwareUnit unit : ecu.getSoftwareUnits()) {
-                if (softwareTargetCode == null || softwareTargetCode.isBlank()
-                        || softwareTargetCode.equalsIgnoreCase(unit.softwareTargetCode())) {
-                    return unit.swVersion() == null ? "" : unit.swVersion();
-                }
-            }
-        }
-        return "";
     }
 
     /**
