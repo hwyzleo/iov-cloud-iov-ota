@@ -4,6 +4,7 @@ import net.hwyz.iov.cloud.iov.ota.api.vo.enums.ConsentResult;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskType;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.VehicleTaskStatus;
 import net.hwyz.iov.cloud.iov.ota.service.domain.exception.ExecutionStateException;
+import net.hwyz.iov.cloud.iov.ota.service.domain.gateway.ManifestDigestMetrics;
 import net.hwyz.iov.cloud.iov.ota.service.domain.gateway.PermitTokenSigner;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.aggregate.Execution;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.aggregate.Task;
@@ -31,6 +32,8 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -46,6 +49,9 @@ class InstallPermitServiceTest {
     @Mock
     private PermitTokenSigner permitTokenSigner;
 
+    @Mock
+    private ManifestDigestMetrics manifestDigestMetrics;
+
     private InstallPermitService service;
 
     private final Instant now = Instant.now();
@@ -56,7 +62,7 @@ class InstallPermitServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new InstallPermitService(permitTokenSigner);
+        service = new InstallPermitService(permitTokenSigner, manifestDigestMetrics);
         when(permitTokenSigner.sign(any(ExecutionId.class), any(VehicleTaskId.class), anyInt(), any(Instant.class)))
                 .thenReturn(PermitToken.of("signed-token", validUntil));
     }
@@ -77,7 +83,7 @@ class InstallPermitServiceTest {
                 .allPackageStageResultsSucceeded(true)
                 .build();
 
-        Execution execution = service.requestInstall(ExecutionId.of(1L), task, vt, request, now);
+        Execution execution = service.requestInstall(ExecutionId.of(1L), task, vt, request, null, now);
 
         assertEquals(1, execution.getAttemptNo());
         assertEquals("signed-token", execution.getPermitToken().getToken());
@@ -100,7 +106,7 @@ class InstallPermitServiceTest {
                 .build();
 
         assertThrows(ExecutionStateException.class,
-                () -> service.requestInstall(ExecutionId.of(1L), task, vt, request, now));
+                () -> service.requestInstall(ExecutionId.of(1L), task, vt, request, null, now));
     }
 
     @Test
@@ -117,7 +123,7 @@ class InstallPermitServiceTest {
                 .build();
 
         assertThrows(ExecutionStateException.class,
-                () -> service.requestInstall(ExecutionId.of(1L), task, vt, request, now));
+                () -> service.requestInstall(ExecutionId.of(1L), task, vt, request, null, now));
     }
 
     @Test
@@ -136,7 +142,7 @@ class InstallPermitServiceTest {
                 .build();
 
         assertThrows(ExecutionStateException.class,
-                () -> service.requestInstall(ExecutionId.of(2L), task, vt, request, now));
+                () -> service.requestInstall(ExecutionId.of(2L), task, vt, request, null, now));
     }
 
     @Test
@@ -154,7 +160,7 @@ class InstallPermitServiceTest {
                 .build();
 
         assertThrows(ExecutionStateException.class,
-                () -> service.requestInstall(ExecutionId.of(1L), task, vt, request, now));
+                () -> service.requestInstall(ExecutionId.of(1L), task, vt, request, null, now));
     }
 
     @Test
@@ -171,7 +177,7 @@ class InstallPermitServiceTest {
                 .build();
 
         assertThrows(ExecutionStateException.class,
-                () -> service.requestInstall(ExecutionId.of(1L), task, vt, request, now));
+                () -> service.requestInstall(ExecutionId.of(1L), task, vt, request, null, now));
     }
 
     @Test
@@ -188,8 +194,110 @@ class InstallPermitServiceTest {
                 .validUntil(validUntil)
                 .build();
 
-        assertThrows(ExecutionStateException.class,
-                () -> service.requestInstall(ExecutionId.of(1L), task, vt, request, now));
+        ExecutionStateException e = assertThrows(ExecutionStateException.class,
+                () -> service.requestInstall(ExecutionId.of(1L), task, vt, request, null, now));
+        // 异常必须带实际比较值，否则现场只能看到“校验失败”无法定位
+        assertTrue(e.getMessage().contains("different-digest"));
+        assertTrue(e.getMessage().contains("digest"));
+        // CR-024 §4.28.6：不一致必须计入 mismatch 指标
+        verify(manifestDigestMetrics).mismatch();
+    }
+
+    @Test
+    @DisplayName("包清单摘要大小写/算法前缀差异 -> 判定一致，不抛异常")
+    void requestInstall_manifestDigestCaseInsensitive_matches() {
+        Task task = buildTask(startTime, endTime);
+        VehicleTask vt = buildReadyVehicleTask();
+
+        InstallPermitService.InstallPermitRequest request = InstallPermitService.InstallPermitRequest.builder()
+                .consentRequired(false)
+                .consentPermitted(true)
+                .allPackageStageResultsSucceeded(true)
+                .expectedPackageManifestDigest(SnapshotDigest.of(" SHA-256:DIGEST "))
+                .validUntil(validUntil)
+                .build();
+
+        Execution execution = service.requestInstall(ExecutionId.of(1L), task, vt, request, null, now);
+        assertEquals(1, execution.getAttemptNo());
+    }
+
+    @Test
+    @DisplayName("云端未冻结摘要（历史数据为 NULL）-> 跳过校验照常签发许可，不硬阻断")
+    void requestInstall_cloudDigestAbsent_skipsVerification() {
+        Task task = buildTask(startTime, endTime);
+        VehicleTask vt = VehicleTask.create(
+                VehicleTaskId.of(10L), 1L, "VIN001",
+                TaskRevision.initial(), null,
+                releaseAt, startTime, endTime);
+        vt.markVisible(now);
+        vt.enterConsentPending();
+        vt.applyConsent(ConsentResult.GRANTED, 1L, "scope", now, false);
+        assertNull(vt.getSnapshotDigest());
+
+        InstallPermitService.InstallPermitRequest request = InstallPermitService.InstallPermitRequest.builder()
+                .consentRequired(false)
+                .consentPermitted(true)
+                .allPackageStageResultsSucceeded(true)
+                .expectedPackageManifestDigest(SnapshotDigest.of("vehicle-side-digest"))
+                .validUntil(validUntil)
+                .build();
+
+        Execution execution = service.requestInstall(ExecutionId.of(1L), task, vt, request, null, now);
+        assertEquals(1, execution.getAttemptNo());
+        assertEquals(VehicleTaskStatus.EXECUTING, vt.getStatus());
+        // CR-024 §4.28.6：跳过校验必须计入「摘要不可校验」，与不一致分开统计
+        verify(manifestDigestMetrics).unverifiable();
+        verify(manifestDigestMetrics, never()).mismatch();
+    }
+
+    @Test
+    @DisplayName("CR-024 云端重算值优先：车端值等于重算值即放行（即便冻结列为空）")
+    void requestInstall_recomputedDigestMatch_passes() {
+        Task task = buildTask(startTime, endTime);
+        VehicleTask vt = VehicleTask.create(
+                VehicleTaskId.of(10L), 1L, "VIN001",
+                TaskRevision.initial(), null,
+                releaseAt, startTime, endTime);
+        vt.markVisible(now);
+        vt.enterConsentPending();
+        vt.applyConsent(ConsentResult.GRANTED, 1L, "scope", now, false);
+
+        InstallPermitService.InstallPermitRequest request = InstallPermitService.InstallPermitRequest.builder()
+                .consentRequired(false)
+                .consentPermitted(true)
+                .allPackageStageResultsSucceeded(true)
+                .expectedPackageManifestDigest(SnapshotDigest.of("A1B2C3"))
+                .validUntil(validUntil)
+                .build();
+
+        Execution execution = service.requestInstall(ExecutionId.of(1L), task, vt, request,
+                SnapshotDigest.of("a1b2c3"), now);
+
+        assertEquals(1, execution.getAttemptNo());
+        // 冻结值取本次重算值，保证“校验事实 == 冻结事实”
+        assertEquals("a1b2c3", execution.getPackageManifestDigest().getValue());
+    }
+
+    @Test
+    @DisplayName("CR-024 车端值与重算值不一致 -> 抛异常并计入 mismatch")
+    void requestInstall_recomputedDigestMismatch_throwsException() {
+        Task task = buildTask(startTime, endTime);
+        VehicleTask vt = buildReadyVehicleTask();
+
+        InstallPermitService.InstallPermitRequest request = InstallPermitService.InstallPermitRequest.builder()
+                .consentRequired(false)
+                .consentPermitted(true)
+                .allPackageStageResultsSucceeded(true)
+                .expectedPackageManifestDigest(SnapshotDigest.of("car-digest"))
+                .validUntil(validUntil)
+                .build();
+
+        ExecutionStateException e = assertThrows(ExecutionStateException.class,
+                () -> service.requestInstall(ExecutionId.of(1L), task, vt, request,
+                        SnapshotDigest.of("cloud-digest"), now));
+        assertTrue(e.getMessage().contains("car-digest"));
+        assertTrue(e.getMessage().contains("cloud-digest"));
+        verify(manifestDigestMetrics).mismatch();
     }
 
     @Test
@@ -207,7 +315,7 @@ class InstallPermitServiceTest {
                 .validUntil(validUntil)
                 .build();
 
-        Execution execution = service.requestInstall(ExecutionId.of(2L), task, vt, request, now);
+        Execution execution = service.requestInstall(ExecutionId.of(2L), task, vt, request, null, now);
         assertEquals(2, execution.getAttemptNo());
         assertEquals(2, vt.getLastAttemptNo());
     }

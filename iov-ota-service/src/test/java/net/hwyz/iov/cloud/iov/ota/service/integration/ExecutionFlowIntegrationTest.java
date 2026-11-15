@@ -56,6 +56,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
@@ -81,6 +82,9 @@ class ExecutionFlowIntegrationTest {
     private InMemoryExecutionRepository executionRepository;
     private InMemoryTaskRepository taskRepository;
     private InMemoryOutboxRepository outboxRepository;
+
+    private net.hwyz.iov.cloud.iov.ota.service.application.service.VehicleTaskPackageService vehicleTaskPackageService;
+    private net.hwyz.iov.cloud.iov.ota.service.application.service.PackageManifestDigestService packageManifestDigestService;
 
     private ExecutionAppService executionAppService;
     private ExecutionEventAppService executionEventAppService;
@@ -110,15 +114,23 @@ class ExecutionFlowIntegrationTest {
         });
         when(executionControlMapper.selectLatestByExecutionId(any())).thenReturn(null);
 
+        // 包清单投影与摘要重算（CR-024）：本链路不携带车端摘要，重算仅作冻结值来源
+        vehicleTaskPackageService = mock(net.hwyz.iov.cloud.iov.ota.service.application.service.VehicleTaskPackageService.class);
+        packageManifestDigestService = mock(net.hwyz.iov.cloud.iov.ota.service.application.service.PackageManifestDigestService.class);
+        when(packageManifestDigestService.digest(any(), any(), any())).thenReturn("recomputed-digest");
+
         // 领域服务
-        InstallPermitService installPermitService = new InstallPermitService(new LocalPermitTokenSigner());
+        InstallPermitService installPermitService = new InstallPermitService(
+                new LocalPermitTokenSigner(),
+                new net.hwyz.iov.cloud.iov.ota.service.infrastructure.metrics.ManifestDigestMetricsService());
         ConsentPolicy consentPolicy = new ConsentPolicy();
         when(vehicleTaskConsentRepository.findCurrentByVehicleTaskId(any())).thenReturn(java.util.Optional.empty());
 
         // 应用服务
         executionAppService = new ExecutionAppService(vehicleTaskRepository, executionRepository,
                 taskRepository, installPermitService, consentPolicy, vehicleTaskConsentRepository,
-                outboxRepository, executionEcuResultMapper, executionEcuSoftwareUnitMapper);
+                outboxRepository, executionEcuResultMapper, executionEcuSoftwareUnitMapper,
+                vehicleTaskPackageService, packageManifestDigestService);
         executionEventAppService = new ExecutionEventAppService(executionRepository,
                 executionEventMapper, executionControlMapper, executionControlAckMapper);
         recoveryAppService = new RecoveryAppService(vehicleTaskRepository, executionRepository,

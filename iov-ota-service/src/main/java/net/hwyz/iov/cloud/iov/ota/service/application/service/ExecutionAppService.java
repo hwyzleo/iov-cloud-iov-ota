@@ -57,6 +57,8 @@ public class ExecutionAppService {
     private final OutboxRepository outboxRepository;
     private final ExecutionEcuResultMapper executionEcuResultMapper;
     private final ExecutionEcuSoftwareUnitMapper executionEcuSoftwareUnitMapper;
+    private final VehicleTaskPackageService vehicleTaskPackageService;
+    private final PackageManifestDigestService packageManifestDigestService;
 
     /** 简易 ID 生成器（TODO: 替换为雪花算法或 DB 序列） */
     private final AtomicLong idSeed = new AtomicLong(System.currentTimeMillis() / 1000);
@@ -102,7 +104,8 @@ public class ExecutionAppService {
                 .allPackageStageResultsSucceeded(true)
                 .build();
 
-        Execution execution = installPermitService.requestInstall(executionId, task, vehicleTask, request, Instant.now());
+        Execution execution = installPermitService.requestInstall(executionId, task, vehicleTask, request,
+                recomputeManifestDigest(vehicleTask, task), Instant.now());
 
         executionRepository.save(execution);
         vehicleTaskRepository.save(vehicleTask);
@@ -118,6 +121,32 @@ public class ExecutionAppService {
                 .taskRevision(execution.getTaskRevision().getValue())
                 .installPlanVersion(execution.getInstallPlanVersion())
                 .build();
+    }
+
+    /**
+     * 云端重算包清单摘要（CR-024 §4.28.4）。
+     *
+     * <p>使用与该任务下发车端一致的包清单投影计算；规范化输入不含 per-VIN 的 sourceVersion，
+     * 因此与发布期冻结值同源同值。重算失败不得阻断安装：返回 null 时域服务回退到冻结值。</p>
+     */
+    private SnapshotDigest recomputeManifestDigest(VehicleTask vehicleTask, Task task) {
+        try {
+            String digest = packageManifestDigestService.digest(
+                    vehicleTaskPackageService.project(vehicleTask, task, null),
+                    installPlanVersionOf(vehicleTask), task.getId().getValue());
+            return SnapshotDigest.of(digest, PackageManifestDigestService.ALGORITHM);
+        } catch (RuntimeException e) {
+            log.warn("车辆任务[{}]包清单摘要重算失败，回退到冻结摘要校验",
+                    vehicleTask.getId().getValue(), e);
+            return null;
+        }
+    }
+
+    /**
+     * 安装计划版本：与发布冻结、TaskCheck 下发同口径。
+     */
+    private static String installPlanVersionOf(VehicleTask vehicleTask) {
+        return "task-" + vehicleTask.getTaskId() + "-r" + vehicleTask.getTaskRevision().getValue();
     }
 
     /**

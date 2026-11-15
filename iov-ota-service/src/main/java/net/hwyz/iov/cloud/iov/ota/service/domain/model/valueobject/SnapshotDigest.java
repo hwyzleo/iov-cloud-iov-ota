@@ -2,6 +2,7 @@ package net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject;
 
 import lombok.Getter;
 
+import java.util.Locale;
 import java.util.Objects;
 
 /**
@@ -36,12 +37,36 @@ public class SnapshotDigest {
 
     /**
      * 判断两个摘要是否实质性一致。
+     *
+     * <p>比较前做归一化：去除 <code>0x</code>、<code>sha256:</code>/<code>SHA-256:</code> 等前缀、
+     * 去空白并统一小写。十六进制摘要的大小写与算法前缀只是书写差异，不应被判定为摘要不一致。
+     *
+     * @param other 参与比较的摘要
+     * @return 归一化后一致返回 true；{@code other} 为 null 返回 false（无法证明一致）
      */
     public boolean matches(SnapshotDigest other) {
         if (other == null) {
             return false;
         }
-        return this.value.equals(other.value);
+        return normalize(this.value).equals(normalize(other.value));
+    }
+
+    /**
+     * 摘要书写归一化，用于跨云车两侧比较。
+     */
+    private static String normalize(String value) {
+        if (value == null) {
+            return "";
+        }
+        String normalized = value.trim();
+        int colon = normalized.lastIndexOf(':');
+        if (colon >= 0) {
+            normalized = normalized.substring(colon + 1);
+        }
+        if (normalized.startsWith("0x") || normalized.startsWith("0X")) {
+            normalized = normalized.substring(2);
+        }
+        return normalized.trim().toLowerCase(Locale.ROOT);
     }
 
     @Override

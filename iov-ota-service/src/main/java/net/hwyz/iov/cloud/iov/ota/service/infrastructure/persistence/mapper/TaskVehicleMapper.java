@@ -28,6 +28,29 @@ public interface TaskVehicleMapper extends BaseDao<TaskVehiclePo, Long> {
 
     List<Long> selectIdsByTaskId(Long taskId);
 
+    /**
+     * 按任务ID查询车辆任务 ID 与 VIN（CR-024 §4.28.3 冻结快照，避免 N+1）
+     */
+    List<TaskVehiclePo> selectIdVinByTaskId(@org.apache.ibatis.annotations.Param("taskId") Long taskId);
+
+    /**
+     * 包清单摘要为空的任务ID集合（CR-024 §4.28.3 存量回填）
+     */
+    @org.apache.ibatis.annotations.Select(
+            "SELECT DISTINCT task_id FROM tb_task_vehicle "
+                    + "WHERE row_valid = 1 AND (snapshot_digest IS NULL OR snapshot_digest = '')")
+    List<Long> selectTaskIdsWithoutSnapshotDigest();
+
+    /**
+     * 回填任务下车辆任务的包清单摘要（仅更新仍为空的记录，幂等）
+     */
+    @org.apache.ibatis.annotations.Update(
+            "UPDATE tb_task_vehicle SET snapshot_digest = #{digest}, modify_time = CURRENT_TIMESTAMP(3) "
+                    + "WHERE task_id = #{taskId} AND row_valid = 1 "
+                    + "AND (snapshot_digest IS NULL OR snapshot_digest = '')")
+    int updateSnapshotDigestByTaskId(@org.apache.ibatis.annotations.Param("taskId") Long taskId,
+                                     @org.apache.ibatis.annotations.Param("digest") String digest);
+
     void deleteByTaskId(Long taskId);
 
     /**

@@ -68,7 +68,7 @@ public class VehicleTaskPackageService {
      */
     public List<DetectionResult.MatchedPackage> project(VehicleTask vt, Task task,
                                                         CanonicalVehicleInventory canonical) {
-        if (vt == null || task == null || task.getActivityId() == null) {
+        if (task == null || task.getActivityId() == null) {
             return List.of();
         }
         List<ActivityUpgradeTargetPo> targets =
@@ -76,7 +76,9 @@ public class VehicleTaskPackageService {
         if (targets == null || targets.isEmpty()) {
             return List.of();
         }
-        Set<String> frozenPackageIds = vehicleTaskPackageMapper
+        Set<String> frozenPackageIds = vt == null || vt.getId() == null
+                ? Set.of()
+                : vehicleTaskPackageMapper
                 .selectByVehicleTaskId(vt.getId().getValue()).stream()
                 .map(VehicleTaskPackagePo::getPackageId)
                 .filter(Objects::nonNull)
@@ -134,6 +136,19 @@ public class VehicleTaskPackageService {
             }
         }
         return new ArrayList<>(byPackageId.values());
+    }
+
+    /**
+     * 发布期包清单投影（无 VehicleTask、无清单上下文）。
+     *
+     * <p>发布时为任务冻结包清单摘要使用：冻结包集合尚未生成，按活动升级对象链投影，
+     * {@code sourceVersion} 固定为空（不参与摘要）。</p>
+     *
+     * @param task 已发布任务
+     * @return 包清单投影
+     */
+    public List<DetectionResult.MatchedPackage> projectForTask(Task task) {
+        return project(null, task, null);
     }
 
     /**

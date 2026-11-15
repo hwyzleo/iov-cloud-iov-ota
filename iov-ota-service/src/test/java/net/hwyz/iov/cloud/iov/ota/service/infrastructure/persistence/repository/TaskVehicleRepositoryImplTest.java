@@ -6,12 +6,15 @@ import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskPhase;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskState;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskType;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.VehicleTaskStatus;
+import net.hwyz.iov.cloud.iov.ota.service.application.dto.VehicleTaskSnapshotSeal;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.aggregate.Task;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.ActivityId;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.TaskId;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.Vin;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskVehicleMapper;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.VehicleTaskSnapshotMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskVehiclePo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.VehicleTaskSnapshotPo;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -47,6 +50,9 @@ class TaskVehicleRepositoryImplTest {
     @Mock
     private TaskVehicleMapper taskVehicleDao;
 
+    @Mock
+    private VehicleTaskSnapshotMapper vehicleTaskSnapshotDao;
+
     @InjectMocks
     private TaskVehicleRepositoryImpl repository;
 
@@ -72,7 +78,7 @@ class TaskVehicleRepositoryImplTest {
         when(taskVehicleDao.selectByTaskIdAndVin(anyLong(), anyString())).thenReturn(null);
         when(taskVehicleDao.batchInsertPo(anyList())).thenReturn(2);
 
-        int created = repository.batchCreate(task, Set.of(Vin.of("VIN001"), Vin.of("VIN002")));
+        int created = repository.batchCreate(task, Set.of(Vin.of("VIN001"), Vin.of("VIN002")), null);
         assertEquals(2, created);
 
         @SuppressWarnings("unchecked")
@@ -107,7 +113,7 @@ class TaskVehicleRepositoryImplTest {
         when(taskVehicleDao.selectByTaskIdAndVin(anyLong(), anyString()))
                 .thenReturn(TaskVehiclePo.builder().id(1L).taskId(9001L).vin("VIN001").build());
 
-        int created = repository.batchCreate(task, Set.of(Vin.of("VIN001")));
+        int created = repository.batchCreate(task, Set.of(Vin.of("VIN001")), null);
 
         assertEquals(0, created);
         verify(taskVehicleDao, never()).batchInsertPo(anyList());
@@ -119,7 +125,7 @@ class TaskVehicleRepositoryImplTest {
         Task task = releasedTask(Instant.parse("2026-11-09T02:00:00Z"),
                 Instant.parse("2026-11-09T01:00:00Z"), Instant.parse("2026-11-10T01:00:00Z"));
 
-        assertEquals(0, repository.batchCreate(task, Set.of()));
+        assertEquals(0, repository.batchCreate(task, Set.of(), null));
         verify(taskVehicleDao, never()).batchInsertPo(anyList());
     }
 
@@ -134,7 +140,7 @@ class TaskVehicleRepositoryImplTest {
         when(taskVehicleDao.selectByTaskIdAndVin(anyLong(), anyString())).thenReturn(null);
         when(taskVehicleDao.batchInsertPo(anyList())).thenReturn(1);
 
-        repository.batchCreate(task, Set.of(Vin.of("VIN001")));
+        repository.batchCreate(task, Set.of(Vin.of("VIN001")), null);
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<TaskVehiclePo>> captor = ArgumentCaptor.forClass(List.class);
@@ -142,5 +148,58 @@ class TaskVehicleRepositoryImplTest {
         TaskVehiclePo po = captor.getValue().get(0);
         assertNotNull(po.getReleaseAt());
         assertEquals(planned, po.getReleaseAt().toInstant());
+    }
+
+    @Test
+    @DisplayName("CR-024 发布期冻结：snapshot_digest 与 tb_vehicle_task_snapshot 同批写入")
+    void batchCreate_freezesManifestDigestAndSnapshot() {
+        Task task = releasedTask(Instant.parse("2026-11-09T02:00:00Z"),
+                Instant.parse("2026-11-09T01:00:00Z"), Instant.parse("2026-11-10T01:00:00Z"));
+        VehicleTaskSnapshotSeal seal = VehicleTaskSnapshotSeal.builder()
+                .snapshotDigest("a1b2c3")
+                .canonicalizationVersion(1)
+                .snapshotContent("{\"packages\":[]}")
+                .build();
+
+        when(taskVehicleDao.selectByTaskIdAndVin(anyLong(), anyString())).thenReturn(null);
+        when(taskVehicleDao.batchInsertPo(anyList())).thenReturn(1);
+        when(taskVehicleDao.selectIdVinByTaskId(9001L))
+                .thenReturn(List.of(TaskVehiclePo.builder().id(77L).taskId(9001L).vin("VIN001").build()));
+        when(vehicleTaskSnapshotDao.selectByVehicleTaskIdAndRevision(77L, 1L)).thenReturn(null);
+
+        int created = repository.batchCreate(task, Set.of(Vin.of("VIN001")), seal);
+
+        assertEquals(1, created);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<TaskVehiclePo>> captor = ArgumentCaptor.forClass(List.class);
+        verify(taskVehicleDao).batchInsertPo(captor.capture());
+        assertEquals("a1b2c3", captor.getValue().get(0).getSnapshotDigest());
+
+        ArgumentCaptor<VehicleTaskSnapshotPo> snapshot = ArgumentCaptor.forClass(VehicleTaskSnapshotPo.class);
+        verify(vehicleTaskSnapshotDao).insert(snapshot.capture());
+        assertEquals(77L, snapshot.getValue().getVehicleTaskId());
+        assertEquals(1L, snapshot.getValue().getTaskRevision());
+        assertEquals("a1b2c3", snapshot.getValue().getSnapshotDigest());
+        assertEquals("{\"packages\":[]}", snapshot.getValue().getSnapshotContent());
+    }
+
+    @Test
+    @DisplayName("CR-024 冻结幂等：已存在同修订快照行不重复写入")
+    void batchCreate_snapshotRowIdempotent() {
+        Task task = releasedTask(Instant.parse("2026-11-09T02:00:00Z"),
+                Instant.parse("2026-11-09T01:00:00Z"), Instant.parse("2026-11-10T01:00:00Z"));
+        VehicleTaskSnapshotSeal seal = VehicleTaskSnapshotSeal.builder()
+                .snapshotDigest("a1b2c3").canonicalizationVersion(1).snapshotContent("{}").build();
+
+        when(taskVehicleDao.selectByTaskIdAndVin(anyLong(), anyString())).thenReturn(null);
+        when(taskVehicleDao.batchInsertPo(anyList())).thenReturn(1);
+        when(taskVehicleDao.selectIdVinByTaskId(9001L))
+                .thenReturn(List.of(TaskVehiclePo.builder().id(77L).taskId(9001L).vin("VIN001").build()));
+        when(vehicleTaskSnapshotDao.selectByVehicleTaskIdAndRevision(77L, 1L))
+                .thenReturn(VehicleTaskSnapshotPo.builder().id(5L).vehicleTaskId(77L).taskRevision(1L).build());
+
+        repository.batchCreate(task, Set.of(Vin.of("VIN001")), seal);
+
+        verify(vehicleTaskSnapshotDao, never()).insert(org.mockito.ArgumentMatchers.any(VehicleTaskSnapshotPo.class));
     }
 }

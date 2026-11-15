@@ -239,6 +239,14 @@
         WHERE t.task_id = #{taskId}
     </select>
 
+    <!-- 根据任务ID查询车辆任务ID与VIN映射（CR-024 冻结快照用，避免 N+1） -->
+    <select id="selectIdVinByTaskId" parameterType="Long" resultType="net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskVehiclePo">
+        SELECT t.id, t.vin
+        FROM tb_task_vehicle t
+        WHERE t.task_id = #{taskId}
+          AND t.row_valid = 1
+    </select>
+
     <!-- 根据任务ID物理删除 -->
     <delete id="deleteByTaskId" parameterType="Long">
         DELETE FROM tb_task_vehicle

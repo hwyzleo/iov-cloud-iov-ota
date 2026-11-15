@@ -2,6 +2,9 @@ package net.hwyz.iov.cloud.iov.ota.service.infrastructure.event.handler;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.hwyz.iov.cloud.iov.ota.service.application.dto.VehicleTaskSnapshotSeal;
+import net.hwyz.iov.cloud.iov.ota.service.application.service.PackageManifestDigestService;
+import net.hwyz.iov.cloud.iov.ota.service.application.service.VehicleTaskPackageService;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.aggregate.Task;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.event.*;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.TaskId;
@@ -23,6 +26,8 @@ public class TaskEventHandler {
     private final TaskRepository taskRepository;
     private final CacheService cacheService;
     private final PhaseAdvanceDomainService phaseAdvanceDomainService;
+    private final VehicleTaskPackageService vehicleTaskPackageService;
+    private final PackageManifestDigestService packageManifestDigestService;
 
     @EventListener
     public void handleTaskCreated(TaskCreatedEvent event) {
@@ -54,10 +59,45 @@ public class TaskEventHandler {
             return;
         }
         Task task = taskOpt.get();
-        int created = taskVehicleRepository.batchCreate(task, event.getAffectedVehicles());
-        log.info("任务[{}]批量创建升级任务车辆记录：新增[{}]，总数[{}]", taskId, created, event.getAffectedVehicles().size());
+        VehicleTaskSnapshotSeal seal = sealPackageManifest(task);
+        int created = taskVehicleRepository.batchCreate(task, event.getAffectedVehicles(), seal);
+        log.info("任务[{}]批量创建升级任务车辆记录：新增[{}]，总数[{}]，包清单摘要[{}]",
+                taskId, created, event.getAffectedVehicles().size(),
+                seal == null ? null : seal.getSnapshotDigest());
         cacheService.addReleaseTask(task);
         log.info("任务[{}]已写入缓存", taskId);
+    }
+
+    /**
+     * 发布期冻结包清单摘要（CR-024 §4.28.2/§4.28.3）。
+     *
+     * <p>与 VehicleTask 创建同事务可重算的稳定值：按活动升级对象链投影（不含 per-VIN 的
+     * sourceVersion），摘要算法版本随快照一并记录。摘要计算失败不得阻断发布（否则任务
+     * 无法下发），而是保留空摘要并由安装许可 fail-open + 「摘要不可校验」指标衔接。</p>
+     */
+    private VehicleTaskSnapshotSeal sealPackageManifest(Task task) {
+        try {
+            VehicleTaskSnapshotSeal seal = packageManifestDigestService.seal(
+                    vehicleTaskPackageService.projectForTask(task),
+                    installPlanVersion(task), task.getId().getValue());
+            log.info("任务[{}]包清单摘要已冻结：摘要[{}]，规范化版本[{}]",
+                    task.getId().getValue(), seal.getSnapshotDigest(), seal.getCanonicalizationVersion());
+            return seal;
+        } catch (RuntimeException e) {
+            log.error("任务[{}]包清单摘要冻结失败，按无冻结摘要发布（安装许可将 fail-open）",
+                    task.getId().getValue(), e);
+            return null;
+        }
+    }
+
+    /**
+     * 安装计划版本：与 TaskCheck 下发口径一致（非空、重试间稳定）。
+     *
+     * <p>发布时车辆任务修订号为初始值（{@code TaskRevision.initial()}），与
+     * {@code TaskDetectionAppService.installPlanVersion} 同源同值。</p>
+     */
+    private static String installPlanVersion(Task task) {
+        return "task-" + task.getId().getValue() + "-r" + net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.TaskRevision.initial().getValue();
     }
 
     @EventListener

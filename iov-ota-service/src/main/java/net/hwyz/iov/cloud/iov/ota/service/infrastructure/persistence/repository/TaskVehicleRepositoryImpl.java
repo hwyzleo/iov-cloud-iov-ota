@@ -6,6 +6,7 @@ import net.hwyz.iov.cloud.framework.common.domain.AbstractRepository;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.ConsentState;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.DownloadReadyState;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.VehicleTaskStatus;
+import net.hwyz.iov.cloud.iov.ota.service.application.dto.VehicleTaskSnapshotSeal;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.aggregate.Task;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskVehicleDo;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.TaskRevision;
@@ -13,13 +14,16 @@ import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.Vin;
 import net.hwyz.iov.cloud.iov.ota.service.domain.repository.TaskVehicleRepository;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.converter.TaskVehiclePoAssembler;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskVehicleMapper;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.VehicleTaskSnapshotMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskVehiclePo;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.VehicleTaskSnapshotPo;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -34,6 +38,7 @@ import java.util.Set;
 public class TaskVehicleRepositoryImpl extends AbstractRepository<Long, TaskVehicleDo> implements TaskVehicleRepository {
 
     private final TaskVehicleMapper taskVehicleDao;
+    private final VehicleTaskSnapshotMapper vehicleTaskSnapshotDao;
 
     @Override
     public Optional<TaskVehicleDo> getById(Long id) {
@@ -78,9 +83,14 @@ public class TaskVehicleRepositoryImpl extends AbstractRepository<Long, TaskVehi
      * <p>备注：CR-016 要求按活动冻结条款（articleId/version/hash）并把授权态置为 PENDING；
      * 当前发布链路尚未接入条款摘要下发，故先按“无需授权”冻结，避免因冻结 hash 缺失导致
      * 安装许可被 ConsentPolicy 永久阻断（保持既有有效行为）。</p>
+     *
+     * <p>CR-024 §4.28.3：发布时同事务写入 {@code snapshot_digest} 与 {@code tb_vehicle_task_snapshot}，
+     * 摘要由应用层 {@code PackageManifestDigestService} 在发布期一次性冻结；快照行按
+     * {@code (vehicle_task_id, task_revision)} 幂等，已存在则跳过。摘要缺失时仍照常创建
+     * 车辆任务（存量兼容），由安装许可 fail-open 兵接。</p>
      */
     @Override
-    public int batchCreate(Task task, Set<Vin> vehicles) {
+    public int batchCreate(Task task, Set<Vin> vehicles, VehicleTaskSnapshotSeal seal) {
         if (task == null || task.getId() == null || vehicles == null || vehicles.isEmpty()) {
             return 0;
         }
@@ -105,6 +115,7 @@ public class TaskVehicleRepositoryImpl extends AbstractRepository<Long, TaskVehi
                     .downloadReadyState(DownloadReadyState.NOT_STARTED.getValue())
                     .consentRequired(0)
                     .consentState(ConsentState.NOT_REQUIRED.getValue())
+                    .snapshotDigest(seal == null ? null : seal.getSnapshotDigest())
                     .releaseAt(releaseAt)
                     .vtStartTime(startTime)
                     .vtEndTime(endTime)
@@ -115,9 +126,74 @@ public class TaskVehicleRepositoryImpl extends AbstractRepository<Long, TaskVehi
             return 0;
         }
         int created = taskVehicleDao.batchInsertPo(newRecords);
-        log.info("任务[{}]发布快照写入车辆任务[{}]条（发布时刻[{}]，执行窗口[{},{}]）",
-                taskId, created, releaseAt, startTime, endTime);
+        freezeSnapshots(taskId, seal);
+        log.info("任务[{}]发布快照写入车辆任务[{}]条（发布时刻[{}]，执行窗口[{},{}]，包清单摘要[{}]）",
+                taskId, created, releaseAt, startTime, endTime,
+                seal == null ? null : seal.getSnapshotDigest());
         return created;
+    }
+
+    /**
+     * 写入 {@code tb_vehicle_task_snapshot}（按 vehicleTaskId + taskRevision 幂等）。     *
+     * <p>车辆任务主键由批量插入生成，因此插入后按 taskId 一次回查 vin → id 映射，避免 N+1。</p>
+     */
+    private void freezeSnapshots(Long taskId, VehicleTaskSnapshotSeal seal) {
+        if (seal == null || seal.getSnapshotDigest() == null) {
+            return;
+        }
+        Map<String, Long> vehicleTaskIds = vehicleTaskIds(taskId);
+        if (vehicleTaskIds.isEmpty()) {
+            return;
+        }
+        Long revision = TaskRevision.initial().getValue();
+        for (Long vehicleTaskId : vehicleTaskIds.values()) {
+            VehicleTaskSnapshotPo existing =
+                    vehicleTaskSnapshotDao.selectByVehicleTaskIdAndRevision(vehicleTaskId, revision);
+            if (existing != null) {
+                continue;
+            }
+            vehicleTaskSnapshotDao.insert(VehicleTaskSnapshotPo.builder()
+                    .vehicleTaskId(vehicleTaskId)
+                    .taskRevision(revision)
+                    .snapshotDigest(seal.getSnapshotDigest())
+                    .snapshotContent(seal.getSnapshotContent() == null ? "{}" : seal.getSnapshotContent())
+                    .build());
+        }
+        log.info("任务[{}]冻结包清单快照[{}]条（摘要[{}]，规范化版本[{}]）",
+                taskId, vehicleTaskIds.size(), seal.getSnapshotDigest(), seal.getCanonicalizationVersion());
+    }
+
+    /**
+     * 任务下车辆任务的 vin → vehicleTaskId 映射。
+     */
+    private Map<String, Long> vehicleTaskIds(Long taskId) {
+        List<TaskVehiclePo> rows = taskVehicleDao.selectIdVinByTaskId(taskId);
+        Map<String, Long> map = new java.util.HashMap<>();
+        if (rows == null) {
+            return map;
+        }
+        for (TaskVehiclePo po : rows) {
+            if (po.getId() != null && po.getVin() != null) {
+                map.put(po.getVin(), po.getId());
+            }
+        }
+        return map;
+    }
+
+    @Override
+    public List<Long> taskIdsWithoutSnapshotDigest() {
+        List<Long> taskIds = taskVehicleDao.selectTaskIdsWithoutSnapshotDigest();
+        return taskIds == null ? List.of() : taskIds;
+    }
+
+    @Override
+    public int backfillSnapshot(Long taskId, VehicleTaskSnapshotSeal seal) {
+        if (taskId == null || seal == null || seal.getSnapshotDigest() == null) {
+            return 0;
+        }
+        int updated = taskVehicleDao.updateSnapshotDigestByTaskId(taskId, seal.getSnapshotDigest());
+        freezeSnapshots(taskId, seal);
+        return updated;
     }
 
     /**
