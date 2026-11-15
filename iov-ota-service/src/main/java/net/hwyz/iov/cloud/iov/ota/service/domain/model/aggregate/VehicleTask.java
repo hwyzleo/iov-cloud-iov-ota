@@ -451,6 +451,28 @@ public class VehicleTask {
     }
 
     /**
+     * 重置处置：在被取代/强制关闭时写入车端处置意图（IOV-OTA-DSN-CR-025 §4.29.8）。
+     *
+     * <p>重置不以“删除”表达，而是让车端在下一次任务检测时收到
+     * “放弃本地任务”与包缓存处置意图，由车端自行安全收口。</p>
+     *
+     * @param localDisposition  本地任务处置意图（如 ABANDON）
+     * @param packageCacheAction 包缓存处置意图（如 KEEP/RESET）
+     */
+    public void prepareResetDisposition(String localDisposition, String packageCacheAction) {
+        if (this.status == VehicleTaskStatus.SUCCEEDED) {
+            throw new VehicleTaskStateException("已成功的车辆任务不可重置");
+        }
+        if (this.supersededBy != null) {
+            throw new VehicleTaskStateException("已被取代的车辆任务不可重复重置");
+        }
+        this.localDisposition = localDisposition;
+        this.packageCacheAction = packageCacheAction;
+        log.info("车辆任务[{}]重置处置意图：本地任务[{}]，包缓存[{}]",
+                id.getValue(), localDisposition, packageCacheAction);
+    }
+
+    /**
      * 升级任务版本（实质性变化）。
      *
      * <p>任务修订变化会使既有 GRANTED 凭据 INVALIDATED（CR-016 §4）。

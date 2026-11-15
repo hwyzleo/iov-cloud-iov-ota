@@ -51,6 +51,7 @@ class TaskVehicleProcessQueryServiceTest {
     @Mock private UpgradeLogMapper upgradeLogMapper;
     @Mock private TaskVehicleRetryLogMapper taskVehicleRetryLogMapper;
     @Mock private GatewayDeliveryObservationMapper gatewayDeliveryObservationMapper;
+    @Mock private TaskVehicleResetLogMapper taskVehicleResetLogMapper;
     @Mock private TaskAppService taskAppService;
     @Mock private ActivityAppService activityAppService;
 

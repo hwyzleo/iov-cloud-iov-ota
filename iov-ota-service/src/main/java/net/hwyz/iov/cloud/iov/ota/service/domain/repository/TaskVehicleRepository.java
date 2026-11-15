@@ -3,6 +3,7 @@ package net.hwyz.iov.cloud.iov.ota.service.domain.repository;
 import net.hwyz.iov.cloud.framework.common.domain.BaseRepository;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.VehicleTaskSnapshotSeal;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.aggregate.Task;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.VehicleTaskResetSeed;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskVehicleDo;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.Vin;
 
@@ -56,5 +57,17 @@ public interface TaskVehicleRepository extends BaseRepository<Long, TaskVehicleD
      * @return 受影响车辆任务数
      */
     int backfillSnapshot(Long taskId, VehicleTaskSnapshotSeal seal);
+
+    /**
+     * 重置时为该车新建一条初始化状态的车辆任务（IOV-OTA-DSN-CR-025 §4.29.5）。
+     *
+     * <p>沿用发布建档口径：状态/下载准备/修订号/尝试序号初始化，发布时间与执行窗口
+     * 复用父任务冻结快照，包清单摘要复用父任务冻结值；同事务按
+     * {@code (vehicle_task_id, task_revision)} 幂等补写 {@code tb_vehicle_task_snapshot}。</p>
+     *
+     * @param seed 重置落库种子
+     * @return 新车辆任务ID（AUTO_INCREMENT）
+     */
+    Long createResetTarget(VehicleTaskResetSeed seed);
 
 }

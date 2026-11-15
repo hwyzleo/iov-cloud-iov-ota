@@ -55,4 +55,14 @@ public class VehicleTaskRelationResult {
     private Date endTime;
 
     private Date createTime;
+
+    /**
+     * 是否当前车辆任务（IOV-OTA-DSN-CR-025 §4.29.7）：superseded_by IS NULL
+     */
+    private Boolean isCurrent;
+
+    /**
+     * 取代者车辆任务ID（仅被取代的历史行为非空）
+     */
+    private Long supersededBy;
 }

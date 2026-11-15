@@ -29,4 +29,7 @@ public class ExecutionFinalizeResult {
 
     /** 车辆任务最终状态 */
     private String vehicleTaskStatus;
+
+    /** 未接受原因（IOV-OTA-DSN-CR-025 §4.29.8）：如 LATE_FINAL_RESULT */
+    private String reason;
 }

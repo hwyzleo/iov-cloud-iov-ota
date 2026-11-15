@@ -36,4 +36,12 @@ public class VehicleRelationTaskQuery {
 
     /** VehicleTask 创建时间上界（含） */
     private Date endTime;
+
+    /**
+     * 仅返回当前车辆任务（IOV-OTA-DSN-CR-025 §4.29.7）。
+     *
+     * <p>true 时按 {@code superseded_by IS NULL} 过滤；false/null 返回全部历史
+     * （含被取代行），保持 US-122「覆盖全部历史」的默认语义。</p>
+     */
+    private Boolean onlyCurrent;
 }

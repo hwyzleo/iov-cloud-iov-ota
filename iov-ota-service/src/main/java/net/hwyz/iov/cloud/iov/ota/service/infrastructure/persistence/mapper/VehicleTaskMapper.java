@@ -22,8 +22,29 @@ import java.util.Map;
 @Mapper
 public interface VehicleTaskMapper extends BaseMapper<TaskVehiclePo> {
 
-    @Select("SELECT * FROM tb_task_vehicle WHERE task_id = #{taskId} AND vin = #{vin} AND row_valid = 1")
+    /**
+     * 当前车辆任务（IOV-OTA-DSN-CR-025 §4.29.7）：同一 (task_id, vin) 至多一条
+     * {@code superseded_by IS NULL} 的行；历史行恒为 SUPERSEDED 并指向取代者。
+     *
+     * <p>必须带排序与 LIMIT 1：重置会为同一 (task_id, vin) 追加新的当前行，
+     * 单结果映射不允许命中多行（否则抛 TooManyResultsException）。</p>
+     */
+    @Select("SELECT * FROM tb_task_vehicle WHERE task_id = #{taskId} AND vin = #{vin} "
+            + "AND row_valid = 1 AND superseded_by IS NULL ORDER BY id DESC LIMIT 1")
     TaskVehiclePo selectByTaskIdAndVin(@Param("taskId") Long taskId, @Param("vin") String vin);
+
+    /**
+     * 同一 (task_id, vin) 的全部车辆任务历史（含被取代行），按 ID 升序。
+     */
+    @Select("SELECT * FROM tb_task_vehicle WHERE task_id = #{taskId} AND vin = #{vin} "
+            + "AND row_valid = 1 ORDER BY id ASC")
+    List<TaskVehiclePo> selectHistoryByTaskIdAndVin(@Param("taskId") Long taskId, @Param("vin") String vin);
+
+    /**
+     * 按主键加行锁读取（重置事务内串行化同一车辆任务）。
+     */
+    @Select("SELECT * FROM tb_task_vehicle WHERE id = #{id} AND row_valid = 1 FOR UPDATE")
+    TaskVehiclePo selectByIdForUpdate(@Param("id") Long id);
 
     @Select("SELECT * FROM tb_task_vehicle WHERE vin = #{vin} AND row_valid = 1 AND vehicle_task_status IS NOT NULL")
     List<TaskVehiclePo> selectByVin(@Param("vin") String vin);

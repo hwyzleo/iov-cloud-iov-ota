@@ -10,6 +10,7 @@ import net.hwyz.iov.cloud.iov.ota.service.application.dto.VehicleTaskSnapshotSea
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.aggregate.Task;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.ActivityId;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.TaskId;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.VehicleTaskResetSeed;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.Vin;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.TaskVehicleMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.VehicleTaskSnapshotMapper;
@@ -29,6 +30,8 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -200,6 +203,81 @@ class TaskVehicleRepositoryImplTest {
 
         repository.batchCreate(task, Set.of(Vin.of("VIN001")), seal);
 
+        verify(vehicleTaskSnapshotDao, never()).insert(org.mockito.ArgumentMatchers.any(VehicleTaskSnapshotPo.class));
+    }
+
+    @Test
+    @DisplayName("CR-025 重置新建车辆任务：写入初始化口径与冻结摘要，并幂等写快照行")
+    void createResetTarget_initializesAndFreezesSnapshot() {
+        Instant release = Instant.parse("2026-11-15T02:00:00Z");
+        Instant start = Instant.parse("2026-11-15T03:00:00Z");
+        Instant end = Instant.parse("2026-11-16T03:00:00Z");
+        VehicleTaskResetSeed seed = new VehicleTaskResetSeed(
+                8L, 9001L, "VIN001", 77L,
+                VehicleTaskStatus.DOWNLOAD_PENDING, false, ConsentState.NOT_REQUIRED,
+                null, null, null,
+                release, start, end,
+                1L, "a1b2c3", "tester");
+
+        when(vehicleTaskSnapshotDao.selectByVehicleTaskIdAndRevision(77L, 1L))
+                .thenReturn(VehicleTaskSnapshotPo.builder().id(5L).vehicleTaskId(77L).taskRevision(1L)
+                        .snapshotDigest("a1b2c3").snapshotContent("{\"packages\":[]}").build());
+        when(vehicleTaskSnapshotDao.selectByVehicleTaskIdAndRevision(90L, 1L)).thenReturn(null);
+        when(taskVehicleDao.insertResetTarget(org.mockito.ArgumentMatchers.any(TaskVehiclePo.class)))
+                .thenAnswer(inv -> {
+                    TaskVehiclePo po = inv.getArgument(0);
+                    po.setId(90L);
+                    return 1;
+                });
+
+        Long newId = repository.createResetTarget(seed);
+
+        assertEquals(90L, newId);
+        ArgumentCaptor<TaskVehiclePo> po = ArgumentCaptor.forClass(TaskVehiclePo.class);
+        verify(taskVehicleDao).insertResetTarget(po.capture());
+        TaskVehiclePo target = po.getValue();
+        assertEquals(9001L, target.getTaskId());
+        assertEquals("VIN001", target.getVin());
+        assertEquals(VehicleTaskStatus.DOWNLOAD_PENDING.getValue(), target.getVehicleTaskStatus());
+        assertEquals(DownloadReadyState.NOT_STARTED.getValue(), target.getDownloadReadyState());
+        assertEquals(1L, target.getTaskRevision());
+        assertEquals("a1b2c3", target.getSnapshotDigest());
+        assertEquals(0, target.getLastAttemptNo());
+        assertEquals(0, target.getConsentRequired());
+        assertNull(target.getSupersededBy(), "新车辆任务不得带取代者");
+        assertEquals("tester", target.getCreateBy());
+        assertEquals(release, target.getReleaseAt().toInstant());
+        assertEquals(start, target.getVtStartTime().toInstant());
+        assertEquals(end, target.getVtEndTime().toInstant());
+        assertTrue(target.getDescription().contains("77"));
+
+        ArgumentCaptor<VehicleTaskSnapshotPo> snapshot = ArgumentCaptor.forClass(VehicleTaskSnapshotPo.class);
+        verify(vehicleTaskSnapshotDao).insert(snapshot.capture());
+        assertEquals(90L, snapshot.getValue().getVehicleTaskId());
+        assertEquals(1L, snapshot.getValue().getTaskRevision());
+        assertEquals("a1b2c3", snapshot.getValue().getSnapshotDigest());
+        assertEquals("{\"packages\":[]}", snapshot.getValue().getSnapshotContent(),
+                "快照内容继承原车辆任务（同一任务同一冻结摘要）");
+    }
+
+    @Test
+    @DisplayName("CR-025 重置新建车辆任务：父任务无冻结摘要时保持 NULL 且不写快照行")
+    void createResetTarget_withoutDigest_skipsSnapshot() {
+        VehicleTaskResetSeed seed = new VehicleTaskResetSeed(
+                8L, 9001L, "VIN001", 77L,
+                VehicleTaskStatus.DOWNLOAD_PENDING, false, ConsentState.NOT_REQUIRED,
+                null, null, null, Instant.now(), Instant.now(), Instant.now().plusSeconds(60),
+                1L, null, "tester");
+        when(taskVehicleDao.insertResetTarget(org.mockito.ArgumentMatchers.any(TaskVehiclePo.class)))
+                .thenAnswer(inv -> {
+                    TaskVehiclePo po = inv.getArgument(0);
+                    po.setId(91L);
+                    return 1;
+                });
+
+        Long newId = repository.createResetTarget(seed);
+
+        assertEquals(91L, newId);
         verify(vehicleTaskSnapshotDao, never()).insert(org.mockito.ArgumentMatchers.any(VehicleTaskSnapshotPo.class));
     }
 }

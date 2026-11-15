@@ -49,4 +49,7 @@ public class TaskVehicleProcessResult {
 
     /** VAGW 技术投递观测（独立技术维度，不计入业务成功） */
     private List<DeliveryObservationProcessView> deliveryObservationSummary;
+
+    /** 重置审计（IOV-OTA-DSN-CR-025 §4.29.7）：仅返回与该车辆任务直接相关的重置链 */
+    private List<VehicleTaskResetLogResult> resetLogs;
 }

@@ -22,6 +22,14 @@ public interface VehicleTaskRepository {
     Optional<VehicleTask> getById(VehicleTaskId id);
 
     /**
+     * 按车辆任务ID加行锁查询（IOV-OTA-DSN-CR-025 §4.29.5）。
+     *
+     * <p>重置事务内以 {@code SELECT ... FOR UPDATE} 串行化同一车辆任务的
+     * 并发/重复重置，保证同一 (task_id, vin) 只产生一条新车辆任务。</p>
+     */
+    Optional<VehicleTask> getByIdForUpdate(VehicleTaskId id);
+
+    /**
      * 按任务ID和VIN查询（UK(task_id, vin)）。
      */
     Optional<VehicleTask> getByTaskIdAndVin(TaskId taskId, String vin);

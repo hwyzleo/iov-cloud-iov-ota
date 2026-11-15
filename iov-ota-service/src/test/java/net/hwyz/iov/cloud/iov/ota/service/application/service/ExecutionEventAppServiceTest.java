@@ -122,4 +122,19 @@ class ExecutionEventAppServiceTest {
         assertEquals(3, result.getLatestControlRevision());
         assertEquals("CONTINUE", result.getLatestControlAction());
     }
+
+    @Test
+    @DisplayName("CR-025 终态执行拒绝迟到事件：不推进水位、不落事件（LATE_EVENT）")
+    void receiveEvent_terminalExecution_returnsLateEvent() {
+        execution.cancel();
+        when(executionRepository.getById(ExecutionId.of(1L))).thenReturn(Optional.of(execution));
+
+        ExecutionEventResult result = service.receiveEvent(ExecutionEventCmd.builder()
+                .executionId(1L).eventId("evt-late").sequenceNo(9L).build());
+
+        assertEquals("LATE_EVENT", result.getDisposition());
+        assertEquals(execution.getSequenceWatermark().getAcceptedSequenceNo(), result.getAcceptedSequenceNo());
+        verify(executionEventMapper, never()).insert(any());
+        verify(executionRepository, never()).save(any());
+    }
 }

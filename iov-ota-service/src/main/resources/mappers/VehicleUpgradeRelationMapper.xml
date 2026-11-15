@@ -27,6 +27,7 @@
         JOIN tb_activity a ON a.id = tv.activity_id AND a.row_valid = 1
         WHERE tv.vin = #{vin}
           AND tv.row_valid = 1
+          AND tv.superseded_by IS NULL
         GROUP BY tv.activity_id, a.name, a.state
         ORDER BY latest_task_time DESC, tv.activity_id DESC
     </select>
@@ -40,6 +41,8 @@
       - vin 可选：车辆详情子资源（/vehicle/{vin}/tasks）走路径变量必带；管理端
         /taskVehicle/v1/list 是全局车辆任务列表，不传 vin 时必须返回全部（CR-023 前
         TaskVehicleMapper.selectPoByMap 即为可选过滤，改动不得收窄该语义）。
+      - CR-025 §4.29.7：保留被取代的历史行（可追溯），并返回 superseded_by / is_current；
+        重置改变当前性但不删除历史事实。
     -->
     <resultMap id="taskRelationResultMap"
                type="net.hwyz.iov.cloud.iov.ota.service.application.dto.result.VehicleTaskRelationResult">
@@ -58,6 +61,8 @@
         <result column="start_time" property="startTime" />
         <result column="end_time" property="endTime" />
         <result column="create_time" property="createTime" />
+        <result column="superseded_by" property="supersededBy" />
+        <result column="is_current" property="isCurrent" />
     </resultMap>
 
     <select id="selectTaskRelations"
@@ -77,6 +82,8 @@
                tv.vt_start_time             AS start_time,
                tv.vt_end_time               AS end_time,
                tv.vin                       AS vin,
+               tv.superseded_by            AS superseded_by,
+               CASE WHEN tv.superseded_by IS NULL THEN 1 ELSE 0 END AS is_current,
                tv.create_time               AS create_time
         FROM tb_task_vehicle tv
         JOIN tb_task t ON t.id = tv.task_id AND t.row_valid = 1
@@ -99,6 +106,9 @@
         </if>
         <if test="endTime != null">
             AND tv.create_time &lt;= #{endTime}
+        </if>
+        <if test="onlyCurrent != null and onlyCurrent">
+            AND tv.superseded_by IS NULL
         </if>
         ORDER BY tv.create_time DESC, tv.id DESC
     </select>

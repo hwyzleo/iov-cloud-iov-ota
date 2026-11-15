@@ -53,6 +53,18 @@ public class ExecutionEventAppService {
         Execution execution = executionRepository.getById(ExecutionId.of(cmd.getExecutionId()))
                 .orElseThrow(() -> new ExecutionStateException("执行[" + cmd.getExecutionId() + "]不存在"));
 
+        // IOV-OTA-DSN-CR-025 §4.29.8：车辆任务重置后旧执行已 CANCELED（终态），
+        // 其迟到事件一律拒绝，不得推进水位、不得污染重置后的车辆任务
+        if (execution.isTerminal()) {
+            log.warn("执行[{}]已为终态[{}]，拒绝迟到事件[{}]（seq={}）",
+                    cmd.getExecutionId(), execution.getStatus(), cmd.getEventId(), cmd.getSequenceNo());
+            return ExecutionEventResult.builder()
+                    .disposition("LATE_EVENT")
+                    .acceptedSequenceNo(execution.getSequenceWatermark().getAcceptedSequenceNo())
+                    .missingSequenceRanges(List.of())
+                    .build();
+        }
+
         // 幂等：eventId 已存在时返回原处置
         ExecutionEventPo existing = executionEventMapper.selectByEventId(cmd.getEventId());
         if (existing != null) {

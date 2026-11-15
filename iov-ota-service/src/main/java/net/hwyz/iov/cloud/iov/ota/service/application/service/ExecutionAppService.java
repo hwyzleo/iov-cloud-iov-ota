@@ -165,6 +165,18 @@ public class ExecutionAppService {
         Execution execution = executionRepository.getById(ExecutionId.of(cmd.getExecutionId()))
                 .orElseThrow(() -> new ExecutionStateException("执行[" + cmd.getExecutionId() + "]不存在"));
 
+        // IOV-OTA-DSN-CR-025 §4.29.8：车辆任务被重置后，旧执行已 CANCELED（终态），
+        // 其迟到最终结果一律拒绝，不得二次收口、不得推进新车辆任务
+        if (execution.isTerminal()) {
+            log.warn("执行[{}]已为终态[{}]，拒绝迟到最终结果（车辆任务重置后的迟到数据）",
+                    cmd.getExecutionId(), execution.getStatus());
+            return ExecutionFinalizeResult.builder()
+                    .resultAccepted(false)
+                    .executionStatus(execution.getStatus().getValue())
+                    .reason("LATE_FINAL_RESULT")
+                    .build();
+        }
+
         // 设置最终序号
         if (cmd.getFinalSequenceNo() != null) {
             execution.defineFinalSequenceNo(cmd.getFinalSequenceNo());
@@ -241,8 +253,17 @@ public class ExecutionAppService {
 
     /**
      * 根据 Execution 最终状态推进 VehicleTask。
+     *
+     * <p>IOV-OTA-DSN-CR-025 §4.29.8：车辆任务已被重置/取代或已取消时不得推进其状态，
+     * 否则会抛 {@code VehicleTaskStateException} 并阻断迟到结果处理；此处按“仅记录、不推进”处理。</p>
      */
     private void applyFinalResultToVehicleTask(VehicleTask vehicleTask, ExecutionStatus finalStatus) {
+        if (vehicleTask.getStatus() == VehicleTaskStatus.SUPERSEDED
+                || vehicleTask.getStatus() == VehicleTaskStatus.CANCELED) {
+            log.warn("车辆任务[{}]状态为[{}]，跳过最终结果状态推进（重置后被取代/取消）",
+                    vehicleTask.getId().getValue(), vehicleTask.getStatus());
+            return;
+        }
         switch (finalStatus) {
             case SUCCEEDED -> vehicleTask.onExecutionSucceeded();
             case FAILED -> vehicleTask.onExecutionFailed();

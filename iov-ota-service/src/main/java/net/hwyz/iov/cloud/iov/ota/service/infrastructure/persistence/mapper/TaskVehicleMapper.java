@@ -54,18 +54,29 @@ public interface TaskVehicleMapper extends BaseDao<TaskVehiclePo, Long> {
     void deleteByTaskId(Long taskId);
 
     /**
-     * 统计任务下指定车辆任务状态的车辆数（CR-015 指标聚合）
+     * 待重置时插入一条初始化状态的车辆任务（IOV-OTA-DSN-CR-025 §4.29.5）。
+     *
+     * <p>沿用发布期的行初始化口径（含冻结包清单摘要），主键由 AUTO_INCREMENT 生成。</p>
+     */
+    int insertResetTarget(TaskVehiclePo po);
+
+    /**
+     * 统计任务下指定车辆任务状态的车辆数（CR-015 指标聚合）。
+     *
+     * <p>CR-025 §4.29.7：口径限定为当前车辆任务（{@code superseded_by IS NULL}），
+     * 被取代的历史行不得重复计入分母与终态计数。</p>
      */
     int countByTaskIdAndVehicleTaskStatus(@org.apache.ibatis.annotations.Param("taskId") Long taskId,
                                           @org.apache.ibatis.annotations.Param("status") String status);
 
     /**
-     * 统计任务下车辆任务总数（CR-015 指标聚合）
+     * 统计任务下车辆任务总数（CR-015 指标聚合，口径为当前车辆任务）。
      */
     int countAllByTaskId(@org.apache.ibatis.annotations.Param("taskId") Long taskId);
 
     /**
-     * 统计任务下超时执行数（CR-015，关联 tb_task_vehicle_execution）
+     * 统计任务下超时执行数（CR-015，关联 tb_task_vehicle_execution；
+     * CR-025 口径限定为当前车辆任务）。
      */
     int countTimeoutExecutionByTaskId(@org.apache.ibatis.annotations.Param("taskId") Long taskId);
 

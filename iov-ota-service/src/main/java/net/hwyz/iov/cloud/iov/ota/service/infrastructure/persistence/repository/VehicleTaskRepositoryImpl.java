@@ -35,6 +35,12 @@ public class VehicleTaskRepositoryImpl implements VehicleTaskRepository {
     }
 
     @Override
+    public Optional<VehicleTask> getByIdForUpdate(VehicleTaskId id) {
+        TaskVehiclePo po = vehicleTaskMapper.selectByIdForUpdate(id.getValue());
+        return Optional.ofNullable(converter.toDomain(po));
+    }
+
+    @Override
     public Optional<VehicleTask> getByTaskIdAndVin(TaskId taskId, String vin) {
         TaskVehiclePo po = vehicleTaskMapper.selectByTaskIdAndVin(taskId.getValue(), vin);
         return Optional.ofNullable(converter.toDomain(po));

@@ -45,6 +45,7 @@ public class TaskVehicleProcessQueryService {
     private final UpgradeLogMapper upgradeLogMapper;
     private final TaskVehicleRetryLogMapper taskVehicleRetryLogMapper;
     private final GatewayDeliveryObservationMapper gatewayDeliveryObservationMapper;
+    private final TaskVehicleResetLogMapper taskVehicleResetLogMapper;
     private final TaskAppService taskAppService;
     private final ActivityAppService activityAppService;
 
@@ -90,6 +91,7 @@ public class TaskVehicleProcessQueryService {
                 .ecuResultSummary(buildEcuResults(execDbIds))
                 .logSummary(buildLogSummary(taskId, vin))
                 .deliveryObservationSummary(buildDeliveryObservations(vin))
+                .resetLogs(buildResetLogs(taskVehicleId))
                 .build();
     }
 
@@ -224,7 +226,9 @@ public class TaskVehicleProcessQueryService {
                 .activeExecutionId(vt.getActiveExecutionId())
                 .downloadRetryCount(vt.getDownloadRetryCount())
                 .installRetryCount(vt.getInstallRetryCount())
-                .lastFailReason(vt.getLastFailReason());
+                .lastFailReason(vt.getLastFailReason())
+                .supersededBy(vt.getSupersededBy())
+                .isCurrent(vt.getSupersededBy() == null);
         try {
             TaskResult task = taskAppService.getTaskById(vt.getTaskId());
             if (task != null) {
@@ -484,6 +488,36 @@ public class TaskVehicleProcessQueryService {
                         .retryable(d.getRetryable())
                         .retryAfterMs(d.getRetryAfterMs())
                         .occurredAtMs(d.getOccurredAtMs())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 重置审计链（IOV-OTA-DSN-CR-025 §4.29.7）：返回与该车辆任务直接相关的重置追加记录。
+     */
+    private List<VehicleTaskResetLogResult> buildResetLogs(Long taskVehicleId) {
+        return taskVehicleResetLogMapper.selectList(
+                        new QueryWrapper<TaskVehicleResetLogPo>()
+                                .and(w -> w.eq("old_vehicle_task_id", taskVehicleId)
+                                        .or().eq("new_vehicle_task_id", taskVehicleId))
+                                .eq("row_valid", 1)
+                                .orderByAsc("id"))
+                .stream()
+                .map(l -> VehicleTaskResetLogResult.builder()
+                        .id(l.getId())
+                        .oldVehicleTaskId(l.getOldVehicleTaskId())
+                        .newVehicleTaskId(l.getNewVehicleTaskId())
+                        .oldStatus(l.getOldStatus())
+                        .oldDownloadReady(l.getOldDownloadReady())
+                        .oldConsentState(l.getOldConsentState())
+                        .oldAttemptNo(l.getOldAttemptNo())
+                        .oldExecutionId(l.getOldExecutionId())
+                        .oldExecutionStatus(l.getOldExecutionStatus())
+                        .force(l.getForceFlag() != null && l.getForceFlag() == 1)
+                        .reason(l.getReason())
+                        .result(l.getResult())
+                        .operator(l.getCreateBy())
+                        .createdAt(l.getCreateTime() != null ? l.getCreateTime().toInstant() : null)
                         .build())
                 .collect(Collectors.toList());
     }

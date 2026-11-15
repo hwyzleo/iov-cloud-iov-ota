@@ -162,12 +162,15 @@
         AND t.row_valid = 1
     </select>
 
-    <!-- 根据任务ID和车架号查询升级任务车辆 -->
+    <!-- 根据任务ID和车架号查询升级任务车辆（当前车辆任务：superseded_by IS NULL，IOV-OTA-DSN-CR-025 §4.29.7） -->
     <select id="selectByTaskIdAndVin" parameterType="object" resultMap="baseResultMap">
         SELECT <include refid="baseColumnList"/>
         FROM tb_task_vehicle t
         WHERE t.task_id = #{taskId}
         AND t.vin = #{vin}
+        AND t.row_valid = 1
+        AND t.superseded_by IS NULL
+        ORDER BY t.id DESC
         LIMIT 1
     </select>
 
@@ -253,29 +256,51 @@
         WHERE task_id = #{taskId}
     </delete>
 
-    <!-- 按任务ID+车辆任务状态统计（CR-015 指标聚合） -->
+    <!-- 按任务ID+车辆任务状态统计（CR-015 指标聚合；CR-025 §4.29.7 口径限定为当前车辆任务） -->
     <select id="countByTaskIdAndVehicleTaskStatus" resultType="int">
         SELECT COUNT(*)
         FROM tb_task_vehicle t
         WHERE t.task_id = #{taskId}
         AND t.vehicle_task_status = #{status}
         AND t.row_valid = 1
+        AND t.superseded_by IS NULL
     </select>
 
-    <!-- 按任务ID统计车辆任务总数（CR-015 指标聚合） -->
+    <!-- 按任务ID统计车辆任务总数（CR-015 指标聚合；CR-025 §4.29.7 口径限定为当前车辆任务） -->
     <select id="countAllByTaskId" resultType="int">
         SELECT COUNT(*)
         FROM tb_task_vehicle t
         WHERE t.task_id = #{taskId}
         AND t.row_valid = 1
+        AND t.superseded_by IS NULL
     </select>
 
-    <!-- 按任务ID统计超时执行数（CR-015：关联 tb_task_vehicle_execution，GatewayDeliveryStatus 不计入） -->
+    <!-- 按任务ID统计超时执行数（CR-015：关联 tb_task_vehicle_execution，GatewayDeliveryStatus 不计入；
+         CR-025 §4.29.7 口径限定为当前车辆任务） -->
     <select id="countTimeoutExecutionByTaskId" resultType="int">
         SELECT COUNT(*)
         FROM tb_task_vehicle_execution e
         JOIN tb_task_vehicle v ON v.id = e.vehicle_task_id
         WHERE v.task_id = #{taskId}
+        AND v.superseded_by IS NULL
         AND e.status = 'TIMED_OUT'
     </select>
+
+    <!-- 重置：插入一条初始化状态的车辆任务（IOV-OTA-DSN-CR-025 §4.29.5；主键 AUTO_INCREMENT） -->
+    <insert id="insertResetTarget" useGeneratedKeys="true" keyProperty="id"
+            parameterType="net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.TaskVehiclePo">
+        INSERT INTO tb_task_vehicle (
+            activity_id, task_id, vin,
+            vehicle_task_status, task_revision, snapshot_digest, download_ready_state,
+            consent_required, consent_state, consent_article_id, consent_article_version, consent_article_hash,
+            release_at, vt_start_time, vt_end_time, last_attempt_no,
+            description, create_time, create_by, modify_time, modify_by, row_version, row_valid
+        ) VALUES (
+            #{activityId}, #{taskId}, #{vin},
+            #{vehicleTaskStatus}, #{taskRevision}, #{snapshotDigest}, #{downloadReadyState},
+            #{consentRequired}, #{consentState}, #{consentArticleId}, #{consentArticleVersion}, #{consentArticleHash},
+            #{releaseAt}, #{vtStartTime}, #{vtEndTime}, #{lastAttemptNo},
+            #{description}, now(3), #{createBy}, now(3), #{modifyBy}, 1, 1
+        )
+    </insert>
 </mapper>

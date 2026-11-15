@@ -27,6 +27,12 @@ public class InMemoryVehicleTaskRepository implements VehicleTaskRepository {
     }
 
     @Override
+    public Optional<VehicleTask> getByIdForUpdate(VehicleTaskId id) {
+        // 内存仓储无行锁语义；与 getById 同义（测试仅校验业务编排）
+        return getById(id);
+    }
+
+    @Override
     public Optional<VehicleTask> getByTaskIdAndVin(TaskId taskId, String vin) {
         return store.values().stream()
                 .filter(vt -> vt.getTaskId().equals(taskId.getValue()) && vin.equals(vt.getVin()))

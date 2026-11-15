@@ -200,6 +200,55 @@ class VehicleTaskTest {
                 () -> vehicleTask.upgradeRevision(TaskRevision.of(1L), SnapshotDigest.of("x"), now));
     }
 
+    @Test
+    @DisplayName("supersede 对 SUCCEEDED / SUPERSEDED 抛异常，对 CANCELED / PAUSED 允许（CR-025）")
+    void supersede_matrix() {
+        VehicleTask succeeded = vehicleTask(VehicleTaskStatus.SUCCEEDED);
+        assertThrows(VehicleTaskStateException.class, () -> succeeded.supersede(VehicleTaskId.of(3L)));
+
+        VehicleTask canceled = vehicleTask(VehicleTaskStatus.CANCELED);
+        canceled.supersede(VehicleTaskId.of(3L));
+        assertEquals(VehicleTaskStatus.SUPERSEDED, canceled.getStatus());
+
+        VehicleTask superseded = vehicleTask(VehicleTaskStatus.SUPERSEDED);
+        assertThrows(VehicleTaskStateException.class, () -> superseded.supersede(VehicleTaskId.of(3L)));
+    }
+
+    @Test
+    @DisplayName("prepareResetDisposition 写入处置意图，成功后 supersede 指向新任务（CR-025）")
+    void prepareResetDisposition_thenSupersede() {
+        VehicleTask executing = vehicleTask(VehicleTaskStatus.EXECUTING);
+        executing.prepareResetDisposition("ABANDON", "KEEP");
+        assertEquals("ABANDON", executing.getLocalDisposition());
+        assertEquals("KEEP", executing.getPackageCacheAction());
+
+        executing.supersede(VehicleTaskId.of(88L));
+        assertEquals(VehicleTaskStatus.SUPERSEDED, executing.getStatus());
+        assertEquals(88L, executing.getSupersededBy().getValue());
+    }
+
+    @Test
+    @DisplayName("prepareResetDisposition 拒绝 SUCCEEDED 与已取代车辆任务")
+    void prepareResetDisposition_rejectsSucceededAndSuperseded() {
+        VehicleTask succeeded = vehicleTask(VehicleTaskStatus.SUCCEEDED);
+        assertThrows(VehicleTaskStateException.class,
+                () -> succeeded.prepareResetDisposition("ABANDON", "KEEP"));
+
+        VehicleTask superseded = vehicleTask(VehicleTaskStatus.DOWNLOAD_PENDING);
+        superseded.supersede(VehicleTaskId.of(9L));
+        assertThrows(VehicleTaskStateException.class,
+                () -> superseded.prepareResetDisposition("ABANDON", "KEEP"));
+    }
+
+    private VehicleTask vehicleTask(VehicleTaskStatus status) {
+        return VehicleTask.reconstitute(
+                VehicleTaskId.of(10L), 100L, "VIN001",
+                TaskRevision.initial(), SnapshotDigest.of("abc123"),
+                status, DownloadReadyState.NOT_STARTED, ConsentState.NOT_REQUIRED,
+                releaseAt, startTime, endTime, null, null, null, null, 0, null,
+                false, null, null, null, null, null, null, 0L);
+    }
+
     private void prepareReadyToInstall() {
         vehicleTask.markVisible(now);
         vehicleTask.enterConsentPending();

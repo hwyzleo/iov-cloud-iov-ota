@@ -10,6 +10,7 @@ import net.hwyz.iov.cloud.iov.ota.service.application.dto.VehicleTaskSnapshotSea
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.aggregate.Task;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskVehicleDo;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.TaskRevision;
+import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.VehicleTaskResetSeed;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.valueobject.Vin;
 import net.hwyz.iov.cloud.iov.ota.service.domain.repository.TaskVehicleRepository;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.converter.TaskVehiclePoAssembler;
@@ -147,20 +148,76 @@ public class TaskVehicleRepositoryImpl extends AbstractRepository<Long, TaskVehi
         }
         Long revision = TaskRevision.initial().getValue();
         for (Long vehicleTaskId : vehicleTaskIds.values()) {
-            VehicleTaskSnapshotPo existing =
-                    vehicleTaskSnapshotDao.selectByVehicleTaskIdAndRevision(vehicleTaskId, revision);
-            if (existing != null) {
-                continue;
-            }
-            vehicleTaskSnapshotDao.insert(VehicleTaskSnapshotPo.builder()
-                    .vehicleTaskId(vehicleTaskId)
-                    .taskRevision(revision)
-                    .snapshotDigest(seal.getSnapshotDigest())
-                    .snapshotContent(seal.getSnapshotContent() == null ? "{}" : seal.getSnapshotContent())
-                    .build());
+            writeSnapshotRow(vehicleTaskId, revision, seal.getSnapshotDigest(),
+                    seal.getSnapshotContent() == null ? "{}" : seal.getSnapshotContent());
         }
         log.info("任务[{}]冻结包清单快照[{}]条（摘要[{}]，规范化版本[{}]）",
                 taskId, vehicleTaskIds.size(), seal.getSnapshotDigest(), seal.getCanonicalizationVersion());
+    }
+
+    /**
+     * 幂等写入单条包清单冻结快照（按 vehicleTaskId + taskRevision）。
+     */
+    private void writeSnapshotRow(Long vehicleTaskId, Long revision, String digest, String content) {
+        if (vehicleTaskId == null || revision == null || digest == null) {
+            return;
+        }
+        VehicleTaskSnapshotPo existing =
+                vehicleTaskSnapshotDao.selectByVehicleTaskIdAndRevision(vehicleTaskId, revision);
+        if (existing != null) {
+            return;
+        }
+        vehicleTaskSnapshotDao.insert(VehicleTaskSnapshotPo.builder()
+                .vehicleTaskId(vehicleTaskId)
+                .taskRevision(revision)
+                .snapshotDigest(digest)
+                .snapshotContent(content == null ? "{}" : content)
+                .build());
+    }
+
+    @Override
+    public Long createResetTarget(VehicleTaskResetSeed seed) {
+        if (seed == null || seed.taskId() == null || seed.vin() == null) {
+            return null;
+        }
+        Long revision = seed.taskRevision() != null
+                ? seed.taskRevision() : TaskRevision.initial().getValue();
+        TaskVehiclePo po = TaskVehiclePo.builder()
+                .activityId(seed.activityId())
+                .taskId(seed.taskId())
+                .vin(seed.vin())
+                .vehicleTaskStatus(seed.status() != null ? seed.status().getValue() : null)
+                .taskRevision(revision)
+                .snapshotDigest(seed.snapshotDigest())
+                .downloadReadyState(DownloadReadyState.NOT_STARTED.getValue())
+                .consentRequired(seed.consentRequired() ? 1 : 0)
+                .consentState(seed.consentState() != null ? seed.consentState().getValue() : null)
+                .consentArticleId(seed.consentArticleId())
+                .consentArticleVersion(seed.consentArticleVersion())
+                .consentArticleHash(seed.consentArticleHash())
+                .releaseAt(toDate(seed.releaseAt()))
+                .vtStartTime(toDate(seed.startTime()))
+                .vtEndTime(toDate(seed.endTime()))
+                .lastAttemptNo(0)
+                .description("重置新建（原车辆任务[" + seed.sourceVehicleTaskId() + "]）")
+                .createBy(seed.operator())
+                .modifyBy(seed.operator())
+                .build();
+        taskVehicleDao.insertResetTarget(po);
+        Long newVehicleTaskId = po.getId();
+        // 复用父任务冻结摘要：快照内容继承旧行（存在时），否则空 JSON 占位；不回写摘要本身
+        String snapshotContent = "{}";
+        if (seed.sourceVehicleTaskId() != null && seed.snapshotDigest() != null) {
+            VehicleTaskSnapshotPo source =
+                    vehicleTaskSnapshotDao.selectByVehicleTaskIdAndRevision(seed.sourceVehicleTaskId(), revision);
+            if (source != null && source.getSnapshotContent() != null) {
+                snapshotContent = source.getSnapshotContent();
+            }
+        }
+        writeSnapshotRow(newVehicleTaskId, revision, seed.snapshotDigest(), snapshotContent);
+        log.info("车辆任务重置：为任务[{}]车辆[{}]新建车辆任务[{}]（原车辆任务[{}]，摘要[{}]）",
+                seed.taskId(), seed.vin(), newVehicleTaskId, seed.sourceVehicleTaskId(), seed.snapshotDigest());
+        return newVehicleTaskId;
     }
 
     /**

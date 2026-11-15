@@ -59,6 +59,21 @@ public class TaskVehicleMpt extends BaseRequest {
     private String resultCode;
 
     /**
+     * 是否当前车辆任务（IOV-OTA-DSN-CR-025 §4.29.6）：同一 (task_id, vin) 至多一条当前行
+     */
+    private Boolean isCurrent;
+
+    /**
+     * 取代者车辆任务ID（仅被取代的历史行为非空）
+     */
+    private Long supersededBy;
+
+    /**
+     * 该车该任务被重置次数（来自重置审计聚合）
+     */
+    private Integer resetCount;
+
+    /**
      * 创建时间
      */
     private Date createTime;
