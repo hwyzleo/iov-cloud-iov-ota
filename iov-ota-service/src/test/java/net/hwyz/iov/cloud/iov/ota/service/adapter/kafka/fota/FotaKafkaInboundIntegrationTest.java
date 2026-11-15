@@ -82,7 +82,8 @@ class FotaKafkaInboundIntegrationTest {
         FotaPayloadRouter router = new FotaPayloadRouter(guard, handlers);
         router.init();
 
-        inboundHandler = new FotaKafkaInboundHandler(validator, router, inboxRepository, metrics);
+        inboundHandler = new FotaKafkaInboundHandler(validator, router, inboxRepository, metrics,
+                new FakeTransactionManager());
     }
 
     @Test

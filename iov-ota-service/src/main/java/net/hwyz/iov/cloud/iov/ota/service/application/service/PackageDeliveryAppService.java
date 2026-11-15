@@ -105,10 +105,17 @@ public class PackageDeliveryAppService {
         log.info("车辆[{}]提交包阶段结果，车辆任务[{}]，包[{}]，阶段[{}]",
                 cmd.getVin(), cmd.getVehicleTaskId(), cmd.getPackageId(), cmd.getStage());
 
-        // 幂等：stageResultId 已存在则跳过
-        PackageStageResultPo existing = packageStageResultMapper.selectByStageResultId(cmd.getStageResultId());
+        // 幂等：同一车辆任务内 stage_result_id 已存在则跳过。
+        // 幂等键必须带 vehicle_task_id：车端 stage_result_id 由包身份+结果确定性派生，
+        // 车辆任务重置（CR-025）后新一轮复用同一 ID；只按全局 ID 判重会把新车辆任务的
+        // 阶段结果整体丢弃，导致任务永远停在 DOWNLOAD_PENDING（实车 2026-11-15）。
+        PackageStageResultPo existing = cmd.getVehicleTaskId() == null
+                ? packageStageResultMapper.selectByStageResultId(cmd.getStageResultId())
+                : packageStageResultMapper.selectByVehicleTaskIdAndStageResultId(
+                        cmd.getVehicleTaskId(), cmd.getStageResultId());
         if (existing != null) {
-            log.info("包阶段结果[{}]已存在，幂等跳过", cmd.getStageResultId());
+            log.info("包阶段结果[{}]车辆任务[{}]已存在，幂等跳过",
+                    cmd.getStageResultId(), cmd.getVehicleTaskId());
             return;
         }
 
@@ -128,24 +135,24 @@ public class PackageDeliveryAppService {
         packageStageResultMapper.insert(po);
 
         // 全部必需包校验成功后 VehicleTask 进入 READY_TO_INSTALL。
-        // 关键：必须与**必需包集合**比对，不能只看已上报结果——否则第 1 个包
-        // DECRYPT SUCCESS 就会把任务提前置为 READY_TO_INSTALL，后续包的
-        // 下载授权会因状态校验异常而不回执（实车 2026-11-12）。
-        if ("SUCCESS".equals(cmd.getResultStatus()) && "DECRYPT".equals(cmd.getStage())) {
+        // 关键一：必须与**必需包集合**比对，不能只看已上报结果——否则第 1 个包
+        // 校验成功就会把任务提前置为 READY_TO_INSTALL，后续包的下载授权会因状态校验异常
+        // 而不回执（实车 2026-11-12）。
+        // 关键二：不以固定阶段（DECRYPT）作为触发条件。云端下载授权并未下发
+        // encryption_algorithm / signature 材料，未加密包的车端根本不会产生 DECRYPT 阶段；
+        // 只有加密包才上报 decryption_succeeded。因此触发看「本包上报的最高阶段成功」，
+        // 由 {@link #completedPackages} 逐包判定（加密包最高阶段即 DECRYPT）。
+        if ("SUCCESS".equals(cmd.getResultStatus())) {
             VehicleTask vt = vehicleTaskRepository
                     .getById(VehicleTaskId.of(cmd.getVehicleTaskId())).orElse(null);
             if (vt != null && vt.getDownloadReadyState() != DownloadReadyState.VERIFIED) {
                 java.util.Set<String> required =
                         vehicleTaskPackageService.requiredPackageIds(vt);
-                java.util.Set<String> decryptSucceeded =
-                        packageStageResultMapper.selectByVehicleTaskId(cmd.getVehicleTaskId()).stream()
-                                .filter(r -> "DECRYPT".equals(r.getStage()))
-                                .filter(r -> "SUCCESS".equals(r.getResultStatus()))
-                                .map(PackageStageResultPo::getPackageId)
-                                .collect(java.util.stream.Collectors.toSet());
+                java.util.Set<String> completed = completedPackages(
+                        packageStageResultMapper.selectByVehicleTaskId(cmd.getVehicleTaskId()));
                 if (required.isEmpty()) {
                     log.warn("车辆任务[{}]必需包集合为空，不做下载就绪判定", cmd.getVehicleTaskId());
-                } else if (decryptSucceeded.containsAll(required)) {
+                } else if (completed.containsAll(required)) {
                     log.info("车辆任务[{}]全部必需包({})校验成功，进入下载就绪",
                             cmd.getVehicleTaskId(), required.size());
                     vt.markDownloadReady();
@@ -153,11 +160,53 @@ public class PackageDeliveryAppService {
                 } else {
                     log.info("车辆任务[{}]下载未完成：已完成{}/{}，待完成{}",
                             cmd.getVehicleTaskId(),
-                            required.stream().filter(decryptSucceeded::contains).count(),
+                            required.stream().filter(completed::contains).count(),
                             required.size(),
-                            required.stream().filter(id -> !decryptSucceeded.contains(id)).toList());
+                            required.stream().filter(id -> !completed.contains(id)).toList());
                 }
             }
         }
+    }
+
+    /**
+     * 已完成下载的包集合：以每个包**已上报的最高阶段**为准（DECRYPT &gt; VERIFY &gt; DOWNLOAD）。
+     *
+     * <p>最高阶段成功才算完成：加密包必须 DECRYPT SUCCESS，仅验签成功的包不能被
+     * 「更低阶段的 SUCCESS 行」误导。同一最高阶段既有失败又有成功（重试后成功）时
+     * 视为完成；最高阶段全部失败则不算完成。未上报任何结果的包自然不在集合内。</p>
+     */
+    private static java.util.Set<String> completedPackages(List<PackageStageResultPo> results) {
+        java.util.Map<String, Integer> topRank = new java.util.HashMap<>();
+        java.util.Set<String> completed = new java.util.HashSet<>();
+        for (PackageStageResultPo r : results) {
+            String packageId = r.getPackageId();
+            if (packageId == null) {
+                continue;
+            }
+            int rank = stageRank(r.getStage());
+            int current = topRank.getOrDefault(packageId, -1);
+            if (rank > current) {
+                topRank.put(packageId, rank);
+                completed.remove(packageId);
+            }
+            if (rank == topRank.get(packageId) && "SUCCESS".equals(r.getResultStatus())) {
+                completed.add(packageId);
+            }
+        }
+        return completed;
+    }
+
+    /** 阶段高低：越靠后越接近终态。未知阶段按最低处理。 */
+    private static int stageRank(String stage) {
+        if ("DECRYPT".equals(stage)) {
+            return 3;
+        }
+        if ("VERIFY".equals(stage)) {
+            return 2;
+        }
+        if ("DOWNLOAD".equals(stage)) {
+            return 1;
+        }
+        return 0;
     }
 }

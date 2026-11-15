@@ -66,10 +66,18 @@ public class ExecutionAppService {
     /**
      * 申请安装许可，创建 Execution（CR-012 §5.5）。
      *
+     * <p><b>noRollbackFor 的原因</b>：前置守卫不满足属于确定性业务拒绝，调用方
+     * （{@code InstallPermitCommandHandler}）会捕获 {@link ExecutionStateException} 并回
+     * {@code allowed=false + deny_reason} 的 RESPONSE。若此处按默认规则回滚，加入同一物理事务的
+     * 上层（Kafka 入站流水线）会被标记 rollback-only，catch 之后提交阶段抛
+     * {@code UnexpectedRollbackException}，拒绝响应连同 Outbox 一起回滚，车端永远收不到答复、
+     * offset 反复重投直至隔离（实车 2026-11-15 任务 4 {@code DOWNLOAD_PENDING} 场景）。
+     *
      * @param cmd 创建命令
      * @return 创建结果（含许可令牌）
+     * @throws ExecutionStateException 前置守卫不满足（业务拒绝，不回滚外层事务）
      */
-    @Transactional
+    @Transactional(noRollbackFor = ExecutionStateException.class)
     public ExecutionCreateResult requestInstall(ExecutionCreateCmd cmd) {
         log.info("车辆[{}]申请安装许可，车辆任务[{}]", cmd.getVin(), cmd.getVehicleTaskId());
 
