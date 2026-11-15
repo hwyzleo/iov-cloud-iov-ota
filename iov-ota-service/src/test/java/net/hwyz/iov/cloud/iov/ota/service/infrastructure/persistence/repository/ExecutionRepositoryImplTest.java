@@ -87,9 +87,23 @@ class ExecutionRepositoryImplTest {
     }
 
     @Test
-    @DisplayName("更新影响 0 行时抛出可恢复异常，不静默吞掉事件")
-    void save_zeroRowsAffected_throws() {
+    @DisplayName("更新 0 行但行仍存在：视为幂等 no-op，不抛异常，水位照常单调推进")
+    void save_zeroRowsAffectedButRowExists_isNoOp() {
+        // 实车 2026-11-15：幂等重放时整行内容与库中一致，MySQL affected-rows 返回 0，
+        // 旧实现误判为「行不存在」→ 可恢复重投耗尽 → 隔离/DLQ → 全链路无下行。
         when(otaExecutionMapper.updateById(any())).thenReturn(0);
+        when(otaExecutionMapper.selectById(1001L)).thenReturn(new OtaExecutionPo());
+
+        repository.save(execution);
+
+        verify(otaExecutionMapper).updateAcceptedSequenceNoMonotonic(1001L, 2L);
+    }
+
+    @Test
+    @DisplayName("更新 0 行且行已消失：抛出可恢复异常，不静默吞掉事件")
+    void save_zeroRowsAndRowMissing_throws() {
+        when(otaExecutionMapper.updateById(any())).thenReturn(0);
+        when(otaExecutionMapper.selectById(1001L)).thenReturn(new OtaExecutionPo(), null);
 
         IllegalStateException thrown = assertThrows(IllegalStateException.class,
                 () -> repository.save(execution));

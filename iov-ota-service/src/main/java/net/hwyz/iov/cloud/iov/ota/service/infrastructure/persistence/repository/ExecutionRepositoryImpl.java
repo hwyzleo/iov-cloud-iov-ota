@@ -67,9 +67,15 @@ public class ExecutionRepositoryImpl implements ExecutionRepository {
         OtaExecutionPo po = converter.toPo(execution);
         if (po.getId() != null && otaExecutionMapper.selectById(po.getId()) != null) {
             int updated = otaExecutionMapper.updateById(po);
-            if (updated == 0) {
+            if (updated == 0 && otaExecutionMapper.selectById(po.getId()) == null) {
                 // 行被删/不可见时不得静默吞掉：向上抛可恢复异常，由消费侧重投而不是丢事件
                 throw new IllegalStateException("执行[" + po.getId() + "]更新失败：目标行不存在");
+            }
+            // updated == 0 且行仍存在 = 整行内容与库中完全一致（MySQL affected-rows 语义），
+            // 属幂等重放的正常 no-op，不得当作异常（实车 2026-11-15：幂等重放被误判为
+            // 「行不存在」→ 可恢复重投 3 次耗尽 → 隔离/DLQ → 全链路无下行）。
+            if (updated == 0) {
+                log.debug("执行[{}]状态未变化，跳过无效整行更新", po.getId());
             }
             // 水位单调保护：整行写回可能携带旧快照的 acceptedSequenceNo，
             // 这里用 GREATEST 强制只增不减（实车 2026-11-15：水位从 2 回退到 1）。
