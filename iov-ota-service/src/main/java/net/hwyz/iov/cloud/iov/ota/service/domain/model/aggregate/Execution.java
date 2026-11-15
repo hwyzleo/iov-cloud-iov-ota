@@ -237,6 +237,35 @@ public class Execution {
     // ==================== 事件与水位 ====================
 
     /**
+     * 从持久化事件重建乱序缓冲（CR-012 §4.17.7 修订）。
+     *
+     * <p>buffered 序号不是聚合的持久化字段，重载后必须由事件表恢复；否则
+     * {@link SequenceWatermark#missingRanges()} 恒为空、且已暂存的乱序事件永远不会被吸收
+     * （实车 2026-11-15：seq3..32 永久 BUFFERED 且无 missing_sequence_ranges）。
+     *
+     * @param bufferedSequenceNos 事件表中 disposition=BUFFERED 且大于当前水位的序号
+     */
+    public void restoreBufferedSequenceNos(List<Long> bufferedSequenceNos) {
+        if (bufferedSequenceNos == null || bufferedSequenceNos.isEmpty()) {
+            return;
+        }
+        for (Long sequenceNo : bufferedSequenceNos) {
+            if (sequenceNo != null) {
+                sequenceWatermark.buffer(sequenceNo);
+            }
+        }
+    }
+
+    /**
+     * 把水位前进到指定值（只增不减，用于从事件事实重建/自愈）。
+     *
+     * @param target 目标水位，调用方必须已确认 1..target 全部落库
+     */
+    public void advanceWatermarkTo(long target) {
+        sequenceWatermark.advanceTo(target);
+    }
+
+    /**
      * 接收一个安装事件，判定处置并推进水位（§5.6）。
      *
      * <p>事件使用 eventId 与 (executionId,sequenceNo) 双重唯一键。

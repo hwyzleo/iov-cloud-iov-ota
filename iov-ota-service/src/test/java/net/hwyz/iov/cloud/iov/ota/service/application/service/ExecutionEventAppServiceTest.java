@@ -59,7 +59,8 @@ class ExecutionEventAppServiceTest {
                 TaskRevision.initial(), "PLAN_V1",
                 SnapshotDigest.of("digest"), "COND_V1",
                 PermitToken.of("token", validUntil), validUntil);
-        when(executionRepository.getById(ExecutionId.of(1L))).thenReturn(Optional.of(execution));
+        when(executionRepository.getByIdForUpdate(ExecutionId.of(1L))).thenReturn(Optional.of(execution));
+        when(executionEventMapper.selectReceivedSequenceNos(any())).thenReturn(java.util.List.of());
         when(executionEventMapper.selectByEventId(any())).thenReturn(null);
     }
 
@@ -127,7 +128,8 @@ class ExecutionEventAppServiceTest {
     @DisplayName("CR-025 终态执行拒绝迟到事件：不推进水位、不落事件（LATE_EVENT）")
     void receiveEvent_terminalExecution_returnsLateEvent() {
         execution.cancel();
-        when(executionRepository.getById(ExecutionId.of(1L))).thenReturn(Optional.of(execution));
+        when(executionRepository.getByIdForUpdate(ExecutionId.of(1L))).thenReturn(Optional.of(execution));
+        when(executionEventMapper.selectReceivedSequenceNos(any())).thenReturn(java.util.List.of());
 
         ExecutionEventResult result = service.receiveEvent(ExecutionEventCmd.builder()
                 .executionId(1L).eventId("evt-late").sequenceNo(9L).build());
@@ -136,5 +138,86 @@ class ExecutionEventAppServiceTest {
         assertEquals(execution.getSequenceWatermark().getAcceptedSequenceNo(), result.getAcceptedSequenceNo());
         verify(executionEventMapper, never()).insert(any());
         verify(executionRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("重载后从事件表重建乱序缓冲：到达空缺序号即一次吸收并回非空缺失范围")
+    void receiveEvent_restoresBufferedFromEventTable_andAbsorbs() {
+        // 实车 2026-11-15：buffered 只在内存，重载后 missing ranges 恒为空、水位无法吸收
+        when(executionEventMapper.selectReceivedSequenceNos(1L))
+                .thenReturn(java.util.List.of(2L, 3L));
+
+        ExecutionEventResult before = service.receiveEvent(ExecutionEventCmd.builder()
+                .executionId(1L).eventId("evt-9").sequenceNo(9L).build());
+        assertEquals("BUFFERED", before.getDisposition());
+        assertEquals(0L, before.getAcceptedSequenceNo());
+        assertEquals(2, before.getMissingSequenceRanges().size());
+        assertEquals(1L, before.getMissingSequenceRanges().get(0)[0]);
+        assertEquals(1L, before.getMissingSequenceRanges().get(0)[1]);
+        assertEquals(4L, before.getMissingSequenceRanges().get(1)[0]);
+        assertEquals(8L, before.getMissingSequenceRanges().get(1)[1]);
+    }
+
+    @Test
+    @DisplayName("空缺序号到达后循环吸收已暂存事件，并把吸收行置为 ACCEPTED")
+    void receiveEvent_gapFilled_absorbsBufferedAndMarksAccepted() {
+        when(executionEventMapper.selectReceivedSequenceNos(1L))
+                .thenReturn(java.util.List.of(2L, 3L));
+
+        ExecutionEventResult result = service.receiveEvent(ExecutionEventCmd.builder()
+                .executionId(1L).eventId("evt-1").sequenceNo(1L).build());
+
+        assertEquals("ACCEPTED", result.getDisposition());
+        assertEquals(3L, result.getAcceptedSequenceNo());
+        assertTrue(result.getMissingSequenceRanges().isEmpty());
+        verify(executionRepository).save(execution);
+        verify(executionEventMapper).markBufferedAbsorbed(1L, 3L);
+    }
+
+    @Test
+    @DisplayName("幂等重放：序号已在水位内按 ACCEPTED 应答（车端仅 ACCEPTED 才 ACK，避免补发死循环）")
+    void receiveEvent_replayedEventWithinWatermark_respondsAccepted() {
+        when(executionEventMapper.selectReceivedSequenceNos(1L))
+                .thenReturn(java.util.List.of(1L));
+        ExecutionEventPo existingPo = ExecutionEventPo.builder()
+                .eventId("evt-1").executionId(1L).sequenceNo(1L).disposition("BUFFERED").build();
+        when(executionEventMapper.selectByEventId("evt-1")).thenReturn(existingPo);
+
+        ExecutionEventResult result = service.receiveEvent(ExecutionEventCmd.builder()
+                .executionId(1L).eventId("evt-1").sequenceNo(1L).build());
+
+        assertEquals("ACCEPTED", result.getDisposition());
+        assertEquals(1L, result.getAcceptedSequenceNo());
+        verify(executionEventMapper, never()).insert(any());
+        verify(executionRepository).save(execution);
+    }
+
+    @Test
+    @DisplayName("水位被写回小值后自愈：以事件表连续前缀为准，重投即刻推进到真实水位")
+    void receiveEvent_regressedWatermark_healedFromEventFacts() {
+        // 实车现场：DB 列 accepted_sequence_no=1，但事件表已有 1、2、3（旧实现整行覆盖写倒退）
+        Instant validUntil = Instant.now().plusSeconds(3600);
+        Execution regressed = Execution.reconstitute(
+                ExecutionId.of(1L), VehicleTaskId.of(10L), 1,
+                net.hwyz.iov.cloud.iov.ota.api.vo.enums.ExecutionStatus.INSTALLING,
+                TaskRevision.initial(), "PLAN_V1", SnapshotDigest.of("digest"), "COND_V1",
+                PermitToken.of("token", validUntil), validUntil,
+                1L, 0L, null, null, null);
+        when(executionRepository.getByIdForUpdate(ExecutionId.of(1L))).thenReturn(Optional.of(regressed));
+        when(executionEventMapper.selectReceivedSequenceNos(1L))
+                .thenReturn(java.util.List.of(1L, 2L, 3L, 5L));
+        when(executionEventMapper.selectByEventId("evt-3")).thenReturn(ExecutionEventPo.builder()
+                .eventId("evt-3").executionId(1L).sequenceNo(3L).disposition("BUFFERED").build());
+
+        ExecutionEventResult result = service.receiveEvent(ExecutionEventCmd.builder()
+                .executionId(1L).eventId("evt-3").sequenceNo(3L).build());
+
+        assertEquals("ACCEPTED", result.getDisposition());
+        assertEquals(3L, result.getAcceptedSequenceNo());
+        // 缺口 4 仍在 buffered 中回显
+        assertEquals(1, result.getMissingSequenceRanges().size());
+        assertEquals(4L, result.getMissingSequenceRanges().get(0)[0]);
+        assertEquals(4L, result.getMissingSequenceRanges().get(0)[1]);
+        verify(executionRepository).save(regressed);
     }
 }

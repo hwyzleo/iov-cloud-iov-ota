@@ -39,6 +39,12 @@ public class ExecutionRepositoryImpl implements ExecutionRepository {
     }
 
     @Override
+    public Optional<Execution> getByIdForUpdate(ExecutionId id) {
+        OtaExecutionPo po = otaExecutionMapper.selectByIdForUpdate(id.getValue());
+        return Optional.ofNullable(converter.toDomain(po));
+    }
+
+    @Override
     public Optional<Execution> getByVehicleTaskIdAndAttemptNo(VehicleTaskId vehicleTaskId, int attemptNo) {
         OtaExecutionPo po = otaExecutionMapper.selectByVehicleTaskIdAndAttemptNo(
                 vehicleTaskId.getValue(), attemptNo);
@@ -60,7 +66,15 @@ public class ExecutionRepositoryImpl implements ExecutionRepository {
     public void save(Execution execution) {
         OtaExecutionPo po = converter.toPo(execution);
         if (po.getId() != null && otaExecutionMapper.selectById(po.getId()) != null) {
-            otaExecutionMapper.updateById(po);
+            int updated = otaExecutionMapper.updateById(po);
+            if (updated == 0) {
+                // 行被删/不可见时不得静默吞掉：向上抛可恢复异常，由消费侧重投而不是丢事件
+                throw new IllegalStateException("执行[" + po.getId() + "]更新失败：目标行不存在");
+            }
+            // 水位单调保护：整行写回可能携带旧快照的 acceptedSequenceNo，
+            // 这里用 GREATEST 强制只增不减（实车 2026-11-15：水位从 2 回退到 1）。
+            otaExecutionMapper.updateAcceptedSequenceNoMonotonic(
+                    po.getId(), execution.getSequenceWatermark().getAcceptedSequenceNo());
         } else {
             otaExecutionMapper.insert(po);
         }

@@ -22,6 +22,20 @@ public interface ExecutionRepository {
     Optional<Execution> getById(ExecutionId id);
 
     /**
+     * 按执行ID查询并对该行加悲观写锁（SELECT ... FOR UPDATE）。
+     *
+     * <p>事件水位、收口与重置均基于 Execution 聚合快照写回整行，必须串行化同执行写入；
+     * 否则并发/陈旧写会把 {@code accepted_sequence_no} 写回小值（实车 2026-11-15：
+     * 车端 ACKED seq2，云端水位回退到 1，seq3.. 永久 BUFFERED）。
+     *
+     * @param id 执行ID
+     * @return 执行聚合；不存在时 empty
+     */
+    default Optional<Execution> getByIdForUpdate(ExecutionId id) {
+        return getById(id);
+    }
+
+    /**
      * 按车辆任务ID和尝试序号查询（UK(vehicle_task_id, attempt_no)）。
      */
     Optional<Execution> getByVehicleTaskIdAndAttemptNo(VehicleTaskId vehicleTaskId, int attemptNo);

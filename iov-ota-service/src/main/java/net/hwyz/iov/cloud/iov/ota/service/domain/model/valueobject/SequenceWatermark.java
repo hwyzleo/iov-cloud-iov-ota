@@ -86,6 +86,21 @@ public class SequenceWatermark {
     }
 
     /**
+     * 前进到指定水位（只增不减，用于从事件事实重建/自愈）。
+     *
+     * <p>与 {@link #tryAdvance(long)} 的区别：不做连续性判定，调用方必须以
+     * 「1..target 全部已落库」为前提（水位由事件表连续前缀推导）。
+     * 已包含在水位内的 buffered 序号一并清理。
+     */
+    public void advanceTo(long target) {
+        if (target <= acceptedSequenceNo) {
+            return;
+        }
+        acceptedSequenceNo = target;
+        bufferedSequenceNos.removeIf(seq -> seq <= acceptedSequenceNo);
+    }
+
+    /**
      * 重置水位（仅用于从持久化重建）。
      */
     public void reset(long acceptedSequenceNo) {
