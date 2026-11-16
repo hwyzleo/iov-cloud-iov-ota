@@ -159,11 +159,26 @@ ALTER TABLE `tb_vehicle_task_package`
     ADD COLUMN `grant_expires_at`       DATETIME(3) NULL COMMENT '授权凭证过期时间（CR-026）' AFTER `granted_at`;
 
 -- ============================================================
--- 9. tb_idempotency_record: 下载进度业务幂等处置存档（无新表）
+-- 9. tb_idempotency_record: 下载进度业务幂等处置存档
 -- ============================================================
 -- 说明：PAR-PROTO-DSN-CR-011 冻结「REJECTED/CONFLICT 只保留 progressId 首次处置用于
 -- 幂等回放，不占用 (vehicle_task_id,package_id,download_attempt_no,progress_seq)」。
--- 为不改写既有唯一键语义，首次处置（含拒绝原因/响应快照）统一写入平台既有
--- tb_idempotency_record（operation_scope='DOWNLOAD_PROGRESS'），进度历史表仅保存
--- CURRENT / LATE_OBSERVATION 事实。
+-- 为不改写既有唯一键语义，首次处置（含拒绝原因/响应快照）统一写入平台幂等记录表
+-- （operation_scope='DOWNLOAD_PROGRESS'），进度历史表仅保存 CURRENT / LATE_OBSERVATION 事实。
+--
+-- 该表由 V24 以 CREATE TABLE IF NOT EXISTS 建立，但部分环境（如本地/恢复库）缺失；
+-- 为保证本迁移自包含（避免 CREATE INDEX 因表缺失而中断），此处按 V24 同一 DDL 幂等重建。
+CREATE TABLE IF NOT EXISTS `tb_idempotency_record` (
+    `id`                BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+    `operation_scope`   VARCHAR(50)  NOT NULL COMMENT '操作作用域',
+    `idempotency_key`   VARCHAR(128) NOT NULL COMMENT '幂等键',
+    `request_digest`    VARCHAR(128) NOT NULL COMMENT '请求摘要',
+    `response_snapshot` TEXT         NULL COMMENT '响应快照（JSON）',
+    `vin`               VARCHAR(20)  NULL COMMENT '车架号',
+    `create_time`       DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+    `modify_time`       DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '修改时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_idempotency_scope_key` (`operation_scope`, `idempotency_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='幂等记录（CR-012）';
+
 CREATE INDEX `idx_idempotency_created` ON `tb_idempotency_record` (`operation_scope`, `create_time`);
