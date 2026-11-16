@@ -87,6 +87,7 @@ public class ExecutionEventAppService {
                 executionEventMapper.updateById(existing);
             }
             if (replay == SequenceWatermark.Disposition.ACCEPTED || healed) {
+                maybeRecordInstallStarted(execution, cmd);
                 executionRepository.save(execution);
                 markBufferedAbsorbed(cmd.getExecutionId(), execution);
             }
@@ -116,14 +117,41 @@ public class ExecutionEventAppService {
                 .eventDigest(cmd.getEventDigest())
                 .eventPayload(cmd.getEventPayload())
                 .disposition(dispositionStr)
+                .sourceOccurredAt(cmd.getOccurredAt() == null ? null : new Date(cmd.getOccurredAt().toEpochMilli()))
+                .progressPercent(cmd.getProgressPercent())
+                .ecuId(cmd.getEcuId())
+                .softwareTargetCode(cmd.getSoftwareTargetCode())
+                .slot(cmd.getSlot())
+                .errorCode(cmd.getErrorCode())
+                .failureReason(cmd.getFailureReason())
                 .receivedTime(new Date())
                 .build();
         executionEventMapper.insert(eventPo);
 
+        maybeRecordInstallStarted(execution, cmd);
         executionRepository.save(execution);
         markBufferedAbsorbed(cmd.getExecutionId(), execution);
 
         return eventResult(responseDisposition(disposition), execution, cmd.getExecutionId());
+    }
+
+    /**
+     * 首个权威安装开始事件补写 Execution 开始时间（IOV-OTA-DSN-CR-026 §7.2）。
+     *
+     * <p>仅当事件为 INSTALL 阶段且 event_status=INSTALL_STARTED（或阶段直接为
+     * INSTALL_STARTED）时生效；occurred_at_ms=0 视为未知，不写 1970。
+     */
+    private void maybeRecordInstallStarted(Execution execution, ExecutionEventCmd cmd) {
+        if (execution.getStartTime() != null) {
+            return;
+        }
+        boolean installStarted = "INSTALL_STARTED".equalsIgnoreCase(cmd.getEventType())
+                || ("INSTALL".equalsIgnoreCase(cmd.getEventType())
+                && "INSTALL_STARTED".equalsIgnoreCase(cmd.getEventStatus()));
+        if (!installStarted) {
+            return;
+        }
+        execution.recordInstallStarted(cmd.getOccurredAt(), java.time.Instant.now());
     }
 
     /**

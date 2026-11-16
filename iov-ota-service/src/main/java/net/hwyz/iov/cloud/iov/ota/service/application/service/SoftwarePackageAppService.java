@@ -8,6 +8,7 @@ import net.hwyz.iov.cloud.iov.ota.api.vo.enums.AdaptiveLevel;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.SoftwarePackageType;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.SoftwarePackageState;
 import net.hwyz.iov.cloud.iov.ota.service.adapter.web.assembler.BomSoftwarePackageOapiAssembler;
+import net.hwyz.iov.cloud.iov.ota.service.common.exception.PackageMetadataIncompleteException;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.SoftwarePackageMapper;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.SoftwarePackagePo;
 import org.springframework.stereotype.Service;
@@ -85,6 +86,7 @@ public class SoftwarePackageAppService {
      */
     public int createSoftwarePackage(SoftwarePackagePo softwarePackage) {
         applyFieldRules(softwarePackage);
+        requireCompleteMetadata(softwarePackage);
         generatePackageCodeIfAbsent(softwarePackage);
         if (softwarePackage.getPackageState() == null) {
             softwarePackage.setPackageState(SoftwarePackageState.ACTIVE.name());
@@ -101,6 +103,7 @@ public class SoftwarePackageAppService {
     public SoftwarePackagePo createSoftwarePackage(BomSoftwarePackageOapi bomSoftwarePackage) {
         SoftwarePackagePo softwarePackagePo = BomSoftwarePackageOapiAssembler.INSTANCE.toPo(bomSoftwarePackage);
         applyFieldRules(softwarePackagePo);
+        requireCompleteMetadata(softwarePackagePo);
         generatePackageCodeIfAbsent(softwarePackagePo);
         softwarePackageMapper.insertPo(softwarePackagePo);
         return softwarePackagePo;
@@ -114,6 +117,7 @@ public class SoftwarePackageAppService {
      */
     public int modifySoftwarePackage(SoftwarePackagePo softwarePackage) {
         applyFieldRules(softwarePackage);
+        requireCompleteMetadata(softwarePackage);
         softwarePackage.setPackageCode(null);
         return softwarePackageMapper.updatePo(softwarePackage);
     }
@@ -189,6 +193,29 @@ public class SoftwarePackageAppService {
             String shortUuid = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
             softwarePackage.setPackageCode(deviceCode + "-" + softwarePn + "-" + packageType + "-" + shortUuid);
         }
+    }
+
+    /**
+     * 包元数据完整性门禁（IOV-OTA-DSN-CR-026 §7.5）：登记与修改一律 fail-closed。
+     *
+     * <p>存量历史包不做回填；本门禁只拦截新的登记/修改，历史不完整包由发布与下发门禁
+     * 另行阻断（见 {@link PackageMetadataGate} 与任务检测）。</p>
+     */
+    private void requireCompleteMetadata(SoftwarePackagePo softwarePackage) {
+        List<String> reasons = PackageMetadataGate.incompleteReasons(
+                softwarePackage.getPackageSize(),
+                softwarePackage.getPackageSha256(),
+                softwarePackage.getPackageSignature(),
+                softwarePackage.getSignAlgo(),
+                softwarePackage.getSignerCertId(),
+                softwarePackage.getPackageUrl());
+        if (reasons.isEmpty()) {
+            return;
+        }
+        String packageKey = softwarePackage.getPackageCode() != null && !softwarePackage.getPackageCode().isBlank()
+                ? softwarePackage.getPackageCode() : String.valueOf(softwarePackage.getPackageName());
+        log.warn("软件包[{}]元数据不完整，拒绝登记/修改，原因[{}]", packageKey, PackageMetadataGate.summary(reasons));
+        throw new PackageMetadataIncompleteException(packageKey, reasons);
     }
 
     /**

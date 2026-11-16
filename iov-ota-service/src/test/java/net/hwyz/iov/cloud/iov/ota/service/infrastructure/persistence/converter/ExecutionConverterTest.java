@@ -118,4 +118,28 @@ class ExecutionConverterTest {
                 restored.getSequenceWatermark().getAcceptedSequenceNo());
         assertEquals(original.getFinalSequenceNo(), restored.getFinalSequenceNo());
     }
+
+    @Test
+    @DisplayName("CR-026：起止时间与接收时间往返保持")
+    void roundTrip_shouldPreserveExecutionTiming() {
+        Instant validUntil = Instant.now().plusSeconds(1800);
+        Execution original = Execution.reconstitute(
+                ExecutionId.of(4L), VehicleTaskId.of(40L), 2, ExecutionStatus.SUCCEEDED,
+                TaskRevision.of(2L), "PLAN_V3", SnapshotDigest.of("digest"), "COND_V3",
+                PermitToken.of("tok", validUntil), validUntil, 5L, 5L,
+                null, null, null,
+                Instant.ofEpochMilli(1_800_000_000_000L),
+                Instant.ofEpochMilli(1_800_000_090_000L),
+                Instant.ofEpochMilli(1_800_000_001_000L),
+                Instant.ofEpochMilli(1_800_000_100_000L));
+
+        OtaExecutionPo po = converter.toPo(original);
+        Execution restored = converter.toDomain(po);
+
+        assertEquals(original.getStartTime(), restored.getStartTime());
+        assertEquals(original.getEndTime(), restored.getEndTime());
+        assertEquals(original.getStartReceivedTime(), restored.getStartReceivedTime());
+        assertEquals(original.getEndReceivedTime(), restored.getEndReceivedTime());
+        assertEquals(90_000L, restored.durationMs());
+    }
 }

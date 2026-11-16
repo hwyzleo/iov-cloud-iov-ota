@@ -386,7 +386,22 @@ public class TaskVehicleProcessQueryService {
                 .offlinePolicy(e.getOfflinePolicy())
                 .timeoutPolicy(e.getTimeoutPolicy())
                 .validUntil(toInstant(e.getValidUntil()))
+                .startTime(toInstant(e.getStartTime()))
+                .endTime(toInstant(e.getEndTime()))
+                .startReceivedTime(toInstant(e.getStartReceivedTime()))
+                .endReceivedTime(toInstant(e.getEndReceivedTime()))
+                .durationMs(durationMs(e.getStartTime(), e.getEndTime()))
                 .build();
+    }
+
+    /**
+     * 过程耗时：起止均有效且非负时返回，否则 null（CR-026：禁止负耗时与 1970 展示）。
+     */
+    private static Long durationMs(Date start, Date end) {
+        if (start == null || end == null || end.before(start)) {
+            return null;
+        }
+        return end.getTime() - start.getTime();
     }
 
     private ControlProcessSummary buildControls(List<Long> execDbIds) {
@@ -527,10 +542,18 @@ public class TaskVehicleProcessQueryService {
                 .eventId(e.getEventId())
                 .executionId(e.getExecutionId())
                 .sequenceNo(e.getSequenceNo())
+                .stage(e.getEventType())
                 .eventType(e.getEventType())
                 .eventDigest(e.getEventDigest())
                 .disposition(e.getDisposition())
                 .receivedTime(toInstant(e.getReceivedTime()))
+                .occurredAt(toInstant(e.getSourceOccurredAt()))
+                .progressPercent(e.getProgressPercent())
+                .ecuId(e.getEcuId())
+                .softwareTargetCode(e.getSoftwareTargetCode())
+                .slot(e.getSlot())
+                .errorCode(e.getErrorCode())
+                .failureReason(e.getFailureReason())
                 .build();
     }
 

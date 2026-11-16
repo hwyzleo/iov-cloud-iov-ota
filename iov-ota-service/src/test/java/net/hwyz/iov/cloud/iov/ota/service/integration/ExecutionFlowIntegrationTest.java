@@ -130,7 +130,12 @@ class ExecutionFlowIntegrationTest {
         executionAppService = new ExecutionAppService(vehicleTaskRepository, executionRepository,
                 taskRepository, installPermitService, consentPolicy, vehicleTaskConsentRepository,
                 outboxRepository, executionEcuResultMapper, executionEcuSoftwareUnitMapper,
-                vehicleTaskPackageService, packageManifestDigestService);
+                vehicleTaskPackageService, packageManifestDigestService,
+                new net.hwyz.iov.cloud.iov.ota.service.application.service.RetryTrajectoryService(
+                        org.mockito.Mockito.mock(
+                                net.hwyz.iov.cloud.iov.ota.service.domain.repository.TaskVehicleRetryLogRepository.class),
+                        org.mockito.Mockito.mock(
+                                net.hwyz.iov.cloud.iov.ota.service.infrastructure.metrics.KafkaMessagingMetricsService.class)));
         executionEventAppService = new ExecutionEventAppService(executionRepository,
                 executionEventMapper, executionControlMapper, executionControlAckMapper);
         recoveryAppService = new RecoveryAppService(vehicleTaskRepository, executionRepository,

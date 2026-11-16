@@ -62,7 +62,8 @@ class TaskCheckCommandHandlerTest {
                                 .ecuId("CCU_GEN1").componentId("ECU_IMAGE")
                                 .sourceVersion("V1.0.0").targetVersion("V2.0.0")
                                 .sizeBytes(1024L).digestAlgorithm("sha-256")
-                                .digestHex("abc123").encrypted(false).build()))
+                                .digestHex("abc123").encrypted(false)
+                                .metadataComplete(true).build()))
                         .snapshotChanged(false).reconsentRequired(false)
                         .localDisposition("KEEP").packageCacheAction("KEEP")
                         .build()))
@@ -100,6 +101,39 @@ class TaskCheckCommandHandlerTest {
         assertEquals("ECU1", item.getEcuId());
         assertEquals("SPN1", item.getSoftwarePn());
         assertEquals("V1.0", item.getSoftwareVersion());
+    }
+
+    @Test
+    @DisplayName("CR-026：包元数据不完整时 fail-closed，不下发 0 字节包清单")
+    void incompletePackageMetadata_deniesDownload() {
+        TaskCheckRequest req = TaskCheckRequest.newBuilder()
+                .setInventoryMode(InventoryMode.INVENTORY_MODE_FULL)
+                .build();
+        when(appService.detect(any())).thenReturn(DetectionResult.builder()
+                .inventoryDisposition("ACCEPTED").availabilityStatus("AVAILABLE")
+                .downloadAllowed(true).installRequestAllowed(true)
+                .matchedTasks(List.of(DetectionResult.MatchedVehicleTask.builder()
+                        .vehicleTaskId(1001L).taskId(2002L).taskRevision(3L)
+                        .activityId(3003L).installPlanVersion("task-2002-r3")
+                        .packages(List.of(DetectionResult.MatchedPackage.builder()
+                                .packageId("PKG-BROKEN").packageRevision("V2.0.0")
+                                .ecuId("CCU_GEN1").componentId("ECU_IMAGE")
+                                .sourceVersion("V1.0.0").targetVersion("V2.0.0")
+                                .sizeBytes(null).digestAlgorithm("sha-256").digestHex("abc123")
+                                .metadataComplete(false)
+                                .metadataIncompleteReasons("PACKAGE_SIZE_MISSING_OR_INVALID")
+                                .build()))
+                        .build()))
+                .build());
+
+        TaskCheckResponse resp = handler.handle(md, req);
+
+        assertFalse(resp.getDownloadAllowed());
+        assertFalse(resp.getInstallRequestAllowed());
+        assertEquals("WAIT", resp.getNextAction());
+        assertEquals("PACKAGE_METADATA_INCOMPLETE", resp.getDownloadDenyReason());
+        assertEquals("PACKAGE_METADATA_INCOMPLETE", resp.getInstallRequestDenyReason());
+        assertFalse(resp.hasTask(), "不完整包不得下发任务快照（禁止 0 字节保底）");
     }
 
     @Test

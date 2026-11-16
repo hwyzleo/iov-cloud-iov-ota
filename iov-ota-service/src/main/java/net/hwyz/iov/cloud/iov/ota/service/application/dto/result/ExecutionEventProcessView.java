@@ -18,8 +18,22 @@ public class ExecutionEventProcessView {
     private String eventId;
     private Long executionId;
     private Long sequenceNo;
+    /** 阶段（INSTALL/REBOOT/POST_CHECK/ROLLBACK，与 eventType 同值） */
+    private String stage;
     private String eventType;
     private String eventDigest;
     private String disposition;
     private Instant receivedTime;
+
+    /** 车端发生时间（未知为 null，CR-026） */
+    private Instant occurredAt;
+
+    /** 事件携带百分比（0..100，CR-026） */
+    private Integer progressPercent;
+
+    private String ecuId;
+    private String softwareTargetCode;
+    private String slot;
+    private String errorCode;
+    private String failureReason;
 }

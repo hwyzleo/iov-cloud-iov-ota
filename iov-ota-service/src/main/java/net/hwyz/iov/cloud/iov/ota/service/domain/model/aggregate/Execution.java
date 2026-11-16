@@ -71,6 +71,18 @@ public class Execution {
     /** 最终序号（收口时校验） */
     @Setter private long finalSequenceNo;
 
+    /**
+     * 车端实际安装开始/结束时刻（IOV-OTA-DSN-CR-026 §6.3、§7.2）。
+     *
+     * <p>只保存可证明的车端事实：事件 occurred_at 或最终结果 started_at_ms/
+     * completed_at_ms；epoch 0、缺失或非法时间一律保持 null，禁止用云端时间伪造。</p>
+     */
+    private Instant startTime;
+    private Instant endTime;
+    /** 与 startTime/endTime 对应的云端受理时刻 */
+    private Instant startReceivedTime;
+    private Instant endReceivedTime;
+
     private final List<ExecutionEvent> pendingEvents = new ArrayList<>();
 
     /**
@@ -124,6 +136,22 @@ public class Execution {
                                          String conditionSetVersion, PermitToken permitToken, Instant validUntil,
                                          long acceptedSequenceNo, long finalSequenceNo,
                                          String offlinePolicy, String timeoutPolicy, String controlPolicy) {
+        return reconstitute(id, vehicleTaskId, attemptNo, status, taskRevision, installPlanVersion,
+                packageManifestDigest, conditionSetVersion, permitToken, validUntil, acceptedSequenceNo,
+                finalSequenceNo, offlinePolicy, timeoutPolicy, controlPolicy, null, null, null, null);
+    }
+
+    /**
+     * 从持久化重建 Execution（含 CR-026 起止时间链，不触发事件）。
+     */
+    public static Execution reconstitute(ExecutionId id, VehicleTaskId vehicleTaskId, int attemptNo,
+                                         ExecutionStatus status, TaskRevision taskRevision,
+                                         String installPlanVersion, SnapshotDigest packageManifestDigest,
+                                         String conditionSetVersion, PermitToken permitToken, Instant validUntil,
+                                         long acceptedSequenceNo, long finalSequenceNo,
+                                         String offlinePolicy, String timeoutPolicy, String controlPolicy,
+                                         Instant startTime, Instant endTime,
+                                         Instant startReceivedTime, Instant endReceivedTime) {
         Execution ex = new Execution(id, vehicleTaskId, attemptNo, taskRevision, installPlanVersion,
                 packageManifestDigest, conditionSetVersion, permitToken, validUntil);
         ex.status = status;
@@ -132,6 +160,10 @@ public class Execution {
         ex.offlinePolicy = offlinePolicy;
         ex.timeoutPolicy = timeoutPolicy;
         ex.controlPolicy = controlPolicy;
+        ex.startTime = startTime;
+        ex.endTime = endTime;
+        ex.startReceivedTime = startReceivedTime;
+        ex.endReceivedTime = endReceivedTime;
         return ex;
     }
 
@@ -316,6 +348,61 @@ public class Execution {
         this.status = finalStatus;
         pendingEvents.add(new ExecutionFinalizedEvent(this.id, finalStatus, sequenceWatermark.getAcceptedSequenceNo()));
         log.info("执行[{}]已收口，最终状态[{}]", id.getValue(), finalStatus);
+    }
+
+    /**
+     * 记录首个权威安装开始事实（CR-026 §7.2）。
+     *
+     * <p>只在 start_time 为空且来源合法时补齐；后续普通进度事件不得覆盖。</p>
+     *
+     * @param occurredAt 车端发生时间（合法非空才写入）
+     * @param receivedAt 云端受理时间
+     * @return 是否补写了开始时间
+     */
+    public boolean recordInstallStarted(Instant occurredAt, Instant receivedAt) {
+        if (startTime != null || occurredAt == null) {
+            return false;
+        }
+        this.startTime = occurredAt;
+        if (this.startReceivedTime == null) {
+            this.startReceivedTime = receivedAt;
+        }
+        log.info("执行[{}]补记车端安装开始时间[{}]", id.getValue(), occurredAt);
+        return true;
+    }
+
+    /**
+     * 收口时补齐起止时间链（CR-026 §6.3、§7.2）。
+     *
+     * <p>只接受可证明的车端时间：缺失/非法（epoch 0）保持 null，不用云端时间伪造；
+     * 云端收口受理时刻始终可证明，因此 end_received_time 在收口时必定写入。</p>
+     *
+     * @param startedAt   最终结果携带的车端开始时间（可为 null）
+     * @param completedAt 最终结果携带的车端完成时间（可为 null）
+     * @param receivedAt  云端收口受理时间
+     */
+    public void completeTiming(Instant startedAt, Instant completedAt, Instant receivedAt) {
+        if (startedAt != null && this.startTime == null) {
+            this.startTime = startedAt;
+            this.startReceivedTime = receivedAt;
+        }
+        if (completedAt != null && this.endTime == null) {
+            this.endTime = completedAt;
+            this.endReceivedTime = receivedAt;
+        }
+        if (this.endReceivedTime == null) {
+            this.endReceivedTime = receivedAt;
+        }
+    }
+
+    /**
+     * 过程耗时（毫秒）：起止均有效且非负时返回，否则 null（禁止负耗时）。
+     */
+    public Long durationMs() {
+        if (startTime == null || endTime == null || endTime.isBefore(startTime)) {
+            return null;
+        }
+        return endTime.toEpochMilli() - startTime.toEpochMilli();
     }
 
     // ==================== 查询 ====================

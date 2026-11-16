@@ -42,7 +42,11 @@ public class ExecutionConverter {
                 po.getFinalSequenceNo() != null ? po.getFinalSequenceNo() : 0L,
                 po.getOfflinePolicy(),
                 po.getTimeoutPolicy(),
-                po.getControlPolicy()
+                po.getControlPolicy(),
+                toInstant(po.getStartTime()),
+                toInstant(po.getEndTime()),
+                toInstant(po.getStartReceivedTime()),
+                toInstant(po.getEndReceivedTime())
         );
     }
 
@@ -64,6 +68,10 @@ public class ExecutionConverter {
         po.setOfflinePolicy(ex.getOfflinePolicy());
         po.setTimeoutPolicy(ex.getTimeoutPolicy());
         po.setControlPolicy(ex.getControlPolicy());
+        po.setStartTime(toDate(ex.getStartTime()));
+        po.setStartReceivedTime(toDate(ex.getStartReceivedTime()));
+        po.setEndTime(toDate(ex.getEndTime()));
+        po.setEndReceivedTime(toDate(ex.getEndReceivedTime()));
         return po;
     }
 

@@ -119,6 +119,9 @@ public class VehicleTaskPackageService {
                 }
                 String componentId = link.getSoftwareTargetCode() != null
                         ? link.getSoftwareTargetCode() : target.getSoftwareTargetCode();
+                java.util.List<String> incompleteReasons = PackageMetadataGate.incompleteReasons(
+                        pkg.getPackageSize(), pkg.getPackageSha256(), pkg.getPackageSignature(),
+                        pkg.getSignAlgo(), pkg.getSignerCertId(), pkg.getPackageUrl());
                 byPackageId.putIfAbsent(packageId, DetectionResult.MatchedPackage.builder()
                         .packageId(packageId)
                         .packageRevision(buildVersion.getSoftwareBuildVer())
@@ -132,6 +135,8 @@ public class VehicleTaskPackageService {
                         .digestHex(pkg.getPackageSha256())
                         .differentialType("")
                         .encrypted(Boolean.FALSE)
+                        .metadataComplete(incompleteReasons.isEmpty())
+                        .metadataIncompleteReasons(PackageMetadataGate.summary(incompleteReasons))
                         .build());
             }
         }

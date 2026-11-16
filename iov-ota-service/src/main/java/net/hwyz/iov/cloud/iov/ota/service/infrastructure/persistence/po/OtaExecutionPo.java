@@ -76,6 +76,12 @@ public class OtaExecutionPo extends BasePo {
     @TableField("start_time")
     private Date startTime;
 
+    @TableField("start_received_time")
+    private Date startReceivedTime;
+
     @TableField("end_time")
     private Date endTime;
+
+    @TableField("end_received_time")
+    private Date endReceivedTime;
 }

@@ -52,6 +52,8 @@ public class TaskCheckCommandHandler {
 
     /** 包清单为空时的拒绝原因（车端据此可定位，不得放行下载/安装） */
     private static final String DENY_NO_PACKAGE = "NO_PACKAGE_IN_TASK_SNAPSHOT";
+    /** 包元数据不完整时的拒绝原因（IOV-OTA-DSN-CR-026 §7.5：禁止 0 字节下发） */
+    private static final String DENY_METADATA_INCOMPLETE = "PACKAGE_METADATA_INCOMPLETE";
 
     private final TaskDetectionAppService taskDetectionAppService;
 
@@ -104,23 +106,40 @@ public class TaskCheckCommandHandler {
             // WaitingWindow 后静默卡死（车端 doDownload() 空循环 → 假 READY）。
             // 因此空包清单不得放行下载/安装，也不得回 PROCEED。
             boolean hasPackages = packageCount > 0;
+            // IOV-OTA-DSN-CR-026 §7.5：任一包元数据不完整（大小/摘要/签名/证书/对象）
+            // 一律 fail-closed，既不设 task 快照也不放行下载，禁止把 NULL 大小下发成 0。
+            String incompleteReasons = null;
+            if (hasPackages) {
+                incompleteReasons = t.getPackages().stream()
+                        .filter(p -> !Boolean.TRUE.equals(p.getMetadataComplete())
+                                || p.getSizeBytes() == null || p.getSizeBytes() <= 0)
+                        .map(p -> p.getPackageId() + ":" + (p.getMetadataIncompleteReasons() == null
+                                ? "PACKAGE_SIZE_MISSING_OR_INVALID" : p.getMetadataIncompleteReasons()))
+                        .collect(java.util.stream.Collectors.joining(";"));
+            }
+            boolean actionable = hasPackages && incompleteReasons.isEmpty();
             b.setSnapshotChanged(t.isSnapshotChanged())
                     .setReconsentRequired(t.isReconsentRequired())
                     .setLocalTaskDisposition(t.getLocalDisposition() == null ? "" : t.getLocalDisposition())
                     .setPackageCacheAction(t.getPackageCacheAction() == null ? "" : t.getPackageCacheAction())
-                    .setDownloadAllowed(result.isDownloadAllowed() && hasPackages)
-                    .setInstallRequestAllowed(result.isInstallRequestAllowed() && hasPackages)
-                    .setNextAction(hasPackages ? "PROCEED" : "WAIT")
-                    .setTask(toSnapshot(t));
-            if (!hasPackages) {
+                    .setDownloadAllowed(result.isDownloadAllowed() && actionable)
+                    .setInstallRequestAllowed(result.isInstallRequestAllowed() && actionable)
+                    .setNextAction(actionable ? "PROCEED" : "WAIT");
+            if (actionable) {
+                b.setTask(toSnapshot(t));
+                log.info("车辆任务[{}]下发任务快照：taskId[{}] activityId[{}] revision[{}] packageCount[{}] installPlanVersion[{}]",
+                        t.getVehicleTaskId(), t.getTaskId(), t.getActivityId(), t.getTaskRevision(),
+                        packageCount, t.getInstallPlanVersion());
+            } else if (!hasPackages) {
                 b.setDownloadDenyReason(DENY_NO_PACKAGE).setInstallRequestDenyReason(DENY_NO_PACKAGE);
                 log.error("车辆任务[{}]包清单为空，拒绝放行下载/安装：taskId[{}] activityId[{}] revision[{}] installPlanVersion[{}]",
                         t.getVehicleTaskId(), t.getTaskId(), t.getActivityId(), t.getTaskRevision(),
                         t.getInstallPlanVersion());
             } else {
-                log.info("车辆任务[{}]下发任务快照：taskId[{}] activityId[{}] revision[{}] packageCount[{}] installPlanVersion[{}]",
-                        t.getVehicleTaskId(), t.getTaskId(), t.getActivityId(), t.getTaskRevision(),
-                        packageCount, t.getInstallPlanVersion());
+                b.setDownloadDenyReason(DENY_METADATA_INCOMPLETE)
+                        .setInstallRequestDenyReason(DENY_METADATA_INCOMPLETE);
+                log.error("车辆任务[{}]包元数据不完整，拒绝放行下载/安装：taskId[{}] revision[{}] reasons[{}]",
+                        t.getVehicleTaskId(), t.getTaskId(), t.getTaskRevision(), incompleteReasons);
             }
         } else {
             b.setNextAction("WAIT");

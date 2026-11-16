@@ -18,12 +18,24 @@ public class TaskVehicleRetryLog {
     private Long id;
     private Long taskId;
     private String vin;
+    /** 重试事件ID（业务消息身份幂等键，技术重投复用，CR-026） */
+    private String retryEventId;
+    /** 车辆任务ID（CR-026，过程关联主锚点） */
+    private Long vehicleTaskId;
     private String stage;  // 阶段：DOWNLOAD/INSTALL
+    /** 动作：RETRY/RESUME/RESET_OFFSET/EXECUTION_CREATED（CR-026） */
+    private String action;
+    /** 错误码（CR-026） */
+    private String errorCode;
     private Integer attemptNo;  // 尝试次数
     private Long offset;  // 偏移量（字节）
     private String result;  // 结果：SUCCESS/FAIL
     private String reason;  // 原因
     private Instant retriedAt;  // 重试时间
+    /** 车端发生时间（未知为 null，CR-026） */
+    private Instant sourceOccurredAt;
+    /** 云端受理时间（CR-026） */
+    private Instant receivedAt;
     private String description;  // 备注
     
     /**

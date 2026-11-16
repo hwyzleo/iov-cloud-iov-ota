@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.ReleaseGateState;
 import net.hwyz.iov.cloud.iov.ota.api.vo.enums.TaskPhase;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.TaskReleaseGateResult;
+import net.hwyz.iov.cloud.iov.ota.service.common.exception.PackageMetadataIncompleteException;
 import net.hwyz.iov.cloud.iov.ota.service.common.exception.TaskNotExistException;
 import net.hwyz.iov.cloud.iov.ota.service.domain.exception.TaskReleaseGateException;
 import net.hwyz.iov.cloud.iov.ota.service.domain.model.aggregate.Task;
@@ -22,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
+import java.util.List;
 
 
 /**
@@ -41,6 +43,7 @@ public class TaskReleaseGateService {
     private final TaskReleaseGateRepository taskReleaseGateRepository;
     private final PhaseGatePolicyRepository phaseGatePolicyRepository;
     private final TaskReleaseGateDomainService taskReleaseGateDomainService;
+    private final VehicleTaskPackageService vehicleTaskPackageService;
 
     /**
      * 发布前门禁校验：PASS 放行，FAIL/PENDING 抛异常拦截（fail-safe）
@@ -55,6 +58,9 @@ public class TaskReleaseGateService {
     public ReleaseGateState checkGateForRelease(Long nextTaskId) {
         Task nextTask = taskRepository.getById(TaskId.of(nextTaskId))
                 .orElseThrow(() -> new TaskNotExistException(nextTaskId));
+
+        // IOV-OTA-DSN-CR-026 §7.5：发布前包元数据 fail-closed（先于任何放行分支）
+        requireCompletePackageMetadata(nextTask);
 
         Long prevTaskId = nextTask.getPreviousTaskId();
         Integer seq = nextTask.getSequenceNo();
@@ -85,6 +91,29 @@ public class TaskReleaseGateService {
         }
 
         return evaluateGate(nextTask, prevTask);
+    }
+
+    /**
+     * 发布前包元数据完整性门禁（IOV-OTA-DSN-CR-026 §7.5）。
+     *
+     * <p>任一包大小/SHA-256/签名/证书引用/物理对象缺失或非法即阻断发布；存量不完整包
+     * 只做只读标记与阻断，不自动回填。</p>
+     */
+    private void requireCompletePackageMetadata(Task task) {
+        List<net.hwyz.iov.cloud.iov.ota.service.application.dto.result.DetectionResult.MatchedPackage> packages =
+                vehicleTaskPackageService.projectForTask(task);
+        if (packages == null || packages.isEmpty()) {
+            return;
+        }
+        List<String> incomplete = packages.stream()
+                .filter(p -> !Boolean.TRUE.equals(p.getMetadataComplete()))
+                .map(p -> p.getPackageId() + ":" + (p.getMetadataIncompleteReasons() == null
+                        ? "PACKAGE_METADATA_INCOMPLETE" : p.getMetadataIncompleteReasons()))
+                .toList();
+        if (!incomplete.isEmpty()) {
+            log.warn("任务[{}]发布前包元数据不完整，阻断发布：{}", task.getId().getValue(), incomplete);
+            throw new PackageMetadataIncompleteException(String.valueOf(task.getId().getValue()), incomplete);
+        }
     }
 
     /**

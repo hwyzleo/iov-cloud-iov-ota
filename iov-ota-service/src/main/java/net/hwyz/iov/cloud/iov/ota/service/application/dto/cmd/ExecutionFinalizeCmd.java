@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -32,6 +33,12 @@ public class ExecutionFinalizeCmd {
 
     /** ECU 结果列表 */
     private List<EcuResultCmd> ecuResults;
+
+    /** 车端实际安装开始时间（started_at_ms，非法/0 已归一为 null） */
+    private Instant startedAt;
+
+    /** 车端实际安装结束时间（completed_at_ms，非法/0 已归一为 null） */
+    private Instant completedAt;
 
     /** 车架号 */
     private String vin;

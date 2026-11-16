@@ -69,9 +69,14 @@ class TaskReleaseFlowIntegrationTest {
         phaseGatePolicyRepository = new InMemoryPhaseGatePolicyRepository();
 
         taskReportAppService = new TaskReportAppService(taskRepository, taskReportRepository, taskVehicleMapper);
+        net.hwyz.iov.cloud.iov.ota.service.application.service.VehicleTaskPackageService packageService =
+                org.mockito.Mockito.mock(
+                        net.hwyz.iov.cloud.iov.ota.service.application.service.VehicleTaskPackageService.class);
+        org.mockito.Mockito.lenient().when(packageService.projectForTask(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(java.util.List.of());
         taskReleaseGateService = new TaskReleaseGateService(
                 taskRepository, taskReportRepository, taskReleaseGateRepository,
-                phaseGatePolicyRepository, new TaskReleaseGateDomainService());
+                phaseGatePolicyRepository, new TaskReleaseGateDomainService(), packageService);
     }
 
     private Task waveTask(long id, long activityId, Integer sequenceNo, Long prevTaskId, TaskPhase phase) {

@@ -37,4 +37,19 @@ public class ExecutionProcessView {
     private String offlinePolicy;
     private String timeoutPolicy;
     private Instant validUntil;
+
+    /** 车端实际安装开始时间（未知为 null，CR-026） */
+    private Instant startTime;
+
+    /** 车端实际安装结束时间（未知为 null，CR-026） */
+    private Instant endTime;
+
+    /** 开始时间对应的云端受理时间（CR-026） */
+    private Instant startReceivedTime;
+
+    /** 结束时间对应的云端受理时间（CR-026） */
+    private Instant endReceivedTime;
+
+    /** 过程耗时（毫秒）；起止任一未知或负耗时均为 null（CR-026） */
+    private Long durationMs;
 }

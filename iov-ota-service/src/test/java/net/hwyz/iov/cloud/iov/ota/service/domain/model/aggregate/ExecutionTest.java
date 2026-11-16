@@ -56,6 +56,80 @@ class ExecutionTest {
     }
 
     @Test
+    @DisplayName("CR-026：首个 INSTALL_STARTED 补写开始时间，后续事件不覆盖")
+    void recordInstallStarted_onlyFirstAuthoritativeFact() {
+        Instant first = Instant.ofEpochMilli(1_800_000_000_000L);
+        Instant received = Instant.ofEpochMilli(1_800_000_001_000L);
+
+        assertTrue(execution.recordInstallStarted(first, received));
+        assertEquals(first, execution.getStartTime());
+        assertEquals(received, execution.getStartReceivedTime());
+
+        // 后续普通进度事件不得覆盖已记录的安装开始事实
+        assertFalse(execution.recordInstallStarted(first.plusSeconds(30), received.plusSeconds(30)));
+        assertEquals(first, execution.getStartTime());
+        assertEquals(received, execution.getStartReceivedTime());
+    }
+
+    @Test
+    @DisplayName("CR-026：occurredAt 未知（null）不写入开始时间")
+    void recordInstallStarted_unknownTime_ignored() {
+        assertFalse(execution.recordInstallStarted(null, Instant.now()));
+        assertNull(execution.getStartTime());
+        assertNull(execution.getStartReceivedTime());
+    }
+
+    @Test
+    @DisplayName("CR-026：收口补齐起止时间与接收时间，耗时非负")
+    void completeTiming_fillsStartEndAndDuration() {
+        execution.defineFinalSequenceNo(1L);
+        execution.receiveEvent(1L);
+        Instant startedAt = Instant.ofEpochMilli(1_800_000_000_000L);
+        Instant completedAt = startedAt.plusSeconds(90);
+        Instant receivedAt = Instant.ofEpochMilli(1_800_000_100_000L);
+
+        execution.finalize(ExecutionStatus.SUCCEEDED);
+        execution.completeTiming(startedAt, completedAt, receivedAt);
+
+        assertEquals(startedAt, execution.getStartTime());
+        assertEquals(receivedAt, execution.getStartReceivedTime());
+        assertEquals(completedAt, execution.getEndTime());
+        assertEquals(receivedAt, execution.getEndReceivedTime());
+        assertEquals(90_000L, execution.durationMs());
+    }
+
+    @Test
+    @DisplayName("CR-026：车端结束时间缺失时保持 null，仅记录云端受理时刻")
+    void completeTiming_missingCompletedAt_keepsEndTimeNull() {
+        execution.defineFinalSequenceNo(1L);
+        execution.receiveEvent(1L);
+        execution.finalize(ExecutionStatus.SUCCEEDED);
+        Instant receivedAt = Instant.ofEpochMilli(1_800_000_100_000L);
+
+        execution.completeTiming(null, null, receivedAt);
+
+        assertNull(execution.getStartTime());
+        assertNull(execution.getStartReceivedTime());
+        assertNull(execution.getEndTime());
+        assertEquals(receivedAt, execution.getEndReceivedTime());
+        assertNull(execution.durationMs(), "起止未知时不得给出耗时");
+    }
+
+    @Test
+    @DisplayName("CR-026：结束早于开始时耗时返回 null，不产生负耗时")
+    void durationMs_negativeWindow_returnsNull() {
+        execution.startInstall(now);
+        execution.defineFinalSequenceNo(1L);
+        execution.receiveEvent(1L);
+        Instant received = Instant.ofEpochMilli(1_800_000_200_000L);
+        execution.finalize(ExecutionStatus.SUCCEEDED);
+        execution.completeTiming(Instant.ofEpochMilli(1_800_000_100_000L),
+                Instant.ofEpochMilli(1_800_000_000_000L), received);
+
+        assertNull(execution.durationMs());
+    }
+
+    @Test
     @DisplayName("startInstall 许可过期抛异常（validUntil 仅限制进入 INSTALL_STARTED）")
     void startInstall_afterValidUntil_throwsException() {
         Execution expired = Execution.permit(

@@ -97,5 +97,9 @@ public class DetectionResult {
         private String digestHex;
         private String differentialType;
         private Boolean encrypted;
+        /** 元数据完整性（IOV-OTA-DSN-CR-026 §7.5）：false 时禁止下发与冻结 */
+        private Boolean metadataComplete;
+        /** 不完整原因摘要（只读标记，不自动回填） */
+        private String metadataIncompleteReasons;
     }
 }

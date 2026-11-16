@@ -59,6 +59,7 @@ public class ExecutionAppService {
     private final ExecutionEcuSoftwareUnitMapper executionEcuSoftwareUnitMapper;
     private final VehicleTaskPackageService vehicleTaskPackageService;
     private final PackageManifestDigestService packageManifestDigestService;
+    private final RetryTrajectoryService retryTrajectoryService;
 
     /** 简易 ID 生成器（TODO: 替换为雪花算法或 DB 序列） */
     private final AtomicLong idSeed = new AtomicLong(System.currentTimeMillis() / 1000);
@@ -120,6 +121,9 @@ public class ExecutionAppService {
 
         outboxRepository.append("EXECUTION", String.valueOf(executionId.getValue()),
                 "ExecutionCreated", "{}");
+
+        // IOV-OTA-DSN-CR-026 §7.4：安装执行创建/安装重试形成不可变业务轨迹（同事务）
+        retryTrajectoryService.recordExecutionCreated(vehicleTask, execution.getAttemptNo(), Instant.now());
 
         return ExecutionCreateResult.builder()
                 .executionId(executionId.getValue())
@@ -201,6 +205,8 @@ public class ExecutionAppService {
 
         ExecutionStatus finalStatus = ExecutionStatus.valOf(cmd.getFinalStatus());
         execution.finalize(finalStatus);
+        // IOV-OTA-DSN-CR-026 §6.3/§7.2：收口时补齐车端起止时间（未知保持 null）
+        execution.completeTiming(cmd.getStartedAt(), cmd.getCompletedAt(), java.time.Instant.now());
 
         // 保存 ECU 结果（CR-019：ECU 聚合行 + per-Target/Slot 软件单元子表）
         if (cmd.getEcuResults() != null) {

@@ -49,6 +49,29 @@ public class ExecutionEventPo extends BasePo {
     @TableField("disposition")
     private String disposition;
 
+    /** 车端事件发生时间（CR-026） */
+    @TableField("source_occurred_at")
+    private Date sourceOccurredAt;
+
+    /** 事件携带百分比（CR-026） */
+    @TableField("progress_percent")
+    private Integer progressPercent;
+
+    @TableField("ecu_id")
+    private String ecuId;
+
+    @TableField("software_target_code")
+    private String softwareTargetCode;
+
+    @TableField("slot")
+    private String slot;
+
+    @TableField("error_code")
+    private String errorCode;
+
+    @TableField("failure_reason")
+    private String failureReason;
+
     @TableField("received_time")
     private Date receivedTime;
 }

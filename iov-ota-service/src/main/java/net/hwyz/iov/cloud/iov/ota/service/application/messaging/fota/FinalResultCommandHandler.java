@@ -7,6 +7,7 @@ import net.hwyz.iov.cloud.iov.ota.service.application.dto.cmd.SoftwareUnitResult
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.ExecutionFinalizeResult;
 import net.hwyz.iov.cloud.iov.ota.service.application.messaging.FotaMessageMetadata;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.ExecutionAppService;
+import net.hwyz.iov.cloud.iov.ota.service.infrastructure.metrics.KafkaMessagingMetricsService;
 import org.springframework.stereotype.Component;
 import vehicle.fota.v1.Execution.EcuResult;
 import vehicle.fota.v1.Execution.FinalResultReport;
@@ -15,6 +16,7 @@ import vehicle.fota.v1.Execution.SoftwareUnitResult;
 import vehicle.fota.v1.Types.Result;
 import vehicle.fota.v1.Types.SequenceRange;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,6 +32,7 @@ import java.util.List;
 public class FinalResultCommandHandler {
 
     private final ExecutionAppService executionAppService;
+    private final KafkaMessagingMetricsService metrics;
 
     public FinalResultResponse handle(FotaMessageMetadata md, FinalResultReport req) {
         ExecutionFinalizeCmd cmd = new ExecutionFinalizeCmd();
@@ -38,6 +41,9 @@ public class FinalResultCommandHandler {
         cmd.setFinalStatus(mapFinalStatus(req.getResult()));
         cmd.setFinalSequenceNo(req.getFinalSequenceNo());
         cmd.setResultDigest(req.hasResultDigest() ? req.getResultDigest().getValueHex() : null);
+        // IOV-OTA-DSN-CR-026 §7.2：车端起止时间按未知处理，0/负值不写成 1970，也不阻断收口
+        cmd.setStartedAt(toSourceTime(req.getStartedAtMs(), "started_at_ms"));
+        cmd.setCompletedAt(toSourceTime(req.getCompletedAtMs(), "completed_at_ms"));
         if (req.getEcuResultsCount() > 0) {
             cmd.setEcuResults(req.getEcuResultsList().stream()
                     .map(FinalResultCommandHandler::toEcuResultCmd).toList());
@@ -128,5 +134,16 @@ public class FinalResultCommandHandler {
         } catch (NumberFormatException e) {
             return null;
         }
+    }
+
+    /**
+     * 车端毫秒时间转 Instant：0/负值视为未知（低基数计数，不阻断业务收口）。
+     */
+    private Instant toSourceTime(long epochMilli, String field) {
+        if (epochMilli <= 0) {
+            metrics.increment("execution_time_missing");
+            return null;
+        }
+        return Instant.ofEpochMilli(epochMilli);
     }
 }

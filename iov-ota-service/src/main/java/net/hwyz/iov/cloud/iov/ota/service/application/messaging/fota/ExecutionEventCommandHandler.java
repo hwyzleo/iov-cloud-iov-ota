@@ -32,8 +32,18 @@ public class ExecutionEventCommandHandler {
         cmd.setEventId(req.getEventId());
         cmd.setSequenceNo(req.getSequenceNo());
         cmd.setEventType(req.getStage() == null ? "INSTALL" : req.getStage());
+        cmd.setEventStatus(req.getEventStatus());
         cmd.setEventDigest(req.hasEventDigest() ? req.getEventDigest().getValueHex() : null);
         cmd.setEventPayload(FotaJson.toJson(req));
+        // IOV-OTA-DSN-CR-026 §6.3/§7.2：入站从强类型事件提取白名单结构化列，
+        // event_payload 原样保留；occurred_at_ms<=0 视为未知，不阻断受理。
+        cmd.setOccurredAt(toSourceTime(req.getOccurredAtMs()));
+        cmd.setProgressPercent(req.hasProgress() ? req.getProgress() : null);
+        cmd.setEcuId(blankToNull(req.hasEcuId() ? req.getEcuId() : null));
+        cmd.setSoftwareTargetCode(blankToNull(req.hasSoftwareTargetCode() ? req.getSoftwareTargetCode() : null));
+        cmd.setSlot(blankToNull(req.hasSlot() ? req.getSlot() : null));
+        cmd.setErrorCode(blankToNull(req.hasErrorCode() ? req.getErrorCode() : null));
+        cmd.setFailureReason(truncate(req.hasErrorDetail() ? req.getErrorDetail() : null));
 
         ExecutionEventResult result = executionEventAppService.receiveEvent(cmd);
 
@@ -59,5 +69,20 @@ public class ExecutionEventCommandHandler {
         } catch (NumberFormatException e) {
             return null;
         }
+    }
+
+    private static java.time.Instant toSourceTime(long epochMilli) {
+        return epochMilli > 0 ? java.time.Instant.ofEpochMilli(epochMilli) : null;
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
+    }
+
+    private static String truncate(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.length() > 500 ? value.substring(0, 500) : value;
     }
 }

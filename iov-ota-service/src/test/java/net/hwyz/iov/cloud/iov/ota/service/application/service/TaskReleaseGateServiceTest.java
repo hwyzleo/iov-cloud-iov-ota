@@ -51,12 +51,19 @@ class TaskReleaseGateServiceTest {
     @Mock private TaskReleaseGateRepository taskReleaseGateRepository;
     @Mock private PhaseGatePolicyRepository phaseGatePolicyRepository;
     @Mock private TaskReleaseGateDomainService taskReleaseGateDomainService;
+    @Mock private VehicleTaskPackageService vehicleTaskPackageService;
 
     @InjectMocks
     private TaskReleaseGateService service;
 
     private Task nextTask;
     private Task prevTask;
+
+    @org.junit.jupiter.api.BeforeEach
+    void stubPackages() {
+        org.mockito.Mockito.lenient().when(vehicleTaskPackageService.projectForTask(any()))
+                .thenReturn(java.util.List.of());
+    }
 
     @BeforeEach
     void setUp() {

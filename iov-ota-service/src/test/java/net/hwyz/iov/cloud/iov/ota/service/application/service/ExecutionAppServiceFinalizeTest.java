@@ -59,6 +59,7 @@ class ExecutionAppServiceFinalizeTest {
     @Mock private ExecutionEcuSoftwareUnitMapper executionEcuSoftwareUnitMapper;
     @Mock private VehicleTaskPackageService vehicleTaskPackageService;
     @Mock private PackageManifestDigestService packageManifestDigestService;
+    @Mock private RetryTrajectoryService retryTrajectoryService;
 
     @InjectMocks
     private ExecutionAppService service;
@@ -87,6 +88,28 @@ class ExecutionAppServiceFinalizeTest {
         verify(executionRepository, never()).save(any());
         verify(vehicleTaskRepository, never()).save(any());
         verify(outboxRepository, never()).append(anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("CR-026：收口写入车端起止时间与云端受理时间")
+    void finalize_writesExecutionTiming() {
+        Execution execution = execution();
+        execution.defineFinalSequenceNo(1L);
+        execution.receiveEvent(1L);
+        when(executionRepository.getById(ExecutionId.of(5001L))).thenReturn(Optional.of(execution));
+        Instant startedAt = Instant.ofEpochMilli(1_800_000_000_000L);
+        Instant completedAt = Instant.ofEpochMilli(1_800_000_120_000L);
+
+        ExecutionFinalizeResult result = service.finalizeExecution(ExecutionFinalizeCmd.builder()
+                .executionId(5001L).finalStatus(ExecutionStatus.SUCCEEDED.getValue())
+                .finalSequenceNo(1L).startedAt(startedAt).completedAt(completedAt).build());
+
+        assertTrue(result.isResultAccepted());
+        assertEquals(startedAt, execution.getStartTime());
+        assertEquals(completedAt, execution.getEndTime());
+        assertNotNull(execution.getStartReceivedTime());
+        assertNotNull(execution.getEndReceivedTime());
+        assertEquals(120_000L, execution.durationMs());
     }
 
     @Test
