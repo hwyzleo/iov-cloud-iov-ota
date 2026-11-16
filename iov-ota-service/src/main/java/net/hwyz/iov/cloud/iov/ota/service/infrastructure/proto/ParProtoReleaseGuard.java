@@ -46,6 +46,7 @@ public class ParProtoReleaseGuard {
     private static final String FOTA_PREFIX = "vehicle/fota/v1/";
     private static final List<String> FOTA_PROTOS = List.of(
             "vehicle/fota/v1/consent.proto",
+            "vehicle/fota/v1/download.proto",
             "vehicle/fota/v1/execution.proto",
             "vehicle/fota/v1/log.proto",
             "vehicle/fota/v1/package.proto",
@@ -113,9 +114,44 @@ public class ParProtoReleaseGuard {
 
     private void verifyCanonicalSources(Map<String, Object> manifest) throws IOException {
         assertHash(COMMON_PROTO, manifest.get("common_proto_sha256"), "common");
-        byte[] fota = concat(FOTA_PROTOS);
+        // PAR-PROTO-DSN-CR-011 冻结口径：路径 + 逐文件摘要 + 换行，排序由规范唯一确定
+        byte[] fota = aggregateFotaSources();
         assertHashBytes("aggregated-fota", fota, str(manifest.get("fota_proto_sha256")), "fota");
         assertHash(DELIVERY_PROTO, manifest.get("delivery_proto_sha256"), "delivery");
+    }
+
+    /**
+     * fota_source_aggregate_sha256 输入：所有 FOTA proto 按 POSIX 相对路径 UTF-8 无符号
+     * 字节序升序，逐文件写入 {@code path || 0x00 || lowercase(hex(sha256(file))) || 0x0A}。
+     */
+    private static byte[] aggregateFotaSources() throws IOException {
+        List<String> sorted = new ArrayList<>(FOTA_PROTOS);
+        sorted.sort(ParProtoReleaseGuard::compareUtf8);
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        for (String path : sorted) {
+            try (InputStream in = requireResource(path)) {
+                byte[] content = in.readAllBytes();
+                out.write(path.getBytes(StandardCharsets.UTF_8));
+                out.write(0);
+                out.write(sha256(content).getBytes(StandardCharsets.US_ASCII));
+                out.write('\n');
+            }
+        }
+        return out.toByteArray();
+    }
+
+    /** UTF-8 无符号字节序比较（跨语言一致） */
+    private static int compareUtf8(String left, String right) {
+        byte[] a = left.getBytes(StandardCharsets.UTF_8);
+        byte[] b = right.getBytes(StandardCharsets.UTF_8);
+        int length = Math.min(a.length, b.length);
+        for (int i = 0; i < length; i++) {
+            int comparison = Integer.compare(Byte.toUnsignedInt(a[i]), Byte.toUnsignedInt(b[i]));
+            if (comparison != 0) {
+                return comparison;
+            }
+        }
+        return Integer.compare(a.length, b.length);
     }
 
     private void assertHash(String resource, Object expectedHex, String label) throws IOException {
@@ -238,25 +274,6 @@ public class ParProtoReleaseGuard {
             }
         }
         return map;
-    }
-
-    private byte[] concat(List<String> resources) throws IOException {
-        List<byte[]> all = new ArrayList<>();
-        int total = 0;
-        for (String path : resources) {
-            try (InputStream in = requireResource(path)) {
-                byte[] b = in.readAllBytes();
-                all.add(b);
-                total += b.length;
-            }
-        }
-        byte[] out = new byte[total];
-        int off = 0;
-        for (byte[] b : all) {
-            System.arraycopy(b, 0, out, off, b.length);
-            off += b.length;
-        }
-        return out;
     }
 
     private static InputStream requireResource(String path) {

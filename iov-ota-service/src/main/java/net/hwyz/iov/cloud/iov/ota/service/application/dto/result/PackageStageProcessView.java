@@ -21,4 +21,7 @@ public class PackageStageProcessView {
     private String decryptResult;
     private String stageResultStatus;
     private String failReason;
+
+    /** 当前下载进度快照（CR-026；无进度时为 null） */
+    private DownloadProgressProcessView downloadProgress;
 }

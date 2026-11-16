@@ -16,7 +16,24 @@ public class UpgradeLogResult {
 
     private Long taskId;
     private String vinMasked;
-    private String logUrl;
+    private Long vehicleTaskId;
+    private Long executionId;
+    private String logRequestId;
+    private String logScope;
+    private String desensitizeVersion;
+    private String privacyLevel;
+    private String objectKey;
+    private String logObjectId;
+    private Long objectSizeBytes;
+    private String logDigest;
+    private String digestAlgorithm;
     private String uploadState;
+    private String uploadResult;
+    private String failureReason;
+    /** 历史兼容字段：不再是永久权威凭证（CR-026） */
+    private String logUrl;
+    private Instant authorizedAt;
+    private Instant uploadedAt;
+    private Instant receivedAt;
     private Instant uploadTime;
 }

@@ -8,6 +8,8 @@ import lombok.*;
 import lombok.experimental.SuperBuilder;
 import net.hwyz.iov.cloud.framework.mysql.po.BasePo;
 
+import java.util.Date;
+
 /**
  * 包阶段结果 PO（CR-012 §3、§5.4）
  *
@@ -58,4 +60,16 @@ public class PackageStageResultPo extends BasePo {
 
     @TableField("fail_reason")
     private String failReason;
+
+    /** 下载尝试序号（历史数据未知为 null，CR-026） */
+    @TableField("download_attempt_no")
+    private Integer downloadAttemptNo;
+
+    /** 车端发生时间（未知为 null，CR-026） */
+    @TableField("source_occurred_at")
+    private Date sourceOccurredAt;
+
+    /** 云端受理时间（历史数据未知为 null，CR-026） */
+    @TableField("received_at")
+    private Date receivedAt;
 }

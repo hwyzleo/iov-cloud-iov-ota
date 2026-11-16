@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.*;
+import net.hwyz.iov.cloud.iov.ota.service.domain.repository.TaskVehicleRetryLogRepository;
+import net.hwyz.iov.cloud.iov.ota.service.domain.repository.UpgradeLogRepository;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.*;
 import net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.*;
 import org.springframework.stereotype.Service;
@@ -42,8 +44,10 @@ public class TaskVehicleProcessQueryService {
     private final ExecutionEcuResultMapper executionEcuResultMapper;
     private final ExecutionEcuSoftwareUnitMapper executionEcuSoftwareUnitMapper;
     private final VehicleInventorySoftwareUnitMapper vehicleInventorySoftwareUnitMapper;
-    private final UpgradeLogMapper upgradeLogMapper;
-    private final TaskVehicleRetryLogMapper taskVehicleRetryLogMapper;
+    private final UpgradeLogRepository upgradeLogRepository;
+    private final PackageDownloadProgressMapper packageDownloadProgressMapper;
+    private final PackageDownloadProgressEventMapper packageDownloadProgressEventMapper;
+    private final TaskVehicleRetryLogRepository taskVehicleRetryLogRepository;
     private final GatewayDeliveryObservationMapper gatewayDeliveryObservationMapper;
     private final TaskVehicleResetLogMapper taskVehicleResetLogMapper;
     private final TaskAppService taskAppService;
@@ -89,7 +93,7 @@ public class TaskVehicleProcessQueryService {
                         .collect(Collectors.toList()))
                 .controls(buildControls(execDbIds))
                 .ecuResultSummary(buildEcuResults(execDbIds))
-                .logSummary(buildLogSummary(taskId, vin))
+                .logSummary(buildLogSummary(taskVehicleId))
                 .deliveryObservationSummary(buildDeliveryObservations(vin))
                 .resetLogs(buildResetLogs(taskVehicleId))
                 .build();
@@ -120,16 +124,145 @@ public class TaskVehicleProcessQueryService {
     }
 
     /**
-     * 单次执行的事件列表（分页子资源）
+     * 单次执行的事件列表（分页子资源，CR-026 §8.2）。
+     *
+     * <p>先校验执行确实属于 path 中的车辆任务，防止跨任务读取；只返回白名单结构化字段。</p>
+     *
+     * @param taskVehicleId 路径车辆任务ID
+     * @param executionDbId 执行行主键
+     * @param stage         阶段过滤（可空）
+     * @param beginTime     车端发生时间下限（可空）
+     * @param endTime       车端发生时间上限（可空）
+     * @return 事件视图列表（数据库分页由 PageHelper 拦截）
      */
-    public List<ExecutionEventProcessView> listExecutionEvents(Long executionDbId) {
-        return executionEventMapper.selectList(
-                        new QueryWrapper<ExecutionEventPo>()
-                                .eq("execution_id", executionDbId)
-                                .orderByAsc("sequence_no"))
+    public List<ExecutionEventProcessView> listExecutionEvents(Long taskVehicleId, Long executionDbId,
+                                                               String stage, Date beginTime, Date endTime) {
+        OtaExecutionPo execution = otaExecutionMapper.selectById(executionDbId);
+        if (execution == null || !taskVehicleId.equals(execution.getVehicleTaskId())) {
+            return List.of();
+        }
+        QueryWrapper<ExecutionEventPo> query = new QueryWrapper<ExecutionEventPo>()
+                .eq("execution_id", executionDbId);
+        if (stage != null && !stage.isBlank()) {
+            query.eq("event_type", stage);
+        }
+        if (beginTime != null) {
+            query.ge("source_occurred_at", beginTime);
+        }
+        if (endTime != null) {
+            query.le("source_occurred_at", endTime);
+        }
+        query.orderByAsc("sequence_no");
+        return executionEventMapper.selectList(query)
                 .stream()
                 .map(this::toEventView)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 包阶段结果历史（CR-026 §8.2：每包各阶段历史行，数据库分页 + 过滤）。
+     *
+     * @param taskVehicleId 车辆任务ID
+     * @param packageId     包ID过滤（可空）
+     * @param stage         阶段过滤（可空）
+     * @param beginTime     受理时间下限（可空）
+     * @param endTime       受理时间上限（可空）
+     * @return 阶段历史列表
+     */
+    public List<PackageStageHistoryResult> listPackageStageResults(Long taskVehicleId, String packageId,
+                                                                   String stage, Date beginTime, Date endTime) {
+        QueryWrapper<PackageStageResultPo> query = new QueryWrapper<PackageStageResultPo>()
+                .eq("vehicle_task_id", taskVehicleId);
+        if (packageId != null && !packageId.isBlank()) {
+            query.eq("package_id", packageId);
+        }
+        if (stage != null && !stage.isBlank()) {
+            query.eq("stage", stage);
+        }
+        if (beginTime != null) {
+            query.ge("received_at", beginTime);
+        }
+        if (endTime != null) {
+            query.le("received_at", endTime);
+        }
+        query.orderByAsc("package_id").orderByAsc("id");
+        return packageStageResultMapper.selectList(query).stream()
+                .map(r -> PackageStageHistoryResult.builder()
+                        .id(r.getId())
+                        .vehicleTaskId(r.getVehicleTaskId())
+                        .packageId(r.getPackageId())
+                        .stage(r.getStage())
+                        .resultStatus(r.getResultStatus())
+                        .packageRevision(r.getPackageRevision())
+                        .etag(r.getEtag())
+                        .digest(r.getDigest())
+                        .signatureResult(r.getSignatureResult())
+                        .decryptResult(r.getDecryptResult())
+                        .failReason(r.getFailReason())
+                        .downloadAttemptNo(r.getDownloadAttemptNo())
+                        .occurredAt(toInstant(r.getSourceOccurredAt()))
+                        .receivedAt(toInstant(r.getReceivedAt()))
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 单次下载尝试的进度历史（CR-026 §8.2，数据库分页 + 过滤）。
+     *
+     * @param taskVehicleId     路径车辆任务ID
+     * @param packageId         包ID
+     * @param downloadAttemptNo 下载尝试序号
+     * @param state             下载状态过滤（可空）
+     * @param beginTime         受理时间下限（可空）
+     * @param endTime           受理时间上限（可空）
+     * @return 进度历史列表
+     */
+    public List<DownloadProgressEventResult> listDownloadEvents(Long taskVehicleId, String packageId,
+                                                                Integer downloadAttemptNo, String state,
+                                                                Date beginTime, Date endTime) {
+        if (taskVehicleMapper.selectPoById(taskVehicleId) == null) {
+            return List.of();
+        }
+        QueryWrapper<PackageDownloadProgressEventPo> query = new QueryWrapper<PackageDownloadProgressEventPo>()
+                .eq("vehicle_task_id", taskVehicleId)
+                .eq("package_id", packageId)
+                .eq("download_attempt_no", downloadAttemptNo);
+        if (state != null && !state.isBlank()) {
+            query.eq("download_state", state);
+        }
+        if (beginTime != null) {
+            query.ge("received_at", beginTime);
+        }
+        if (endTime != null) {
+            query.le("received_at", endTime);
+        }
+        query.orderByAsc("id");
+        return packageDownloadProgressEventMapper.selectList(query).stream()
+                .map(e -> DownloadProgressEventResult.builder()
+                        .id(e.getId())
+                        .progressId(e.getProgressId())
+                        .downloadAttemptNo(e.getDownloadAttemptNo())
+                        .progressSeq(e.getProgressSeq())
+                        .downloadState(e.getDownloadState())
+                        .downloadedBytes(e.getDownloadedBytes())
+                        .totalBytes(e.getTotalBytes())
+                        .resumeOffset(e.getResumeOffset())
+                        .progressPercent(e.getProgressPercent())
+                        .etag(e.getEtag())
+                        .errorCode(e.getErrorCode())
+                        .failureReason(e.getFailureReason())
+                        .disposition(e.getDisposition())
+                        .occurredAt(toInstant(e.getSourceOccurredAt()))
+                        .receivedAt(toInstant(e.getReceivedAt()))
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 车辆任务是否存在（子资源路径归属校验）。
+     */
+    public boolean vehicleTaskExists(Long taskVehicleId) {
+        return taskVehicleId != null && taskVehicleMapper.selectPoById(taskVehicleId) != null;
     }
 
     /**
@@ -143,31 +276,14 @@ public class TaskVehicleProcessQueryService {
      * @param attemptNo     尝试序号（可空）
      */
     public List<TaskVehicleRetryLogResult> listRetryLogs(Long taskVehicleId, Date beginTime, Date endTime,
-                                                         String stage, String result, Integer attemptNo) {
-        TaskVehiclePo vt = taskVehicleMapper.selectPoById(taskVehicleId);
-        if (vt == null) {
+                                                         String stage, String action, Integer attemptNo) {
+        if (taskVehicleMapper.selectPoById(taskVehicleId) == null) {
             return List.of();
         }
-        QueryWrapper<TaskVehicleRetryLogPo> query = new QueryWrapper<TaskVehicleRetryLogPo>()
-                .eq("task_id", vt.getTaskId())
-                .eq("vin", vt.getVin());
-        if (beginTime != null) {
-            query.ge("retried_at", beginTime);
-        }
-        if (endTime != null) {
-            query.le("retried_at", endTime);
-        }
-        if (stage != null && !stage.isBlank()) {
-            query.eq("stage", stage);
-        }
-        if (result != null && !result.isBlank()) {
-            query.eq("result", result);
-        }
-        if (attemptNo != null) {
-            query.eq("attempt_no", attemptNo);
-        }
-        query.orderByDesc("retried_at").orderByDesc("id");
-        return taskVehicleRetryLogMapper.selectList(query)
+        return taskVehicleRetryLogRepository.listByVehicleTask(taskVehicleId,
+                        beginTime == null ? null : beginTime.toInstant(),
+                        endTime == null ? null : endTime.toInstant(),
+                        stage, action, attemptNo)
                 .stream()
                 .map(this::toRetryLogView)
                 .collect(Collectors.toList());
@@ -182,24 +298,13 @@ public class TaskVehicleProcessQueryService {
      * @param uploadState   上传状态（可空）
      */
     public List<UpgradeLogResult> listUpgradeLogs(Long taskVehicleId, Date beginTime, Date endTime, String uploadState) {
-        TaskVehiclePo vt = taskVehicleMapper.selectPoById(taskVehicleId);
-        if (vt == null) {
+        if (taskVehicleMapper.selectPoById(taskVehicleId) == null) {
             return List.of();
         }
-        QueryWrapper<UpgradeLogPo> query = new QueryWrapper<UpgradeLogPo>()
-                .eq("task_id", vt.getTaskId())
-                .eq("vin", vt.getVin());
-        if (beginTime != null) {
-            query.ge("upload_time", beginTime);
-        }
-        if (endTime != null) {
-            query.le("upload_time", endTime);
-        }
-        if (uploadState != null && !uploadState.isBlank()) {
-            query.eq("upload_state", uploadState);
-        }
-        query.orderByDesc("upload_time").orderByDesc("id");
-        return upgradeLogMapper.selectList(query)
+        return upgradeLogRepository.listByVehicleTask(taskVehicleId,
+                        beginTime == null ? null : beginTime.toInstant(),
+                        endTime == null ? null : endTime.toInstant(),
+                        uploadState)
                 .stream()
                 .map(this::toUpgradeLogView)
                 .collect(Collectors.toList());
@@ -338,6 +443,14 @@ public class TaskVehicleProcessQueryService {
                 new QueryWrapper<PackageStageResultPo>().eq("vehicle_task_id", taskVehicleId));
         Map<String, List<PackageStageResultPo>> resultByPackage = stageResults.stream()
                 .collect(Collectors.groupingBy(r -> r.getPackageId() != null ? r.getPackageId() : ""));
+        // CR-026：批量加载每包当前下载进度快照（取最高尝试号），避免逐包 N+1
+        Map<String, PackageDownloadProgressPo> progressByPackage = packageDownloadProgressMapper.selectList(
+                        new QueryWrapper<PackageDownloadProgressPo>()
+                                .eq("vehicle_task_id", taskVehicleId)
+                                .orderByAsc("download_attempt_no"))
+                .stream()
+                .collect(Collectors.toMap(PackageDownloadProgressPo::getPackageId, p -> p,
+                        (first, second) -> second));
 
         return packages.stream().map(pkg -> {
             PackageStageProcessView.PackageStageProcessViewBuilder b = PackageStageProcessView.builder()
@@ -362,6 +475,23 @@ public class TaskVehicleProcessQueryService {
                         .decryptResult(any.getDecryptResult())
                         .stageResultStatus(any.getResultStatus())
                         .failReason(any.getFailReason());
+            }
+            PackageDownloadProgressPo progress = progressByPackage.get(pkg.getPackageId());
+            if (progress != null) {
+                b.downloadProgress(DownloadProgressProcessView.builder()
+                        .downloadAttemptNo(progress.getDownloadAttemptNo())
+                        .downloadState(progress.getDownloadState())
+                        .latestProgressSeq(progress.getLatestProgressSeq())
+                        .downloadedBytes(progress.getDownloadedBytes())
+                        .totalBytes(progress.getTotalBytes())
+                        .resumeOffset(progress.getResumeOffset())
+                        .progressPercent(progress.getProgressPercent())
+                        .etag(progress.getEtag())
+                        .errorCode(progress.getErrorCode())
+                        .failureReason(progress.getFailureReason())
+                        .occurredAt(toInstant(progress.getSourceOccurredAt()))
+                        .receivedAt(toInstant(progress.getReceivedAt()))
+                        .build());
             }
             return b.build();
         }).collect(Collectors.toList());
@@ -477,18 +607,23 @@ public class TaskVehicleProcessQueryService {
                 .collect(Collectors.toList());
     }
 
-    private List<UpgradeLogProcessView> buildLogSummary(Long taskId, String vin) {
-        return upgradeLogMapper.selectList(
-                        new QueryWrapper<UpgradeLogPo>()
-                                .eq("task_id", taskId)
-                                .eq("vin", vin)
-                                .orderByDesc("upload_time")
-                                .orderByDesc("id"))
+    private List<UpgradeLogProcessView> buildLogSummary(Long taskVehicleId) {
+        return upgradeLogRepository.listByVehicleTask(taskVehicleId, null, null, null)
                 .stream()
                 .map(l -> UpgradeLogProcessView.builder()
-                        .logUrl(l.getLogUrl())
+                        .logRequestId(l.getLogRequestId())
+                        .executionId(l.getExecutionId())
+                        .objectKey(l.getObjectKey())
+                        .objectSizeBytes(l.getObjectSizeBytes())
+                        .logDigest(l.getLogDigest())
+                        .digestAlgorithm(l.getDigestAlgorithm())
                         .uploadState(l.getUploadState())
-                        .uploadTime(toInstant(l.getUploadTime()))
+                        .failureReason(l.getFailureReason())
+                        .logUrl(l.getLogUrl())
+                        .authorizedAt(l.getAuthorizedAt())
+                        .uploadedAt(l.getUploadedAt())
+                        .receivedAt(l.getReceivedAt())
+                        .uploadTime(l.getUploadTime())
                         .build())
                 .collect(Collectors.toList());
     }
@@ -557,26 +692,48 @@ public class TaskVehicleProcessQueryService {
                 .build();
     }
 
-    private TaskVehicleRetryLogResult toRetryLogView(TaskVehicleRetryLogPo po) {
+    private TaskVehicleRetryLogResult toRetryLogView(
+            net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskVehicleRetryLog po) {
         return TaskVehicleRetryLogResult.builder()
                 .taskId(po.getTaskId())
                 .vinMasked(maskVin(po.getVin()))
                 .stage(po.getStage())
+                .action(po.getAction())
                 .attemptNo(po.getAttemptNo())
                 .offset(po.getOffset())
                 .result(po.getResult())
                 .reason(po.getReason())
-                .retriedAt(toInstant(po.getRetriedAt()))
+                .errorCode(po.getErrorCode())
+                .retriedAt(po.getRetriedAt())
+                .occurredAt(po.getSourceOccurredAt())
+                .receivedAt(po.getReceivedAt())
                 .build();
     }
 
-    private UpgradeLogResult toUpgradeLogView(UpgradeLogPo po) {
+    private UpgradeLogResult toUpgradeLogView(
+            net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.UpgradeLog log) {
         return UpgradeLogResult.builder()
-                .taskId(po.getTaskId())
-                .vinMasked(maskVin(po.getVin()))
-                .logUrl(po.getLogUrl())
-                .uploadState(po.getUploadState())
-                .uploadTime(toInstant(po.getUploadTime()))
+                .taskId(log.getTaskId())
+                .vinMasked(maskVin(log.getVin()))
+                .vehicleTaskId(log.getVehicleTaskId())
+                .executionId(log.getExecutionId())
+                .logRequestId(log.getLogRequestId())
+                .logScope(log.getLogScope())
+                .desensitizeVersion(log.getDesensitizeVersion())
+                .privacyLevel(log.getPrivacyLevel())
+                .objectKey(log.getObjectKey())
+                .logObjectId(log.getLogObjectId())
+                .objectSizeBytes(log.getObjectSizeBytes())
+                .logDigest(log.getLogDigest())
+                .digestAlgorithm(log.getDigestAlgorithm())
+                .uploadState(log.getUploadState())
+                .uploadResult(log.getUploadResult())
+                .failureReason(log.getFailureReason())
+                .logUrl(log.getLogUrl())
+                .authorizedAt(log.getAuthorizedAt())
+                .uploadedAt(log.getUploadedAt())
+                .receivedAt(log.getReceivedAt())
+                .uploadTime(log.getUploadTime())
                 .build();
     }
 

@@ -38,6 +38,8 @@ class FotaPayloadRouterTest {
                 new TaskCheckPayloadHandler(mock(TaskCheckCommandHandler.class), factory, outboxAppender, metrics),
                 new ConsentPayloadHandler(mock(ConsentCommandHandler.class), factory, outboxAppender, metrics),
                 new DownloadGrantPayloadHandler(mock(DownloadGrantCommandHandler.class), factory, outboxAppender, metrics),
+                new DownloadProgressPayloadHandler(mock(net.hwyz.iov.cloud.iov.ota.service.application.service.DownloadProgressAppService.class),
+                        factory, outboxAppender, metrics),
                 new StageResultPayloadHandler(mock(StageResultCommandHandler.class), factory, outboxAppender, metrics),
                 new InstallPermitPayloadHandler(mock(InstallPermitCommandHandler.class), factory, outboxAppender, metrics),
                 new ExecutionEventPayloadHandler(mock(ExecutionEventCommandHandler.class), factory, outboxAppender, metrics),

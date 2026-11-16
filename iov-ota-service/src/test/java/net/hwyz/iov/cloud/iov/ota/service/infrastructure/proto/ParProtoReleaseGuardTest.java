@@ -32,10 +32,11 @@ class ParProtoReleaseGuardTest {
         assertNotNull(registry, "registry 必须建立");
         assertEquals(1, registry.getProtocolMajor());
         assertEquals("vehicle.fota", registry.getService());
-        assertEquals(25, registry.entries().size());
-        // 12 个 INBOUND 类型必须全部注册（router 依赖）
+        assertEquals(27, registry.entries().size());
+        // 13 个 INBOUND 类型必须全部注册（router 依赖）
         for (String inbound : new String[]{
                 "vehicle.fota.v1.TaskCheckRequest",
+                "vehicle.fota.v1.DownloadProgressReport",
                 "vehicle.fota.v1.ConsentReport",
                 "vehicle.fota.v1.DownloadGrantRequest",
                 "vehicle.fota.v1.StageResultReport",

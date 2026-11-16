@@ -33,6 +33,12 @@
             <groupId>net.hwyz.iov.cloud.edd</groupId>
             <artifactId>edd-mdm-api</artifactId>
         </dependency>
+        <!-- CR-026: EDD-OSS 统一对象存储能力（日志对象授权/核验/受控下载） -->
+        <dependency>
+            <groupId>net.hwyz.iov.cloud.edd</groupId>
+            <artifactId>edd-oss-api</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
 
         <!-- 框架: Security（KMS签名/加密） -->
         <dependency>

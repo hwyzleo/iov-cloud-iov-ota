@@ -1,14 +1,18 @@
 # CR-014: PAR-PROTO release manifest（IOV-OTA 侧锁定）
 # canonical 源/注册表 hash 由 ParProtoReleaseGuard 在启动时重新计算并 fail-closed 比对。
+# CR-026 / PAR-PROTO-DSN-CR-011：fota_proto_sha256 采用 PAR-PROTO 冻结的
+# fota_source_aggregate_sha256 算法（9 个 FOTA proto 按 POSIX 相对路径 UTF-8 无符号字节序，
+# 逐文件编码 UTF8(path)||0x00||lowercase(hex(sha256(file)))||0x0A 后聚合 SHA-256），
+# 不再使用按内容直接 concat 的旧口径。
 par_proto_release: 0.0.1-SNAPSHOT
 protocol_major: 1
 common_artifact: net.hwyz.iov.cloud.proto:proto-vehicle-common:0.0.1-SNAPSHOT
 common_proto_sha256: 5b6dbb6b981a95a98e06394f21f3b13a5ee52f1214b61c6cb02f56fd37932e6d
 fota_artifact: net.hwyz.iov.cloud.proto:proto-fota:0.0.1-SNAPSHOT
-fota_proto_sha256: 7921584c886750425770ab8e3ef3c689f2088379e6cca78cf0ccd53dd39aeaca
+fota_proto_sha256: 707eb598c698b5ceae73c54832ddb5f932b7d3322be966d8220d4a6454603a95
 proto_vagw_artifact: net.hwyz.iov.cloud.proto:proto-vagw:0.0.1-SNAPSHOT
 delivery_proto_sha256: d954d4661bf9d284a367eb01117550154368c5c91e90466158d82b43724b76db
-payload_type_registry_sha256: 294b27b3c88687f305cc3c2dad95116de10bfc3bd82c8f1cd643b6555f1e0c8f
+payload_type_registry_sha256: 4ae918c35f1c54dcd2099e10d253a16fb72979bf48f6cc76ddfdca71941ab58d
 # 兼容矩阵：IOV-OTA 与 VAGW/VEH 使用同一 PAR-PROTO release 批准组合
 compatibility_matrix:
   - consumer: IOV-OTA

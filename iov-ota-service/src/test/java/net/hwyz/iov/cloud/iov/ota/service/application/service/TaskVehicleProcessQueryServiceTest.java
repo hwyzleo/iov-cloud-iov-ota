@@ -48,8 +48,10 @@ class TaskVehicleProcessQueryServiceTest {
     @Mock private ExecutionEcuResultMapper executionEcuResultMapper;
     @Mock private ExecutionEcuSoftwareUnitMapper executionEcuSoftwareUnitMapper;
     @Mock private VehicleInventorySoftwareUnitMapper vehicleInventorySoftwareUnitMapper;
-    @Mock private UpgradeLogMapper upgradeLogMapper;
-    @Mock private TaskVehicleRetryLogMapper taskVehicleRetryLogMapper;
+    @Mock private net.hwyz.iov.cloud.iov.ota.service.domain.repository.UpgradeLogRepository upgradeLogRepository;
+    @Mock private PackageDownloadProgressMapper packageDownloadProgressMapper;
+    @Mock private PackageDownloadProgressEventMapper packageDownloadProgressEventMapper;
+    @Mock private net.hwyz.iov.cloud.iov.ota.service.domain.repository.TaskVehicleRetryLogRepository taskVehicleRetryLogRepository;
     @Mock private GatewayDeliveryObservationMapper gatewayDeliveryObservationMapper;
     @Mock private TaskVehicleResetLogMapper taskVehicleResetLogMapper;
     @Mock private TaskAppService taskAppService;
@@ -59,6 +61,12 @@ class TaskVehicleProcessQueryServiceTest {
     private TaskVehicleProcessQueryService service;
 
     private TaskVehiclePo taskVehicle;
+
+    @BeforeEach
+    void stubDownloadProgress() {
+        when(packageDownloadProgressMapper.selectList(any())).thenReturn(List.of());
+        when(packageDownloadProgressEventMapper.selectList(any())).thenReturn(List.of());
+    }
 
     @BeforeEach
     void setUp() {
@@ -169,11 +177,12 @@ class TaskVehicleProcessQueryServiceTest {
                         .result("SUCCESS").build()));
 
         // 日志
-        UpgradeLogPo log = UpgradeLogPo.builder()
-                .taskId(1L).vin("LSV0000000000000001").logUrl("oss://log/1").uploadState("UPLOADED")
-                .uploadTime(Date.from(Instant.parse("2026-08-02T01:00:00Z")))
-                .build();
-        when(upgradeLogMapper.selectList(any())).thenReturn(List.of(log));
+        net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.UpgradeLog log =
+                net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.UpgradeLog.builder()
+                        .taskId(1L).vin("LSV0000000000000001").logUrl("oss://log/1").uploadState("UPLOADED")
+                        .uploadTime(Instant.parse("2026-08-02T01:00:00Z"))
+                        .build();
+        when(upgradeLogRepository.listByVehicleTask(any(), any(), any(), any())).thenReturn(List.of(log));
 
         // 技术投递观测
         GatewayDeliveryObservationPo obs = GatewayDeliveryObservationPo.builder()
@@ -247,22 +256,29 @@ class TaskVehicleProcessQueryServiceTest {
         // executions 摘要只含缺失区间与水位，不含事件 payload
         assertEquals("", result.getExecutions().get(0).getMissingSequenceRanges());
 
-        // 事件子资源只返回 digest，不返回 payload
-        ExecutionEventProcessView ev = service.listExecutionEvents(20L).get(0);
+        // 事件子资源只返回 digest，不返回 payload（路径车辆任务归属校验通过）
+        when(otaExecutionMapper.selectById(20L)).thenReturn(exec);
+        ExecutionEventProcessView ev = service.listExecutionEvents(10L, 20L, null, null, null).get(0);
         assertEquals("D-1", ev.getEventDigest());
+        // 跨车辆任务读取必须被拒绝
+        assertTrue(service.listExecutionEvents(999L, 20L, null, null, null).isEmpty());
     }
 
     @Test
     @DisplayName("重试/升级日志子资源 VIN 脱敏")
     void subResources_maskVin() {
         when(taskVehicleMapper.selectPoById(10L)).thenReturn(taskVehicle);
-        TaskVehicleRetryLogPo retry = TaskVehicleRetryLogPo.builder()
-                .taskId(1L).vin("LSV0000000000000001").stage("DOWNLOAD").attemptNo(2)
-                .offset(1024L).result("RESUME").reason("网络中断").build();
-        when(taskVehicleRetryLogMapper.selectList(any())).thenReturn(List.of(retry));
-        UpgradeLogPo log = UpgradeLogPo.builder()
-                .taskId(1L).vin("LSV0000000000000001").logUrl("oss://log/1").uploadState("UPLOADED").build();
-        when(upgradeLogMapper.selectList(any())).thenReturn(List.of(log));
+        net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskVehicleRetryLog retry =
+                net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.TaskVehicleRetryLog.builder()
+                        .taskId(1L).vin("LSV0000000000000001").stage("DOWNLOAD").attemptNo(2)
+                        .offset(1024L).result("RESUME").reason("网络中断").action("RESUME").build();
+        when(taskVehicleRetryLogRepository.listByVehicleTask(any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of(retry));
+        net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.UpgradeLog log =
+                net.hwyz.iov.cloud.iov.ota.service.domain.model.entity.UpgradeLog.builder()
+                        .taskId(1L).vin("LSV0000000000000001").logUrl("oss://log/1")
+                        .uploadState("UPLOADED").build();
+        when(upgradeLogRepository.listByVehicleTask(any(), any(), any(), any())).thenReturn(List.of(log));
 
         List<TaskVehicleRetryLogResult> retries = service.listRetryLogs(10L, null, null, null, null, null);
         assertEquals("***0001", retries.get(0).getVinMasked());

@@ -163,6 +163,19 @@
       "direction": "OUTBOUND",
       "messageKind": "EVENT",
       "family": "CONTROL"
+    },
+    {
+      "payloadType": "vehicle.fota.v1.DownloadProgressReport",
+      "direction": "INBOUND",
+      "messageKind": "REQUEST",
+      "family": "DOWNLOAD_PROGRESS",
+      "responsePayloadType": "vehicle.fota.v1.DownloadProgressResponse"
+    },
+    {
+      "payloadType": "vehicle.fota.v1.DownloadProgressResponse",
+      "direction": "OUTBOUND",
+      "messageKind": "RESPONSE",
+      "family": "DOWNLOAD_PROGRESS"
     }
   ]
 }

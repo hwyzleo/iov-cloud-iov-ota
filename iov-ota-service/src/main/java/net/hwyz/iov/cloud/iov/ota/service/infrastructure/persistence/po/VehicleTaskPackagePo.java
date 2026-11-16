@@ -43,4 +43,28 @@ public class VehicleTaskPackagePo extends BasePo {
 
     @TableField("verify_state")
     private String verifyState;
+
+    /** 最近一次下载授权返回的 current_offset_bytes（CR-026） */
+    @TableField("grant_offset")
+    private Long grantOffset;
+
+    /** 最近一次授权 resume_allowed（CR-026） */
+    @TableField("grant_resume_allowed")
+    private Boolean grantResumeAllowed;
+
+    /** 授权时的对象ETag（CR-026） */
+    @TableField("grant_etag")
+    private String grantEtag;
+
+    /** 授权时的包版本号（CR-026） */
+    @TableField("grant_package_revision")
+    private String grantPackageRevision;
+
+    /** 授权时间（CR-026） */
+    @TableField("granted_at")
+    private java.util.Date grantedAt;
+
+    /** 授权凭证过期时间（CR-026） */
+    @TableField("grant_expires_at")
+    private java.util.Date grantExpiresAt;
 }

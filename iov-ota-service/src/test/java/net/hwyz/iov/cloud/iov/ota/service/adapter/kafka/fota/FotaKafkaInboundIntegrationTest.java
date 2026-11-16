@@ -65,11 +65,12 @@ class FotaKafkaInboundIntegrationTest {
         });
         FotaOutboxAppender outboxAppender = new FotaOutboxAppender(outboxRepository);
 
-        // registry 要求全部 INBOUND 类型注册 handler（fail-closed），此处注册全部 12 个（仅 TaskCheck 被实际执行）
+        // registry 要求全部 INBOUND 类型注册 handler（fail-closed），此处注册全部 13 个（仅 TaskCheck 被实际执行）
         List<FotaPayloadHandler<?>> handlers = List.of(
                 new TaskCheckPayloadHandler(commandHandler, factory, outboxAppender, metrics),
                 new ConsentPayloadHandler(mock(net.hwyz.iov.cloud.iov.ota.service.application.messaging.fota.ConsentCommandHandler.class), factory, outboxAppender, metrics),
                 new DownloadGrantPayloadHandler(mock(net.hwyz.iov.cloud.iov.ota.service.application.messaging.fota.DownloadGrantCommandHandler.class), factory, outboxAppender, metrics),
+                new DownloadProgressPayloadHandler(mock(net.hwyz.iov.cloud.iov.ota.service.application.service.DownloadProgressAppService.class), factory, outboxAppender, metrics),
                 new StageResultPayloadHandler(mock(net.hwyz.iov.cloud.iov.ota.service.application.messaging.fota.StageResultCommandHandler.class), factory, outboxAppender, metrics),
                 new InstallPermitPayloadHandler(mock(net.hwyz.iov.cloud.iov.ota.service.application.messaging.fota.InstallPermitCommandHandler.class), factory, outboxAppender, metrics),
                 new ExecutionEventPayloadHandler(mock(net.hwyz.iov.cloud.iov.ota.service.application.messaging.fota.ExecutionEventCommandHandler.class), factory, outboxAppender, metrics),

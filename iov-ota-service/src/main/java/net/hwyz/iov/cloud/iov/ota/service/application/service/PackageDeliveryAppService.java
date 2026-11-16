@@ -85,6 +85,11 @@ public class PackageDeliveryAppService {
                         cmd.getPackageId(), cmd.getPackageRevision(), cmd.getEtag(),
                         offset, Duration.ofMinutes(30));
 
+        // IOV-OTA-DSN-CR-026 §6（V42）：记录最近一次授权证据，供非零 RESET_OFFSET 裁决
+        vehicleTaskPackageMapper.updateGrantEvidence(cmd.getVehicleTaskId(), cmd.getPackageId(),
+                credential.offset(), true, cmd.getEtag(), cmd.getPackageRevision(),
+                java.util.Date.from(credential.expiresAt()));
+
         return DownloadAuthResult.builder()
                 .presignedUrl(credential.presignedUrl())
                 .credentialToken(credential.credentialToken())

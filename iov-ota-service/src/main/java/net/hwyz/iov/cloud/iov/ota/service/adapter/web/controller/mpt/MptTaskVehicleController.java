@@ -28,6 +28,8 @@ import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.ExecutionProces
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.ExecutionEventProcessView;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.TaskVehicleRetryLogResult;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.UpgradeLogResult;
+import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.PackageStageHistoryResult;
+import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.DownloadProgressEventResult;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.TaskVehicleProcessQueryService;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.VehicleTaskConsentQueryService;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.VehicleTaskConsentResult;
@@ -189,10 +191,58 @@ public class MptTaskVehicleController extends BaseController {
     @RequiresPermissions("ota:fota:taskVehicle:query")
     @GetMapping(value = "/{taskVehicleId}/executions/{executionId}/events")
     public ApiResponse<PageResult<ExecutionEventProcessView>> executionEvents(
-            @PathVariable Long taskVehicleId, @PathVariable Long executionId) {
-        log.info("管理后台用户[{}]查询执行[{}]事件列表", SecurityUtils.getUsername(), executionId);
+            @PathVariable Long taskVehicleId, @PathVariable Long executionId,
+            @RequestParam(required = false) String stage,
+            @RequestParam(required = false) Date beginTime,
+            @RequestParam(required = false) Date endTime) {
+        log.info("管理后台用户[{}]查询车辆任务[{}]执行[{}]事件列表", SecurityUtils.getUsername(), taskVehicleId, executionId);
+        if (!taskVehicleProcessQueryService.vehicleTaskExists(taskVehicleId)) {
+            return ApiResponse.ok(getPageResult(List.of()));
+        }
         startPage();
-        List<ExecutionEventProcessView> list = taskVehicleProcessQueryService.listExecutionEvents(executionId);
+        List<ExecutionEventProcessView> list = taskVehicleProcessQueryService
+                .listExecutionEvents(taskVehicleId, executionId, stage, beginTime, endTime);
+        return ApiResponse.ok(getPageResult(list));
+    }
+
+    /**
+     * 下载进度历史（IOV-OTA-DSN-CR-026 §8.2 数据库分页子资源）。
+     */
+    @RequiresPermissions("ota:fota:taskVehicle:query")
+    @GetMapping(value = "/{taskVehicleId}/packages/{packageId}/downloadAttempts/{attemptNo}/downloadEvents")
+    public ApiResponse<PageResult<DownloadProgressEventResult>> downloadEvents(
+            @PathVariable Long taskVehicleId, @PathVariable String packageId, @PathVariable Integer attemptNo,
+            @RequestParam(required = false) String state,
+            @RequestParam(required = false) Date beginTime,
+            @RequestParam(required = false) Date endTime) {
+        log.info("管理后台用户[{}]查询车辆任务[{}]包[{}]下载尝试[{}]进度历史", SecurityUtils.getUsername(),
+                taskVehicleId, packageId, attemptNo);
+        startPage();
+        List<DownloadProgressEventResult> list = taskVehicleProcessQueryService
+                .listDownloadEvents(taskVehicleId, packageId, attemptNo, state, beginTime, endTime);
+        return ApiResponse.ok(getPageResult(list));
+    }
+
+    /**
+     * 车辆任务包阶段结果历史（IOV-OTA-DSN-CR-026 §8.2 数据库分页子资源）。
+     *
+     * <p>返回每包各阶段历史行（不再只取每包最新一条），支持包/阶段/受理时间过滤。</p>
+     */
+    @RequiresPermissions("ota:fota:taskVehicle:query")
+    @GetMapping(value = "/{taskVehicleId}/packageStageResults")
+    public ApiResponse<PageResult<PackageStageHistoryResult>> packageStageResults(
+            @PathVariable Long taskVehicleId,
+            @RequestParam(required = false) String packageId,
+            @RequestParam(required = false) String stage,
+            @RequestParam(required = false) Date beginTime,
+            @RequestParam(required = false) Date endTime) {
+        log.info("管理后台用户[{}]查询车辆任务[{}]包阶段历史", SecurityUtils.getUsername(), taskVehicleId);
+        if (!taskVehicleProcessQueryService.vehicleTaskExists(taskVehicleId)) {
+            return ApiResponse.ok(getPageResult(List.of()));
+        }
+        startPage();
+        List<PackageStageHistoryResult> list = taskVehicleProcessQueryService
+                .listPackageStageResults(taskVehicleId, packageId, stage, beginTime, endTime);
         return ApiResponse.ok(getPageResult(list));
     }
 
@@ -206,12 +256,15 @@ public class MptTaskVehicleController extends BaseController {
             @RequestParam(required = false) Date beginTime,
             @RequestParam(required = false) Date endTime,
             @RequestParam(required = false) String stage,
-            @RequestParam(required = false) String result,
+            @RequestParam(required = false) String action,
             @RequestParam(required = false) Integer attemptNo) {
         log.info("管理后台用户[{}]查询车辆升级任务[{}]重试/续传轨迹", SecurityUtils.getUsername(), taskVehicleId);
+        if (!taskVehicleProcessQueryService.vehicleTaskExists(taskVehicleId)) {
+            return ApiResponse.ok(getPageResult(List.of()));
+        }
         startPage();
         List<TaskVehicleRetryLogResult> list = taskVehicleProcessQueryService
-                .listRetryLogs(taskVehicleId, beginTime, endTime, stage, result, attemptNo);
+                .listRetryLogs(taskVehicleId, beginTime, endTime, stage, action, attemptNo);
         return ApiResponse.ok(getPageResult(list));
     }
 
