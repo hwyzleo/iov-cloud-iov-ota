@@ -5,6 +5,7 @@ import net.hwyz.iov.cloud.iov.ota.service.application.dto.cmd.InventoryItemCmd;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.DetectionResult;
 import net.hwyz.iov.cloud.iov.ota.service.application.messaging.FotaMessageMetadata;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.TaskDetectionAppService;
+import net.hwyz.iov.cloud.iov.ota.service.domain.gateway.PackageMetadataGateMetrics;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import vehicle.common.v1.Envelope.MessageKind;
@@ -32,7 +33,12 @@ import static org.mockito.Mockito.*;
 class TaskCheckCommandHandlerTest {
 
     private final TaskDetectionAppService appService = mock(TaskDetectionAppService.class);
-    private final TaskCheckCommandHandler handler = new TaskCheckCommandHandler(appService);
+    private final PackageMetadataGateMetrics gateMetrics = mock(PackageMetadataGateMetrics.class);
+    private final TaskCheckCommandHandler handler =
+            new TaskCheckCommandHandler(appService, gateMetrics, true);
+    /** 联调豁免态（IOV-OTA-DSN-CR-027 §4.32） */
+    private final TaskCheckCommandHandler bypassHandler =
+            new TaskCheckCommandHandler(appService, gateMetrics, false);
     private final FotaMessageMetadata md = new FotaMessageMetadata(
             "req-1", 1000L, "fota-v1", "dev-1", "LSVAU2188N2ZG4G",
             null, null, null, "vehicle.fota.v1.TaskCheckRequest",
@@ -134,6 +140,92 @@ class TaskCheckCommandHandlerTest {
         assertEquals("PACKAGE_METADATA_INCOMPLETE", resp.getDownloadDenyReason());
         assertEquals("PACKAGE_METADATA_INCOMPLETE", resp.getInstallRequestDenyReason());
         assertFalse(resp.hasTask(), "不完整包不得下发任务快照（禁止 0 字节保底）");
+    }
+
+    @Test
+    @DisplayName("CR-027：豁免关闭（默认）→ 下发任务快照并放行，记录豁免计数")
+    void metadataGateBypass_allowsDownload() {
+        when(appService.detect(any())).thenReturn(DetectionResult.builder()
+                .inventoryDisposition("ACCEPTED").availabilityStatus("AVAILABLE")
+                .downloadAllowed(true).installRequestAllowed(true)
+                .matchedTasks(List.of(DetectionResult.MatchedVehicleTask.builder()
+                        .vehicleTaskId(1001L).taskId(2002L).taskRevision(3L)
+                        .activityId(3003L).installPlanVersion("task-2002-r3")
+                        .packages(List.of(matchedPackage("PKG-1", 1024L,
+                                "PACKAGE_SIGNATURE_MISSING")))
+                        .build()))
+                .build());
+
+        TaskCheckResponse resp = bypassHandler.handle(md, inventoryRequest());
+
+        assertTrue(resp.getDownloadAllowed());
+        assertTrue(resp.getInstallRequestAllowed());
+        assertEquals("PROCEED", resp.getNextAction());
+        assertTrue(resp.hasTask(), "豁免关闭时应下发任务快照供车端 mock 下载");
+        verify(gateMetrics, times(1)).bypassed(anyString());
+    }
+
+    @Test
+    @DisplayName("CR-027：豁免关闭但 package_size 为 NULL/<=0 → 仍拒绝（size 不可豁免）")
+    void metadataGateBypass_stillRejectsInvalidSize() {
+        when(appService.detect(any())).thenReturn(DetectionResult.builder()
+                .inventoryDisposition("ACCEPTED").availabilityStatus("AVAILABLE")
+                .downloadAllowed(true).installRequestAllowed(true)
+                .matchedTasks(List.of(DetectionResult.MatchedVehicleTask.builder()
+                        .vehicleTaskId(1001L).taskId(2002L).taskRevision(3L)
+                        .activityId(3003L).installPlanVersion("task-2002-r3")
+                        .packages(List.of(matchedPackage("PKG-1", null,
+                                "PACKAGE_SIZE_MISSING_OR_INVALID")))
+                        .build()))
+                .build());
+
+        TaskCheckResponse resp = bypassHandler.handle(md, inventoryRequest());
+
+        assertFalse(resp.getDownloadAllowed());
+        assertFalse(resp.getInstallRequestAllowed());
+        assertEquals("WAIT", resp.getNextAction());
+        assertEquals("PACKAGE_METADATA_INCOMPLETE", resp.getDownloadDenyReason());
+        assertFalse(resp.hasTask());
+        verify(gateMetrics, never()).bypassed(anyString());
+    }
+
+    @Test
+    @DisplayName("CR-027：豁免关闭但包清单为空 → 仍拒绝（空包清单不可豁免）")
+    void metadataGateBypass_stillRejectsEmptyPackageList() {
+        when(appService.detect(any())).thenReturn(DetectionResult.builder()
+                .inventoryDisposition("ACCEPTED").availabilityStatus("AVAILABLE")
+                .downloadAllowed(true).installRequestAllowed(true)
+                .matchedTasks(List.of(DetectionResult.MatchedVehicleTask.builder()
+                        .vehicleTaskId(1001L).taskId(2002L).taskRevision(3L)
+                        .activityId(3003L).installPlanVersion("task-2002-r3")
+                        .packages(List.of())
+                        .build()))
+                .build());
+
+        TaskCheckResponse resp = bypassHandler.handle(md, inventoryRequest());
+
+        assertFalse(resp.getDownloadAllowed());
+        assertEquals("WAIT", resp.getNextAction());
+        assertEquals("NO_PACKAGE_IN_TASK_SNAPSHOT", resp.getDownloadDenyReason());
+        verify(gateMetrics, never()).bypassed(anyString());
+    }
+
+    private static TaskCheckRequest inventoryRequest() {
+        return TaskCheckRequest.newBuilder()
+                .setInventoryMode(InventoryMode.INVENTORY_MODE_FULL)
+                .build();
+    }
+
+    private static DetectionResult.MatchedPackage matchedPackage(String packageId, Long sizeBytes,
+                                                                 String reasons) {
+        return DetectionResult.MatchedPackage.builder()
+                .packageId(packageId).packageRevision("V2.0.0")
+                .ecuId("CCU_GEN1").componentId("ECU_IMAGE")
+                .sourceVersion("V1.0.0").targetVersion("V2.0.0")
+                .sizeBytes(sizeBytes).digestAlgorithm("sha-256").digestHex("abc123")
+                .metadataComplete(false)
+                .metadataIncompleteReasons(reasons)
+                .build();
     }
 
     @Test

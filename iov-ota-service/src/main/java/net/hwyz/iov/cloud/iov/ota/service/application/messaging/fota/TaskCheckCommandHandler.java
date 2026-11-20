@@ -1,6 +1,5 @@
 package net.hwyz.iov.cloud.iov.ota.service.application.messaging.fota;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.cmd.DetectionCmd;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.cmd.InventoryItemCmd;
@@ -8,6 +7,8 @@ import net.hwyz.iov.cloud.iov.ota.service.application.dto.cmd.SoftwareUnitCmd;
 import net.hwyz.iov.cloud.iov.ota.service.application.dto.result.DetectionResult;
 import net.hwyz.iov.cloud.iov.ota.service.application.messaging.FotaMessageMetadata;
 import net.hwyz.iov.cloud.iov.ota.service.application.service.TaskDetectionAppService;
+import net.hwyz.iov.cloud.iov.ota.service.domain.gateway.PackageMetadataGateMetrics;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import vehicle.fota.v1.Task.TaskCheckRequest;
 import vehicle.fota.v1.Task.TaskCheckResponse;
@@ -28,12 +29,12 @@ import java.util.List;
  * <p>清单握手（FULL/DIGEST）、任务匹配与本地任务对账（US-074）。
  * CR-019：解析 inventory_canonicalization_version、software_model/slot/active/
  * software_units，返回 supported_ecu_software_models / supported_inventory_canonicalization_versions。
+ * CR-027：下发期包元数据门禁可由 {@code ota.task-check.package-metadata-gate.enabled=false}
+ * 在联调环境显式豁免（package_size 不可豁免）。
  *
  * @author hwyz_leo
- */
-@Slf4j
+ */@Slf4j
 @Component
-@RequiredArgsConstructor
 public class TaskCheckCommandHandler {
 
     /** 云端支持的 ECU 软件模型（CR-019 §6.4） */
@@ -56,6 +57,26 @@ public class TaskCheckCommandHandler {
     private static final String DENY_METADATA_INCOMPLETE = "PACKAGE_METADATA_INCOMPLETE";
 
     private final TaskDetectionAppService taskDetectionAppService;
+
+    private final PackageMetadataGateMetrics packageMetadataGateMetrics;
+
+    /**
+     * 下发期包元数据门禁开关（IOV-OTA-DSN-CR-027 §4.32.2）。
+     *
+     * <p>{@code true}（默认）=保持 CR-026 fail-closed；{@code false}=联调期豁免
+     * sha256/签名/签名算法/证书/对象引用校验，{@code package_size} 仍不可豁免。
+     */
+    private final boolean packageMetadataGateEnabled;
+
+    public TaskCheckCommandHandler(
+            TaskDetectionAppService taskDetectionAppService,
+            PackageMetadataGateMetrics packageMetadataGateMetrics,
+            @Value("${ota.task-check.package-metadata-gate.enabled:true}")
+            boolean packageMetadataGateEnabled) {
+        this.taskDetectionAppService = taskDetectionAppService;
+        this.packageMetadataGateMetrics = packageMetadataGateMetrics;
+        this.packageMetadataGateEnabled = packageMetadataGateEnabled;
+    }
 
     public TaskCheckResponse handle(FotaMessageMetadata md, TaskCheckRequest req) {
         DetectionCmd cmd = new DetectionCmd();
@@ -108,16 +129,38 @@ public class TaskCheckCommandHandler {
             boolean hasPackages = packageCount > 0;
             // IOV-OTA-DSN-CR-026 §7.5：任一包元数据不完整（大小/摘要/签名/证书/对象）
             // 一律 fail-closed，既不设 task 快照也不放行下载，禁止把 NULL 大小下发成 0。
-            String incompleteReasons = null;
+            // IOV-OTA-DSN-CR-027 §4.32：联调期可显式关闭下发期门禁
+            // （ota.task-check.package-metadata-gate.enabled=false），但 package_size
+            // 不可豁免：0/NULL 大小会让车端 mock 进度事实失真；发布期与包登记期门禁不受影响。
+            List<String> incompleteReasonsList = new ArrayList<>();
+            boolean blockedBySize = false;
             if (hasPackages) {
-                incompleteReasons = t.getPackages().stream()
-                        .filter(p -> !Boolean.TRUE.equals(p.getMetadataComplete())
-                                || p.getSizeBytes() == null || p.getSizeBytes() <= 0)
-                        .map(p -> p.getPackageId() + ":" + (p.getMetadataIncompleteReasons() == null
-                                ? "PACKAGE_SIZE_MISSING_OR_INVALID" : p.getMetadataIncompleteReasons()))
-                        .collect(java.util.stream.Collectors.joining(";"));
+                for (DetectionResult.MatchedPackage p : t.getPackages()) {
+                    boolean sizeInvalid = p.getSizeBytes() == null || p.getSizeBytes() <= 0;
+                    boolean metadataIncomplete = !Boolean.TRUE.equals(p.getMetadataComplete());
+                    if (sizeInvalid) {
+                        blockedBySize = true;
+                    }
+                    if (sizeInvalid || metadataIncomplete) {
+                        String reasons = p.getMetadataIncompleteReasons() == null
+                                ? "PACKAGE_SIZE_MISSING_OR_INVALID" : p.getMetadataIncompleteReasons();
+                        incompleteReasonsList.add(p.getPackageId() + ":" + reasons);
+                    }
+                }
             }
-            boolean actionable = hasPackages && incompleteReasons.isEmpty();
+            String incompleteReasons = String.join(";", incompleteReasonsList);
+            // 豁免仅跳过非 size 原因；存在非法大小时仍然阻断
+            boolean metadataBypassed = !packageMetadataGateEnabled
+                    && !incompleteReasonsList.isEmpty() && !blockedBySize;
+            if (metadataBypassed) {
+                packageMetadataGateMetrics.bypassed(incompleteReasons);
+                log.warn("车辆任务[{}]包元数据门禁已豁免（联调开关 ota.task-check.package-metadata-gate.enabled=false），"
+                                + "taskId[{}] revision[{}] packageCount[{}] reasons[{}]",
+                        t.getVehicleTaskId(), t.getTaskId(), t.getTaskRevision(),
+                        packageCount, incompleteReasons);
+            }
+            boolean actionable = hasPackages
+                    && (incompleteReasonsList.isEmpty() || metadataBypassed);
             b.setSnapshotChanged(t.isSnapshotChanged())
                     .setReconsentRequired(t.isReconsentRequired())
                     .setLocalTaskDisposition(t.getLocalDisposition() == null ? "" : t.getLocalDisposition())
