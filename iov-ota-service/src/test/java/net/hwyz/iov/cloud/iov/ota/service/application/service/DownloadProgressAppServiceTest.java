@@ -58,6 +58,7 @@ class DownloadProgressAppServiceTest {
     private final DownloadProgressDecisionMapper decisionMapper = mock(DownloadProgressDecisionMapper.class);
     private final RetryTrajectoryService retryTrajectoryService = mock(RetryTrajectoryService.class);
     private final KafkaMessagingMetricsService metrics = mock(KafkaMessagingMetricsService.class);
+    private final VehicleTaskPackageService vehicleTaskPackageService = mock(VehicleTaskPackageService.class);
 
     private DownloadProgressAppService service;
     private final Map<String, Map<String, Object>> decisions = new HashMap<>();
@@ -66,7 +67,7 @@ class DownloadProgressAppServiceTest {
     void setUp() {
         service = new DownloadProgressAppService(vehicleTaskRepository, vehicleTaskPackageMapper,
                 softwarePackageMapper, snapshotMapper, eventMapper, decisionMapper, retryTrajectoryService,
-                metrics, new ObjectMapper());
+                metrics, new ObjectMapper(), vehicleTaskPackageService);
         Instant now = Instant.now();
         VehicleTask vehicleTask = VehicleTask.reconstitute(VehicleTaskId.of(9001L), 77L, "LSVAU2188N2ZG4G",
                 TaskRevision.initial(), SnapshotDigest.of("digest"), VehicleTaskStatus.EXECUTING,
@@ -218,8 +219,7 @@ class DownloadProgressAppServiceTest {
 
     @Test
     @DisplayName("作用域：车辆任务不存在/包不在冻结清单/大小与权威值不符一律拒绝")
-    void scopeValidation_rejected() {
-        when(vehicleTaskRepository.getById(VehicleTaskId.of(9001L))).thenReturn(Optional.empty());
+    void scopeValidation_rejected() {        when(vehicleTaskRepository.getById(VehicleTaskId.of(9001L))).thenReturn(Optional.empty());
         assertEquals(DownloadProgressAppService.DENY_VEHICLE_TASK_ID_MISSING,
                 service.receive(cmd("DP-S", 1, "STARTED", 0)).getDenyReason());
 
@@ -239,6 +239,34 @@ class DownloadProgressAppServiceTest {
         when(softwarePackageMapper.selectPackageSizeByCode("PKG-1")).thenReturn(TOTAL + 1);
         assertEquals(DownloadProgressAppService.DENY_TOTAL_BYTES_INVALID,
                 service.receive(cmd("DP-S3", 1, "STARTED", 0)).getDenyReason());
+    }
+
+    @Test
+    @DisplayName("CR-028：冻结包清单缺失但包属于实时投影 → fail-open 受理 CURRENT 并计入指标")
+    void freezeMissing_fallsBackToProjection() {
+        when(vehicleTaskPackageMapper.selectByVehicleTaskId(9001L)).thenReturn(List.of());
+        when(vehicleTaskPackageService.requiredPackageIds(any())).thenReturn(java.util.Set.of("PKG-1"));
+
+        DownloadProgressResult result = service.receive(cmd("DP-F1", 1, "STARTED", 0));
+
+        assertTrue(result.isAccepted());
+        assertEquals(DownloadProgressAppService.DISPOSITION_CURRENT, result.getDisposition());
+        verify(metrics, atLeastOnce()).increment(DownloadProgressAppService.METRIC_FREEZE_MISSING);
+        verify(eventMapper).insert(any());
+    }
+
+    @Test
+    @DisplayName("CR-028：冻结包清单缺失且包不属于实时投影 → 仍拒绝 PACKAGE_ID_MISSING")
+    void freezeMissing_packageNotInProjection_rejected() {
+        when(vehicleTaskPackageMapper.selectByVehicleTaskId(9001L)).thenReturn(List.of());
+        when(vehicleTaskPackageService.requiredPackageIds(any())).thenReturn(java.util.Set.of("PKG-OTHER"));
+
+        DownloadProgressResult result = service.receive(cmd("DP-F2", 1, "STARTED", 0));
+
+        assertFalse(result.isAccepted());
+        assertEquals(DownloadProgressAppService.DENY_PACKAGE_ID_MISSING, result.getDenyReason());
+        verify(eventMapper, never()).insert(any());
+        verify(metrics, never()).increment(DownloadProgressAppService.METRIC_FREEZE_MISSING);
     }
 
     @Test

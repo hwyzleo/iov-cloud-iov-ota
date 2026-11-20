@@ -71,6 +71,9 @@ public class DownloadProgressAppService {
     public static final String DENY_OCCURRED_AT_INVALID = "OCCURRED_AT_INVALID";
     public static final String DENY_STATE_UNSUPPORTED = "DOWNLOAD_STATE_UNSUPPORTED";
     public static final String DENY_DIGEST_ALGORITHM_UNSUPPORTED = "DIGEST_ALGORITHM_UNSUPPORTED";
+
+    /** CR-028：冻结包清单记录缺失、按实时投影受理时计入的低基数指标 */
+    public static final String METRIC_FREEZE_MISSING = "download_progress_freeze_missing";
     public static final String DENY_DIGEST_VALUE_INVALID = "DIGEST_VALUE_INVALID";
     public static final String DENY_COMPLETED_BYTES_MISMATCH = "COMPLETED_BYTES_MISMATCH";
     public static final String DENY_RESET_BASELINE_MISMATCH = "RESET_OFFSET_BASELINE_MISMATCH";
@@ -95,6 +98,8 @@ public class DownloadProgressAppService {
     private final RetryTrajectoryService retryTrajectoryService;
     private final KafkaMessagingMetricsService metrics;
     private final ObjectMapper objectMapper;
+    /** CR-028：冻结包清单缺失时与 TaskCheck 下发同源的必需包集合来源 */
+    private final VehicleTaskPackageService vehicleTaskPackageService;
 
     public DownloadProgressAppService(VehicleTaskRepository vehicleTaskRepository,
                                       VehicleTaskPackageMapper vehicleTaskPackageMapper,
@@ -104,7 +109,8 @@ public class DownloadProgressAppService {
                                       DownloadProgressDecisionMapper decisionMapper,
                                       RetryTrajectoryService retryTrajectoryService,
                                       KafkaMessagingMetricsService metrics,
-                                      ObjectMapper objectMapper) {
+                                      ObjectMapper objectMapper,
+                                      VehicleTaskPackageService vehicleTaskPackageService) {
         this.vehicleTaskRepository = vehicleTaskRepository;
         this.vehicleTaskPackageMapper = vehicleTaskPackageMapper;
         this.softwarePackageMapper = softwarePackageMapper;
@@ -113,6 +119,7 @@ public class DownloadProgressAppService {
         this.decisionMapper = decisionMapper;
         this.retryTrajectoryService = retryTrajectoryService;
         this.metrics = metrics;
+        this.vehicleTaskPackageService = vehicleTaskPackageService;
         this.objectMapper = objectMapper;
     }
 
@@ -258,20 +265,32 @@ public class DownloadProgressAppService {
         }
         VehicleTaskPackagePo frozen = frozenPackage(cmd.getVehicleTaskId(), cmd.getPackageId());
         if (frozen == null) {
-            return DENY_PACKAGE_ID_MISSING;
-        }
-        if (isNotBlank(frozen.getPackageRevision()) && !frozen.getPackageRevision().equals(cmd.getPackageRevision())) {
-            return DENY_OBJECT_BOUNDARY_CHANGED;
+            // CR-028（IOV-OTA-DSN-CR-028 §4.33）：存量/联调环境可能尚未落库冻结包清单
+            // （tb_vehicle_task_package 为空）。此时回退到与 TaskCheck 下发 package_list
+            // 同源的实时投影判定归属，fail-open + WARN + 指标（与 CR-024 §4.28.4 对
+            // snapshot_digest 的处理口径一致）；归属不成立的包仍拒绝。
+            if (!vehicleTaskPackageService.requiredPackageIds(vehicleTask.get())
+                    .contains(cmd.getPackageId())) {
+                return DENY_PACKAGE_ID_MISSING;
+            }
+            metrics.increment(METRIC_FREEZE_MISSING);
+            log.warn("车辆任务[{}]包[{}]未落库冻结包清单记录，按实时投影受理下载进度（fail-open），vin={}",
+                    cmd.getVehicleTaskId(), cmd.getPackageId(), cmd.getVin());
+        } else {
+            if (isNotBlank(frozen.getPackageRevision())
+                    && !frozen.getPackageRevision().equals(cmd.getPackageRevision())) {
+                return DENY_OBJECT_BOUNDARY_CHANGED;
+            }
+            if (isNotBlank(cmd.getEtag()) && isNotBlank(frozen.getEtag())
+                    && !frozen.getEtag().equals(cmd.getEtag())) {
+                return DENY_OBJECT_BOUNDARY_CHANGED;
+            }
         }
         Long authoritativeSize = authoritativePackageSize(cmd.getPackageId());
         if (authoritativeSize == null || authoritativeSize <= 0
                 || !authoritativeSize.equals(cmd.getTotalBytes())) {
             // US-020 fail-closed：包大小未知/非法或与权威大小不一致时禁止受理
             return DENY_TOTAL_BYTES_INVALID;
-        }
-        if (isNotBlank(cmd.getEtag()) && isNotBlank(frozen.getEtag())
-                && !frozen.getEtag().equals(cmd.getEtag())) {
-            return DENY_OBJECT_BOUNDARY_CHANGED;
         }
         return null;
     }
