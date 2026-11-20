@@ -232,7 +232,7 @@ class VehicleInventoryApplicationServiceTest {
                 .canonicalizationVersion(1)
                 .acceptedTime(new Date())
                 .build();
-        when(vehicleInventoryMapper.selectLatestByVin(VIN)).thenReturn(existing);
+        when(vehicleInventoryMapper.selectByVinAndRevision(VIN, 3L)).thenReturn(existing);
 
         DetectionCmd cmd = new DetectionCmd();
         cmd.setVin(VIN);
@@ -258,7 +258,7 @@ class VehicleInventoryApplicationServiceTest {
                 .canonicalizationVersion(1)
                 .acceptedTime(new Date())
                 .build();
-        when(vehicleInventoryMapper.selectLatestByVin(VIN)).thenReturn(existing);
+        when(vehicleInventoryMapper.selectByVinAndRevision(VIN, 3L)).thenReturn(existing);
 
         DetectionCmd cmd = new DetectionCmd();
         cmd.setVin(VIN);
@@ -275,6 +275,7 @@ class VehicleInventoryApplicationServiceTest {
     @Test
     @DisplayName("DIGEST 无存量 FULL → FULL_REQUIRED")
     void digest_no_full() {
+        when(vehicleInventoryMapper.selectByVinAndRevision(eq(VIN), anyLong())).thenReturn(null);
         when(vehicleInventoryMapper.selectLatestByVin(VIN)).thenReturn(null);
         DetectionCmd cmd = new DetectionCmd();
         cmd.setVin(VIN);
@@ -284,6 +285,68 @@ class VehicleInventoryApplicationServiceTest {
         VehicleInventoryApplicationService.InventoryHandlingResult result =
                 service.handleInventory(cmd);
         assertEquals(InventoryDisposition.FULL_REQUIRED, result.getDisposition());
+        verify(vehicleInventoryReportStateMapper, never()).upsertReported(any(), any());
+    }
+
+    @Test
+    @DisplayName("DIGEST 命中非最新 revision 的已受理 FULL（车端状态重置后 revision 回退）→ ACCEPTED")
+    void digest_hit_rolled_back_revision() {
+        // 云端存在更大的历史 revision（如 24），车端本地状态清空后从 1 重新计数
+        VehicleInventoryPo historical = VehicleInventoryPo.builder()
+                .id(9L).vin(VIN).inventoryRevision(24L)
+                .digest("stale-digest").algorithm("SHA-256")
+                .canonicalizationVersion(1)
+                .acceptedTime(new Date(1_700_000_000_000L))
+                .build();
+        VehicleInventoryPo current = VehicleInventoryPo.builder()
+                .id(10L).vin(VIN).inventoryRevision(2L)
+                .digest("abc123").algorithm("SHA-256")
+                .canonicalizationVersion(1)
+                .acceptedTime(new Date())
+                .build();
+        when(vehicleInventoryMapper.selectByVinAndRevision(VIN, 2L)).thenReturn(current);
+        when(vehicleInventoryMapper.selectLatestByVin(VIN)).thenReturn(current);
+
+        DetectionCmd cmd = new DetectionCmd();
+        cmd.setVin(VIN);
+        cmd.setInventoryMode("DIGEST");
+        cmd.setInventoryRevision(2L);
+        cmd.setCanonicalizationVersion(1);
+        cmd.setInventoryDigest("abc123");
+        cmd.setDigestAlgorithm("SHA-256");
+        VehicleInventoryApplicationService.InventoryHandlingResult result =
+                service.handleInventory(cmd);
+        assertEquals(InventoryDisposition.ACCEPTED, result.getDisposition());
+        // 不得回显历史大 revision，也不得以“最大 revision”判定冲突
+        assertEquals(2L, result.getInventoryRevision());
+        verify(vehicleInventoryMapper).selectByVinAndRevision(VIN, 2L);
+        verify(observedOutboxProducer, never()).produce(any(), any(), any(), any());
+        verify(vehicleInventoryReportStateMapper, times(1)).upsertReported(eq(VIN), any(Date.class));
+    }
+
+    @Test
+    @DisplayName("DIGEST 请求 revision 云端无对应受理 → FULL_REQUIRED（不再判 REVISION_CONFLICT）")
+    void digest_unknown_revision_requires_full() {
+        when(vehicleInventoryMapper.selectByVinAndRevision(eq(VIN), anyLong())).thenReturn(null);
+        // 存在更大历史 revision 也不能影响判定
+        when(vehicleInventoryMapper.selectLatestByVin(VIN)).thenReturn(VehicleInventoryPo.builder()
+                .id(9L).vin(VIN).inventoryRevision(24L)
+                .digest("stale-digest").algorithm("SHA-256")
+                .canonicalizationVersion(1)
+                .acceptedTime(new Date(1_700_000_000_000L))
+                .build());
+
+        DetectionCmd cmd = new DetectionCmd();
+        cmd.setVin(VIN);
+        cmd.setInventoryMode("DIGEST");
+        cmd.setInventoryRevision(7L);
+        cmd.setCanonicalizationVersion(1);
+        cmd.setInventoryDigest("abc123");
+        cmd.setDigestAlgorithm("SHA-256");
+        VehicleInventoryApplicationService.InventoryHandlingResult result =
+                service.handleInventory(cmd);
+        assertEquals(InventoryDisposition.FULL_REQUIRED, result.getDisposition());
+        verify(vehicleInventoryMapper, never()).selectLatestByVin(anyString());
         verify(vehicleInventoryReportStateMapper, never()).upsertReported(any(), any());
     }
 }

@@ -281,10 +281,17 @@ class InventoryReportStateFlowIntegrationTest {
 
     // ------------------------------------------------------------ fixtures
 
+    /**
+     * 模拟生产语义：取最近一次受理的清单头（accepted_time 最新），
+     * 而不是最大 inventory_revision（车端状态重置后 revision 会回退）。
+     */
     private VehicleInventoryPo latestInventory(String vin) {
         return inventoryStore.values().stream()
                 .filter(p -> vin.equals(p.getVin()))
-                .max(Comparator.comparing(VehicleInventoryPo::getInventoryRevision))
+                .max(Comparator.comparing(VehicleInventoryPo::getAcceptedTime,
+                                Comparator.nullsFirst(Comparator.naturalOrder()))
+                        .thenComparing(VehicleInventoryPo::getId,
+                                Comparator.nullsFirst(Comparator.naturalOrder())))
                 .orElse(null);
     }
 

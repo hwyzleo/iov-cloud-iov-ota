@@ -224,16 +224,19 @@ public class VehicleInventoryApplicationService {
     // ---------------------------------------------------------------- DIGEST
 
     private InventoryHandlingResult handleDigest(DetectionCmd cmd) {
-        VehicleInventoryPo existing = vehicleInventoryMapper.selectLatestByVin(cmd.getVin());
+        // CR-019 §6.2：DIGEST 必须与“同 VIN + 同 revision”的已受理 FULL 比对，
+        // 而不是与“最大 revision”比对。车端本地状态被清空/换件后 revision 会从 1 重新
+        // 单调分配（CGW-FOTA CR-012），此时云端存在更大历史 revision，按最新 revision
+        // 比对会把每一轮合法 DIGEST 判成 REVISION_CONFLICT，车端只能不断换新 revision
+        // 重发 FULL，形成无终止的 revision 膨胀与上报循环。
+        // 未命中的 revision 一律返回 FULL_REQUIRED，由车端按同一 revision 重发 FULL。
+        VehicleInventoryPo existing = cmd.getInventoryRevision() != null
+                ? vehicleInventoryMapper.selectByVinAndRevision(
+                        cmd.getVin(), cmd.getInventoryRevision())
+                : vehicleInventoryMapper.selectLatestByVin(cmd.getVin());
         if (existing == null) {
             return InventoryHandlingResult.builder()
                     .disposition(InventoryDisposition.FULL_REQUIRED)
-                    .build();
-        }
-        if (cmd.getInventoryRevision() != null
-                && !cmd.getInventoryRevision().equals(existing.getInventoryRevision())) {
-            return InventoryHandlingResult.builder()
-                    .disposition(InventoryDisposition.REVISION_CONFLICT)
                     .build();
         }
         int requestedVersion = cmd.getCanonicalizationVersion() != null
