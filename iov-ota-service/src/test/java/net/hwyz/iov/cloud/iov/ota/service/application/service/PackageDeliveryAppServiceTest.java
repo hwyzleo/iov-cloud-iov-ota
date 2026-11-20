@@ -48,13 +48,17 @@ class PackageDeliveryAppServiceTest {
     private final PackageStageResultMapper packageStageResultMapper = mock(PackageStageResultMapper.class);
     private final VehicleTaskPackageMapper vehicleTaskPackageMapper = mock(VehicleTaskPackageMapper.class);
     private final VehicleTaskPackageService vehicleTaskPackageService = mock(VehicleTaskPackageService.class);
+    private final net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.PackageDownloadProgressMapper
+            packageDownloadProgressMapper = mock(
+            net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.PackageDownloadProgressMapper.class);
 
     private PackageDeliveryAppService service;
 
     @BeforeEach
     void setUp() {
         service = new PackageDeliveryAppService(vehicleTaskRepository, packageCredentialService,
-                packageStageResultMapper, vehicleTaskPackageMapper, vehicleTaskPackageService);
+                packageStageResultMapper, vehicleTaskPackageMapper, vehicleTaskPackageService,
+                packageDownloadProgressMapper);
         when(vehicleTaskPackageMapper.selectByVehicleTaskId(any())).thenReturn(List.of());
         when(packageCredentialService.signDownloadCredential(any(), any(), any(), anyLong(), any(Duration.class)))
                 .thenReturn(new PackageCredentialService.PackageCredential(

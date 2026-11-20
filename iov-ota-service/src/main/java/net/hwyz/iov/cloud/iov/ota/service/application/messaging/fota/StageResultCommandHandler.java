@@ -35,6 +35,13 @@ public class StageResultCommandHandler {
         cmd.setSignatureResult(req.getSignatureVerified() ? "VERIFIED" : (req.getResult() == Result.RESULT_FAILED ? "FAILED" : "PENDING"));
         cmd.setDecryptResult(req.hasDecryptionSucceeded() ? (req.getDecryptionSucceeded() ? "SUCCESS" : "FAILED") : null);
         cmd.setFailReason(req.hasErrorCode() ? req.getErrorCode() : null);
+        // CR-026 §4.31.4：车端发生时间取 verified_at_ms（0/负值视为未知，不写 1970）
+        if (req.getVerifiedAtMs() > 0) {
+            cmd.setSourceOccurredAt(java.time.Instant.ofEpochMilli(req.getVerifiedAtMs()));
+        }
+        // 下载尝试号由云端按进度快照反查（协议无该字段）
+        cmd.setDownloadAttemptNo(packageDeliveryAppService.latestDownloadAttemptNo(
+                cmd.getVehicleTaskId(), cmd.getPackageId()));
 
         packageDeliveryAppService.submitStageResult(cmd);
 

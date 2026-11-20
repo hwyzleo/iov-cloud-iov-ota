@@ -95,7 +95,7 @@ public class TaskVehicleProcessQueryService {
                 .ecuResultSummary(buildEcuResults(execDbIds))
                 .logSummary(buildLogSummary(taskVehicleId))
                 .deliveryObservationSummary(buildDeliveryObservations(vin))
-                .resetLogs(buildResetLogs(taskVehicleId))
+                .resetLogs(buildResetLogs(taskId, vin))
                 .build();
     }
 
@@ -444,14 +444,27 @@ public class TaskVehicleProcessQueryService {
         Map<String, List<PackageStageResultPo>> resultByPackage = stageResults.stream()
                 .collect(Collectors.groupingBy(r -> r.getPackageId() != null ? r.getPackageId() : ""));
         // CR-026：批量加载每包当前下载进度快照（取最高尝试号），避免逐包 N+1
-        Map<String, PackageDownloadProgressPo> progressByPackage = packageDownloadProgressMapper.selectList(
-                        new QueryWrapper<PackageDownloadProgressPo>()
-                                .eq("vehicle_task_id", taskVehicleId)
-                                .orderByAsc("download_attempt_no"))
-                .stream()
+        List<PackageDownloadProgressPo> progressRows = packageDownloadProgressMapper.selectList(
+                new QueryWrapper<PackageDownloadProgressPo>()
+                        .eq("vehicle_task_id", taskVehicleId)
+                        .orderByAsc("download_attempt_no"));
+        Map<String, PackageDownloadProgressPo> progressByPackage = progressRows.stream()
                 .collect(Collectors.toMap(PackageDownloadProgressPo::getPackageId, p -> p,
                         (first, second) -> second));
 
+        if (packages.isEmpty()) {
+            // 冻结包清单未落库（存量/联调环境，tb_vehicle_task_package 为空）时，
+            // 以阶段结果与进度事实反推包集合，避免「包下载进度/包阶段」区块整体为空
+            // （与 CR-028 §4.33 的兜底口径一致）。
+            java.util.LinkedHashMap<String, VehicleTaskPackagePo> derived = new java.util.LinkedHashMap<>();
+            stageResults.forEach(r -> derived.putIfAbsent(r.getPackageId(),
+                    VehicleTaskPackagePo.builder().vehicleTaskId(taskVehicleId)
+                            .packageId(r.getPackageId()).packageRevision(r.getPackageRevision()).build()));
+            progressRows.forEach(p -> derived.putIfAbsent(p.getPackageId(),
+                    VehicleTaskPackagePo.builder().vehicleTaskId(taskVehicleId)
+                            .packageId(p.getPackageId()).packageRevision(p.getPackageRevision()).build()));
+            packages = new java.util.ArrayList<>(derived.values());
+        }
         return packages.stream().map(pkg -> {
             PackageStageProcessView.PackageStageProcessViewBuilder b = PackageStageProcessView.builder()
                     .packageId(pkg.getPackageId())
@@ -645,11 +658,13 @@ public class TaskVehicleProcessQueryService {
     /**
      * 重置审计链（IOV-OTA-DSN-CR-025 §4.29.7）：返回与该车辆任务直接相关的重置追加记录。
      */
-    private List<VehicleTaskResetLogResult> buildResetLogs(Long taskVehicleId) {
+    private List<VehicleTaskResetLogResult> buildResetLogs(Long taskId, String vin) {
+        // 重置链按 task + vin 返回完整链路（3→4→5→6→7），
+        // 而非只返回与当前车辆任务相邻的一跳。
         return taskVehicleResetLogMapper.selectList(
                         new QueryWrapper<TaskVehicleResetLogPo>()
-                                .and(w -> w.eq("old_vehicle_task_id", taskVehicleId)
-                                        .or().eq("new_vehicle_task_id", taskVehicleId))
+                                .eq("task_id", taskId)
+                                .eq("vin", vin)
                                 .eq("row_valid", 1)
                                 .orderByAsc("id"))
                 .stream()

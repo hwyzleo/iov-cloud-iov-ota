@@ -41,6 +41,7 @@ public class PackageDeliveryAppService {
     private final VehicleTaskPackageMapper vehicleTaskPackageMapper;
     /** 必需包集合唯一投影来源（与 TaskCheck 下发的 package_list 同源） */
     private final VehicleTaskPackageService vehicleTaskPackageService;
+    private final net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.mapper.PackageDownloadProgressMapper packageDownloadProgressMapper;
 
     /**
      * 签发下载预签名凭证。
@@ -106,6 +107,22 @@ public class PackageDeliveryAppService {
      * @param cmd 阶段结果命令
      */
     @Transactional
+    /** 该车辆任务+包的最新下载尝试号（用于阶段结果的 download_attempt_no 归属）。 */
+    public Integer latestDownloadAttemptNo(Long vehicleTaskId, String packageId) {
+        if (vehicleTaskId == null || packageId == null) {
+            return null;
+        }
+        java.util.List<net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.PackageDownloadProgressPo> rows =
+                packageDownloadProgressMapper.selectList(
+                        new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<
+                                net.hwyz.iov.cloud.iov.ota.service.infrastructure.persistence.po.PackageDownloadProgressPo>()
+                                .eq("vehicle_task_id", vehicleTaskId)
+                                .eq("package_id", packageId)
+                                .orderByDesc("download_attempt_no")
+                                .last("LIMIT 1"));
+        return rows.isEmpty() ? null : rows.get(0).getDownloadAttemptNo();
+    }
+
     public void submitStageResult(StageResultCmd cmd) {
         log.info("车辆[{}]提交包阶段结果，车辆任务[{}]，包[{}]，阶段[{}]",
                 cmd.getVin(), cmd.getVehicleTaskId(), cmd.getPackageId(), cmd.getStage());
@@ -136,6 +153,12 @@ public class PackageDeliveryAppService {
                 .signatureResult(cmd.getSignatureResult())
                 .decryptResult(cmd.getDecryptResult())
                 .failReason(cmd.getFailReason())
+                // CR-026 §4.31.4：新写入的阶段结果必须带云端受理时间；
+                // 车端发生时间缺失保持 NULL，不伪造、不用受理时间回填。
+                .downloadAttemptNo(cmd.getDownloadAttemptNo())
+                .sourceOccurredAt(cmd.getSourceOccurredAt() == null ? null
+                        : new java.util.Date(cmd.getSourceOccurredAt().toEpochMilli()))
+                .receivedAt(new java.util.Date())
                 .build();
         packageStageResultMapper.insert(po);
 

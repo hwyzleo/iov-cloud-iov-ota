@@ -145,9 +145,11 @@ public class ExecutionEventAppService {
         if (execution.getStartTime() != null) {
             return;
         }
+        // 优先权威 INSTALL_STARTED；车端（含 Mock 场景）若只发 INSTALL + 进度事件，
+        // 首个 INSTALL 事件同样视为安装开始事实（occurred_at_ms 有效才写）。
         boolean installStarted = "INSTALL_STARTED".equalsIgnoreCase(cmd.getEventType())
-                || ("INSTALL".equalsIgnoreCase(cmd.getEventType())
-                && "INSTALL_STARTED".equalsIgnoreCase(cmd.getEventStatus()));
+                || "INSTALL".equalsIgnoreCase(cmd.getEventType())
+                || ("INSTALL".equalsIgnoreCase(cmd.getEventStatus()));
         if (!installStarted) {
             return;
         }

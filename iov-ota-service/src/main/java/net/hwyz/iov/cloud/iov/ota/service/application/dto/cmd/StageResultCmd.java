@@ -37,6 +37,12 @@ public class StageResultCmd {
     /** 对象 ETag */
     private String etag;
 
+    /** 车端发生时间（verified_at_ms；0/非法为 null） */
+    private java.time.Instant sourceOccurredAt;
+
+    /** 下载尝试号（云端按进度快照反查，可空） */
+    private Integer downloadAttemptNo;
+
     /** 包摘要 */
     private String digest;
 

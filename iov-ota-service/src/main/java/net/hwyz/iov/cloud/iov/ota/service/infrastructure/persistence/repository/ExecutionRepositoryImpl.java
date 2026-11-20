@@ -81,6 +81,14 @@ public class ExecutionRepositoryImpl implements ExecutionRepository {
             // 这里用 GREATEST 强制只增不减（实车 2026-11-15：水位从 2 回退到 1）。
             otaExecutionMapper.updateAcceptedSequenceNoMonotonic(
                     po.getId(), execution.getSequenceWatermark().getAcceptedSequenceNo());
+
+            // CR-026 §7.2 收口/时序字段显式落库：整行更新可能因乐观锁版本或非空策略
+            // 影响 0 行而被当作幂等 no-op（2026-11-20 实车：status 停留 PERMITTED、
+            // 四个时间列全空）。显式补充写入，COALESCE 保证只补不覆盖。
+            otaExecutionMapper.updateFinalizeFields(po.getId(), po.getStatus(),
+                    po.getStartTime(), po.getStartReceivedTime(),
+                    po.getEndTime(), po.getEndReceivedTime(),
+                    po.getFinalSequenceNo(), po.getAcceptedSequenceNo());
         } else {
             otaExecutionMapper.insert(po);
         }
